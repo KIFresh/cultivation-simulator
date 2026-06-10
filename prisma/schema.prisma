@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String    // 修炼者道号
+  email         String?   @unique
+  bilibiliId    String?   @unique
+  avatar        String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  cultivator    Cultivator?
+  dailyTasks    DailyTask[]
+}
+
+model Cultivator {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id])
+  name              String   // 修仙者名字
+  spiritualRoot     String   @default("杂灵根")
+  realm             String   @default("炼气期")
+  realmLevel        Int      @default(1)
+  cultivationExp    Int      @default(0)
+  totalExp          Int      @default(0)
+  stamina           Int      @default(100)
+  breakthroughCount Int      @default(0)
+  title             String?
+  createdAt         DateTime @default(now())
+  events            GameEvent[]
+}
+
+model DailyTask {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  type             String   @default("STUDY") // STUDY, EXERCISE, SLEEP, MEDITATE, CUSTOM
+  description      String?
+  completed        Boolean  @default(false)
+  cultivationBonus Int      @default(0)
+  date             DateTime @default(now())
+}
+
+model GameEvent {
+  id           String   @id @default(cuid())
+  cultivatorId String
+  cultivator   Cultivator @relation(fields: [cultivatorId], references: [id])
+  type         String   @default("DAILY_CULTIVATION")
+  title        String
+  narrative    String
+  choices      String?
+  chosenOption Int?
+  reward       String?
+  createdAt    DateTime @default(now())
+}
+
+model ShareCard {
+  id            String   @id @default(cuid())
+  cultivatorId  String
+  imageUrl      String
+  title         String
+  description   String
+  bilibiliUrl   String?
+  createdAt     DateTime @default(now())
+}
