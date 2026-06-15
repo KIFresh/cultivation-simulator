@@ -122,6 +122,9 @@ export default function CreatePage() {
       if (data.user) {
         localStorage.setItem("userId", data.user.id);
         router.push("/dashboard");
+      } else if (data.error) {
+        const { toast } = await import("sonner");
+        toast.error(data.error);
       }
     } catch (err) {
       console.error("创建失败:", err);
