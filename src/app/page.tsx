@@ -8,24 +8,10 @@ import { Sparkles, Sword, BookOpen, Moon, ArrowRight } from "lucide-react";
 
 export default function HomePage() {
   const router = useRouter();
-  const [hasCultivator, setHasCultivator] = useState<boolean | null>(null);
+  const [hasUserId, setHasUserId] = useState(false);
 
   useEffect(() => {
-    const userId = localStorage.getItem("userId");
-    if (userId) {
-      fetch(`/api/cultivator?userId=${userId}`)
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.user?.cultivator) {
-            setHasCultivator(true);
-          } else {
-            setHasCultivator(false);
-          }
-        })
-        .catch(() => setHasCultivator(false));
-    } else {
-      setHasCultivator(false);
-    }
+    setHasUserId(!!localStorage.getItem("userId"));
   }, []);
 
   return (
@@ -110,11 +96,7 @@ export default function HomePage() {
 
         {/* CTA */}
         <div className="space-y-4">
-          {hasCultivator === null ? (
-            <Button disabled className="w-full h-12 text-lg bg-stone-800">
-              加载中...
-            </Button>
-          ) : hasCultivator ? (
+          {hasUserId ? (
             <div className="space-y-3">
               <Button
                 className="w-full h-12 text-lg bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500"

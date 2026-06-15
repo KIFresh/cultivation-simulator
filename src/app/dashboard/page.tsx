@@ -19,7 +19,7 @@ import {
   Home,
   Flame,
 } from "lucide-react";
-import { SPIRITUAL_ROOTS, TASK_TYPES, REALMS, getCurrentRealm, getNextRealm, getRequiredExp } from "@/lib";
+import { SPIRITUAL_ROOTS, TASK_TYPES, REALMS, getCurrentRealm, getNextRealm, getRequiredExp, calculateTaskExp } from "@/lib";
 import type { SpiritualRoot } from "@/lib";
 import { toast } from "sonner";
 
@@ -138,6 +138,25 @@ export default function DashboardPage() {
 
   // 完成任务
   const completeTask = async (taskId: string) => {
+    // 乐观更新：找到任务类型，预估修炼值，前端先加上
+    const task = tasks.find((t) => t.id === taskId);
+    const estimatedExp = task && cultivator
+      ? calculateTaskExp(task.type, cultivator.spiritualRoot as SpiritualRoot)
+      : 0;
+
+    // 标记任务完成 + 预估修炼值增加
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === taskId ? { ...t, completed: true, cultivationBonus: estimatedExp } : t
+      )
+    );
+    // 乐观更新修炼值
+    if (estimatedExp > 0 && cultivator) {
+      setCultivator((prev) =>
+        prev ? { ...prev, cultivationExp: prev.cultivationExp + estimatedExp, totalExp: prev.totalExp + estimatedExp } : prev
+      );
+    }
+
     try {
       const res = await fetch("/api/tasks", {
         method: "PATCH",
@@ -147,18 +166,27 @@ export default function DashboardPage() {
       const data = await res.json();
 
       if (data.error) {
+        // 回滚
+        setTasks((prev) =>
+          prev.map((t) =>
+            t.id === taskId ? { ...t, completed: false, cultivationBonus: 0 } : t
+          )
+        );
+        if (estimatedExp > 0 && cultivator) {
+          setCultivator((prev) =>
+            prev ? { ...prev, cultivationExp: prev.cultivationExp - estimatedExp, totalExp: prev.totalExp - estimatedExp } : prev
+          );
+        }
         toast.error(data.error);
         return;
       }
 
-      // 更新任务列表
+      // 以实际返回值修正
       setTasks((prev) =>
         prev.map((t) =>
           t.id === taskId ? { ...t, completed: true, cultivationBonus: data.expGained } : t
         )
       );
-
-      // 更新修炼值
       if (data.cultivator) {
         setCultivator(data.cultivator);
       }
@@ -358,10 +386,14 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <main className="flex-1 flex items-center justify-center min-h-screen">
-        <div className="text-center space-y-4">
-          <div className="text-4xl animate-bounce">⚔️</div>
-          <p className="text-stone-400">正在进入修仙世界...</p>
+      <main className="flex-1 p-4 max-w-lg mx-auto min-h-screen space-y-4 animate-pulse">
+        <div className="h-8 bg-stone-800 rounded-lg" />
+        <div className="h-40 bg-stone-800 rounded-xl" />
+        <div className="h-6 bg-stone-800 rounded w-1/3" />
+        <div className="space-y-2">
+          <div className="h-12 bg-stone-800 rounded-lg" />
+          <div className="h-12 bg-stone-800 rounded-lg" />
+          <div className="h-12 bg-stone-800 rounded-lg" />
         </div>
       </main>
     );
