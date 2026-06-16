@@ -1,8 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Prisma + libsql adapter 需要标记为外部包
   serverExternalPackages: ["@prisma/adapter-libsql", "@libsql/client"],
+  async rewrites() {
+    return [
+      {
+        source: "/api/:path*",
+        destination: "http://119.28.70.14:3000/api/:path*",
+      },
+    ];
+  },
 };
 
 export default nextConfig;
