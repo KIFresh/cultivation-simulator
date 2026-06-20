@@ -11,12 +11,13 @@ import {
 import { REALMS } from "@/lib/cultivation-data";
 
 // ============================================================
-// GET — 尝试触发奇遇（在完成任务后调用）
+// GET — 尝试触发奇遇（在完成任务后调用 或 手动探索）
 // ============================================================
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
+    const source = searchParams.get("source") || "auto"; // "manual" | "auto"
 
     if (!userId) {
       return NextResponse.json({ error: "缺少 userId" }, { status: 400 });
@@ -49,6 +50,20 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    // 手动探索：最多3次尝试
+    if (source === "manual") {
+      // 统计今日通过手动探索创建（含失败）的尝试次数
+      // 用 GameEvent 中 type=RANDOM_ENCOUNTER 且 title 含 "探索" 或通过 reward 字段判断
+      // 简化方案：用 encountersToday >= 3 做硬上限
+      if (encountersToday >= 3) {
+        return NextResponse.json({
+          triggered: false,
+          encountersToday,
+          reason: "今日机缘已尽，明日再寻访仙缘",
+        });
+      }
+    }
+
     // 30% 概率触发
     if (!shouldTriggerEncounter()) {
       return NextResponse.json({
@@ -63,7 +78,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         triggered: false,
         encountersToday,
-        reason: "今日奇遇已达上限",
+        reason: "今日机缘已尽，明日再续仙途",
       });
     }
 

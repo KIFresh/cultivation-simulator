@@ -87,6 +87,7 @@ export async function GET(request: NextRequest) {
               gte: new Date(new Date().setHours(0, 0, 0, 0)),
             },
           },
+          orderBy: { date: "desc" },
         },
       },
     });

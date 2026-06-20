@@ -185,7 +185,7 @@ export const TASK_TYPES: Record<string, TaskType> = {
     baseExp: 20,
     cultivationName: "静坐悟道，灵台清明",
     dailyMax: 3,
-    limitReason: "今日悟道已达上限，学太久效率会降，道友明日再来",
+    limitReason: "今日悟道已尽——学海无涯，留些余地明日再参",
   },
   EXERCISE: {
     id: "EXERCISE",
@@ -195,7 +195,7 @@ export const TASK_TYPES: Record<string, TaskType> = {
     baseExp: 25,
     cultivationName: "运转功法，淬炼肉身",
     dailyMax: 2,
-    limitReason: "今日锻体已达上限，过度修炼伤身，道友明日再来",
+    limitReason: "今日锻体已至极限——过犹不及，肉身需休养",
   },
   SLEEP: {
     id: "SLEEP",
@@ -205,7 +205,7 @@ export const TASK_TYPES: Record<string, TaskType> = {
     baseExp: 15,
     cultivationName: "抱元守一，蕴养元神",
     dailyMax: 1,
-    limitReason: "今日已静修过了，一天只睡一次，道友安心休息",
+    limitReason: "今日静修已足——一夜好眠胜过百年苦修",
   },
   MEDITATE: {
     id: "MEDITATE",
@@ -215,7 +215,17 @@ export const TASK_TYPES: Record<string, TaskType> = {
     baseExp: 30,
     cultivationName: "五心朝天，感悟天地灵气",
     dailyMax: 2,
-    limitReason: "今日打坐已达上限，心神需要消化，道友明日再来",
+    limitReason: "今日打坐已圆满——心神需沉淀，明日再入定",
+  },
+  WORK: {
+    id: "WORK",
+    name: "上班",
+    icon: "💼",
+    description: "红尘历练，搬砖赚灵石",
+    baseExp: 25,
+    cultivationName: "红尘炼心，以劳入道",
+    dailyMax: 2,
+    limitReason: "今日搬砖已足——红尘虽苦亦是修行，明日再战",
   },
   CUSTOM: {
     id: "CUSTOM",
@@ -225,7 +235,7 @@ export const TASK_TYPES: Record<string, TaskType> = {
     baseExp: 20,
     cultivationName: "随心而修，道法自然",
     dailyMax: 2,
-    limitReason: "今日历练已达上限，随心不逾矩，道友明日再来",
+    limitReason: "今日历练已足——随心所欲不逾矩，明日再行",
   },
 };
 

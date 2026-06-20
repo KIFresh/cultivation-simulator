@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
   BookOpen,
@@ -16,9 +15,12 @@ import {
   Zap,
   TrendingUp,
   History,
-  Home,
   Flame,
+  Briefcase,
+  ChevronRight,
 } from "lucide-react";
+import BottomNav from "@/components/bottom-nav";
+import BreakthroughCard, { hasBreakthroughCard, type BreakthroughCardData } from "@/components/breakthrough-card";
 import { SPIRITUAL_ROOTS, TASK_TYPES, REALMS, getCurrentRealm, getNextRealm, getRequiredExp, calculateTaskExp } from "@/lib";
 import type { SpiritualRoot } from "@/lib";
 import { toast } from "sonner";
@@ -69,6 +71,26 @@ export default function DashboardPage() {
     choices: { riskLevel: string; text: string; hint: string }[];
   } | null>(null);
   const [encounterResult, setEncounterResult] = useState<string | null>(null);
+  const [manualClicksToday, setManualClicksToday] = useState(0);
+  const [breakthroughCard, setBreakthroughCard] = useState<BreakthroughCardData | null>(null);
+
+  // 每日手动奇遇探索次数（localStorage，防止无限点击）
+  const getManualClickKey = () => `encounter_clicks_${new Date().toISOString().slice(0, 10)}`;
+  const getManualClicksRemaining = () => Math.max(0, 3 - manualClicksToday);
+
+  // 加载今日手动点击次数
+  useEffect(() => {
+    const key = getManualClickKey();
+    const stored = localStorage.getItem(key);
+    setManualClicksToday(stored ? parseInt(stored, 10) : 0);
+  }, []);
+
+  const incrementManualClicks = () => {
+    const key = getManualClickKey();
+    const newCount = manualClicksToday + 1;
+    localStorage.setItem(key, String(newCount));
+    setManualClicksToday(newCount);
+  };
 
   // 加载用户数据
   const loadData = useCallback(async () => {
@@ -80,13 +102,9 @@ export default function DashboardPage() {
     setUserId(id);
 
     try {
-      const [userRes, tasksRes] = await Promise.all([
-        fetch(`/api/cultivator?userId=${id}`),
-        fetch(`/api/tasks?userId=${id}`),
-      ]);
-
+      // 只调一次 /api/cultivator —— 它已带回今日 dailyTasks，无需再单独请求 /api/tasks
+      const userRes = await fetch(`/api/cultivator?userId=${id}`);
       const userData = await userRes.json();
-      const tasksData = await tasksRes.json();
 
       if (userData.user?.cultivator) {
         setCultivator(userData.user.cultivator);
@@ -103,7 +121,8 @@ export default function DashboardPage() {
         return;
       }
 
-      setTasks(tasksData.tasks || []);
+      // 今日任务直接取自 cultivator 接口返回（user.dailyTasks，已按 date 倒序）
+      setTasks((userData.user.dailyTasks || []) as Task[]);
     } catch (err) {
       console.error("加载数据失败:", err);
       toast.error("加载失败，请刷新重试");
@@ -208,7 +227,7 @@ export default function DashboardPage() {
               narrative: encData.encounter.narrative,
               choices: encData.encounter.choices,
             });
-            toast("⚡ 修炼途中遇到了奇遇！", {
+            toast("⚡ 修炼途中忽遇机缘！", {
               description: encData.encounter.title,
             });
           }
@@ -242,13 +261,23 @@ export default function DashboardPage() {
 
       if (data.narrative) {
         setNarrative(data.narrative.narrative);
-        // 刷新事件列表
         if (data.event) {
           setEvents((prev) => [data.event, ...prev]);
         }
-        // 检查是否可以突破
+        // 根据最新修炼值重新计算是否可突破
+        if (updatedCultivator) {
+          const { canBreakthrough } = await import("@/lib");
+          setCanBreak(
+            canBreakthrough(
+              updatedCultivator.realm,
+              updatedCultivator.realmLevel,
+              updatedCultivator.cultivationExp,
+              updatedCultivator.spiritualRoot as SpiritualRoot
+            )
+          );
+        }
+        // 修炼后刚达标的首次提醒
         if (data.canBreakthrough) {
-          setCanBreak(true);
           toast("境界突破的契机出现了！", {
             description: "修炼值已满，可以尝试突破",
             action: {
@@ -267,6 +296,7 @@ export default function DashboardPage() {
   const handleBreakthrough = async () => {
     setIsBreakingThrough(true);
     setNarrative(null);
+    const prevRealm = cultivator?.realm ?? "";
 
     try {
       const res = await fetch("/api/narrative", {
@@ -284,7 +314,16 @@ export default function DashboardPage() {
 
       if (data.cultivator) {
         setCultivator(data.cultivator);
-        setCanBreak(false);
+        // 突破后重新判断是否还能继续突破（修炼值溢出可连破）
+        const { canBreakthrough } = await import("@/lib");
+        setCanBreak(
+          canBreakthrough(
+            data.cultivator.realm,
+            data.cultivator.realmLevel,
+            data.cultivator.cultivationExp,
+            data.cultivator.spiritualRoot as SpiritualRoot
+          )
+        );
       }
 
       if (data.narrative) {
@@ -295,7 +334,18 @@ export default function DashboardPage() {
         setEvents((prev) => [data.event, ...prev]);
       }
 
-      if (data.isNewRealm) {
+      // 大境界突破 + 该境界有卡片素材 → 弹突破分享卡片（不再弹 toast，避免重复）
+      if (data.isNewRealm && data.cultivator && hasBreakthroughCard(data.cultivator.realm)) {
+        setBreakthroughCard({
+          name: data.cultivator.name,
+          spiritualRoot: data.cultivator.spiritualRoot,
+          realm: data.cultivator.realm,
+          fromRealm: prevRealm,
+          createdAt: data.cultivator.createdAt,
+          totalExp: data.cultivator.totalExp,
+          breakthroughCount: data.cultivator.breakthroughCount,
+        });
+      } else if (data.isNewRealm) {
         toast.success("🔥 大境界突破成功！", {
           description: `踏入 ${data.cultivator.realm}！`,
         });
@@ -309,13 +359,19 @@ export default function DashboardPage() {
     }
   };
 
-  // 奇遇探索
+  // 奇遇探索（手动点击，每日最多3次）
   const triggerEncounter = async () => {
+    if (getManualClicksRemaining() <= 0) {
+      toast.info("今日机缘已尽，明日再寻访仙缘");
+      return;
+    }
+
     setEncounter(null);
     setEncounterResult(null);
+    incrementManualClicks();
 
     try {
-      const res = await fetch(`/api/encounter?userId=${userId}`);
+      const res = await fetch(`/api/encounter?userId=${userId}&source=manual`);
       const data = await res.json();
 
       if (data.error) {
@@ -330,9 +386,9 @@ export default function DashboardPage() {
           narrative: data.encounter.narrative,
           choices: data.encounter.choices,
         });
-        toast.success("⚡ 感应到机缘！");
+        toast.success("⚡ 仙缘乍现！");
       } else {
-        toast.info("天地之间暂时平静，未感应到机缘。继续修炼吧。");
+        toast.info("天地寂寥，未感仙缘。道法自然，继续修炼吧。");
       }
     } catch {
       toast.error("探索失败，请重试");
@@ -414,11 +470,12 @@ export default function DashboardPage() {
     EXERCISE: <Dumbbell className="w-5 h-5" />,
     SLEEP: <Moon className="w-5 h-5" />,
     MEDITATE: <Sparkles className="w-5 h-5" />,
+    WORK: <Briefcase className="w-5 h-5" />,
     CUSTOM: <Sword className="w-5 h-5" />,
   };
 
   return (
-    <main className="flex-1 p-4 max-w-lg mx-auto min-h-screen space-y-4">
+    <main className="flex-1 p-4 max-w-lg mx-auto min-h-screen pb-24 space-y-4">
       {/* BETA 测试声明 */}
       <div className="bg-amber-950/30 border border-amber-800/40 rounded-lg px-4 py-2.5 text-center">
         <p className="text-amber-400 text-xs">
@@ -427,7 +484,7 @@ export default function DashboardPage() {
         </p>
       </div>
       {/* 顶部状态栏 */}
-      <Card className="bg-stone-800/60 border-stone-600/50 overflow-hidden relative ring-1 ring-amber-900/20">
+      <Card className="bg-stone-800 border-white/10 overflow-hidden relative ring-1 ring-amber-900/20">
         <div className="absolute top-0 left-0 right-0 h-1 bg-stone-800">
           <div
             className="h-full bg-gradient-to-r from-amber-600 to-yellow-500 transition-all duration-1000"
@@ -448,7 +505,7 @@ export default function DashboardPage() {
                  cultivator.realm.includes("筑基") ? "🟢" : "⚪"}
               </span>
               <div>
-                <CardTitle className="text-lg flex items-center gap-2 text-stone-100">
+                <CardTitle className="text-lg flex items-center gap-2 text-white">
                   {cultivator.name}
                   <Badge
                     className="text-xs"
@@ -462,7 +519,7 @@ export default function DashboardPage() {
                     {cultivator.spiritualRoot}
                   </Badge>
                 </CardTitle>
-                <CardDescription className="text-stone-400">
+                <CardDescription className="text-stone-300">
                   {cultivator.realm} · 第{cultivator.realmLevel}层
                   {nextRealm && ` → ${nextRealm.name}`}
                 </CardDescription>
@@ -470,22 +527,22 @@ export default function DashboardPage() {
             </div>
             <div className="text-right">
               <div className="text-2xl font-bold text-amber-400">{cultivator.totalExp}</div>
-              <div className="text-xs text-stone-500">累计修炼值</div>
+              <div className="text-xs text-stone-400">累计修炼值</div>
             </div>
           </div>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between text-sm">
-            <span className="text-stone-500">
+            <span className="text-white">
               当前修炼值: {cultivator.cultivationExp}/{expNeeded}
             </span>
-            <span className="text-stone-600">{expPercent}%</span>
+            <span className="text-white">{expPercent}%</span>
           </div>
           {/* 灵力值 */}
-          <div className="flex items-center gap-2 mt-2 text-xs text-stone-500">
+          <div className="flex items-center gap-2 mt-2 text-xs text-stone-400">
             <Zap className="w-3 h-3 text-blue-400" />
-            <span>灵力: {cultivator.stamina}/100</span>
-            <span className="text-stone-600">（每日重置）</span>
+            <span>灵力: <span className="text-white font-semibold">{cultivator.stamina}</span>/100</span>
+            <span>（每日重置）</span>
           </div>
         </CardContent>
       </Card>
@@ -511,103 +568,97 @@ export default function DashboardPage() {
 
       {/* AI 修炼叙事 */}
       {narrative && (
-        <Card className="bg-stone-800/50 border-amber-800/30 ring-1 ring-amber-900/10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <Card className="bg-stone-800 border-amber-800/30 ring-1 ring-amber-900/10 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="w-4 h-4 text-amber-400" />
               <span className="text-xs text-amber-400 font-medium">AI 修炼叙事</span>
             </div>
-            <p className="text-stone-300 text-sm leading-relaxed italic">
+            <p className="text-white text-sm leading-relaxed italic">
               {narrative}
             </p>
           </CardContent>
         </Card>
       )}
 
-      {/* 每日任务 */}
-      <Card className="bg-stone-800/60 border-stone-600/50">
+      {/* 每日任务（最多 3 条，更多去任务页） */}
+      <Card className="bg-stone-800 border-white/10">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base text-stone-100 flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-amber-400" />
-            今日修炼
-          </CardTitle>
-          <CardDescription className="text-stone-500">
-            完成现实任务，获取修炼值
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base text-white flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-amber-400" />
+              今日修炼
+            </CardTitle>
+            <button
+              className="flex items-center gap-0.5 text-xs text-stone-400 hover:text-amber-400 transition-colors"
+              onClick={() => router.push("/tasks")}
+            >
+              全部 <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-2">
-          {incompleteTasks.length === 0 && Object.keys(TASK_TYPES).length > 0 && (
-            <p className="text-stone-600 text-sm text-center py-2">
-              尚未开始今日修炼，选择一个修炼方式吧
+          {tasks.length === 0 && (
+            <p className="text-stone-400 text-sm text-center py-2">
+              尚未开始今日修炼
             </p>
           )}
 
-          {/* 已完成任务 */}
-          {tasks
-            .filter((t) => t.completed)
-            .map((task) => (
-              <div
-                key={task.id}
-                className="flex items-center gap-3 p-3 bg-stone-800/30 rounded-lg opacity-50"
-              >
-                <span className="text-lg">{taskIcons[task.type]}</span>
-                <div className="flex-1">
-                  <p className="text-sm text-stone-400 line-through">
-                    {TASK_TYPES[task.type]?.name || task.type}
-                  </p>
-                </div>
-                <Badge variant="outline" className="border-green-800 text-green-400 text-xs">
-                  +{task.cultivationBonus}
-                </Badge>
-              </div>
-            ))}
-
-          <Separator className="bg-stone-800" />
-
-          {/* 未完成任务 */}
-          {incompleteTasks.map((task) => (
+          {tasks.slice(0, 3).map((task) => (
             <div
               key={task.id}
-              className="flex items-center gap-3 p-3 bg-stone-800/30 rounded-lg"
+              className={`flex items-center gap-3 p-3 rounded-xl ${task.completed ? "bg-stone-900/30 opacity-60" : "bg-stone-900/50"}`}
             >
-              <span className="text-lg">{taskIcons[task.type]}</span>
-              <div className="flex-1">
-                <p className="text-sm text-stone-300">
+              <span className={task.completed ? "text-stone-500" : "text-amber-400"}>
+                {taskIcons[task.type]}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm ${task.completed ? "text-stone-500 line-through" : "text-white font-medium"}`}>
                   {TASK_TYPES[task.type]?.name || task.type}
                 </p>
-                <p className="text-xs text-stone-500">
-                  {TASK_TYPES[task.type]?.description}
-                </p>
               </div>
-              <Button
-                size="sm"
-                className="bg-amber-700 hover:bg-amber-600 text-xs"
-                onClick={() => completeTask(task.id)}
-              >
-                完成
-              </Button>
+              {task.completed ? (
+                <Badge variant="outline" className="border-green-800 text-green-400 text-xs shrink-0">
+                  +{task.cultivationBonus}
+                </Badge>
+              ) : (
+                <Button
+                  size="sm"
+                  className="bg-amber-700 hover:bg-amber-600 h-8 px-3 text-xs shrink-0"
+                  onClick={() => completeTask(task.id)}
+                >
+                  完成
+                </Button>
+              )}
             </div>
           ))}
 
-          {/* 快捷创建任务 */}
-          <div className="flex gap-2 pt-2 flex-wrap">
+          {tasks.length > 3 && (
+            <button
+              className="w-full text-center py-1.5 text-xs text-stone-500 hover:text-amber-400 transition-colors"
+              onClick={() => router.push("/tasks")}
+            >
+              还有 {tasks.length - 3} 条 · 查看全部任务
+            </button>
+          )}
+
+          <Separator className="bg-white/5 my-1" />
+
+          {/* 快捷添加 */}
+          <div className="flex gap-2 flex-wrap pt-1">
             {Object.entries(TASK_TYPES).map(([key, taskType]) => {
-              const completedCount = tasks.filter((t) => t.type === key && t.completed).length;
-              const atLimit = completedCount >= taskType.dailyMax;
-              const hasPending = tasks.some((t) => t.type === key && !t.completed);
+              const atLimit  = tasks.filter(t => t.type === key && t.completed).length >= taskType.dailyMax;
+              const pending  = tasks.some(t => t.type === key && !t.completed);
               return (
                 <Button
                   key={key}
                   variant="outline"
                   size="sm"
-                  className={`border-stone-700 hover:text-amber-400 hover:border-amber-700 ${
-                    atLimit ? "text-stone-600 cursor-not-allowed" : "text-stone-400"
-                  }`}
+                  className={`border-white/10 text-white hover:text-amber-400 hover:border-amber-700 h-9 ${atLimit ? "opacity-40" : ""}`}
                   onClick={() => createTask(key)}
-                  disabled={hasPending || atLimit}
+                  disabled={pending || atLimit}
                 >
-                  {taskType.icon} {taskType.name}
-                  {atLimit ? " (已满)" : ""}
+                  {taskType.icon} <span className="ml-1">{taskType.name}</span>
                 </Button>
               );
             })}
@@ -616,9 +667,9 @@ export default function DashboardPage() {
       </Card>
 
       {/* 奇遇探索 */}
-      <Card className="bg-stone-800/60 border-stone-600/50">
+      <Card className="bg-stone-800 border-white/10">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base text-stone-100 flex items-center gap-2">
+          <CardTitle className="text-base text-white flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-purple-400" />
             奇遇探索
           </CardTitle>
@@ -626,30 +677,34 @@ export default function DashboardPage() {
         <CardContent className="space-y-3">
           {!encounter && !encounterResult && (
             <div className="text-center">
-              <p className="text-stone-500 text-sm mb-3">
-                修炼途中，机缘巧合之事时有发生。探索未知，或有所获。
+              <p className="text-stone-300 text-base mb-3">
+                修炼途中机缘莫测，或偶遇古修洞府，或撞见灵兽渡劫。
+              </p>
+              <p className="text-stone-400 text-sm mb-2">
+                今日剩余寻缘次数：<span className="text-white font-semibold">{getManualClicksRemaining()}</span> / 3
               </p>
               <Button
-                className="bg-gradient-to-r from-purple-700 to-violet-700 hover:from-purple-600 hover:to-violet-600"
+                className="text-white bg-gradient-to-r from-purple-700 to-violet-700 hover:from-purple-600 hover:to-violet-600 disabled:opacity-40 disabled:cursor-not-allowed"
                 onClick={triggerEncounter}
+                disabled={getManualClicksRemaining() <= 0}
               >
                 <Sparkles className="w-4 h-4 mr-2" />
-                外出探索
+                {getManualClicksRemaining() <= 0 ? "机缘已尽" : "外出寻缘"}
               </Button>
             </div>
           )}
 
           {encounter && !encounterResult && (
             <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <div className="bg-stone-900/60 rounded-lg p-3 border border-purple-900/30">
-                <p className="text-purple-400 text-sm font-medium mb-1">
+              <div className="bg-stone-800 rounded-lg p-3 border border-purple-900/30">
+                <p className="text-purple-400 text-base font-semibold mb-1">
                   ⚡ {encounter.title}
                 </p>
-                <p className="text-stone-300 text-sm leading-relaxed">
+                <p className="text-stone-200 text-base leading-relaxed">
                   {encounter.narrative}
                 </p>
               </div>
-              <p className="text-stone-500 text-xs">面临抉择——</p>
+              <p className="text-stone-400 text-sm">面临抉择——</p>
               <div className="space-y-2">
                 {encounter.choices.map((choice, i) => (
                   <button
@@ -671,7 +726,7 @@ export default function DashboardPage() {
                 ))}
               </div>
               <button
-                className="w-full text-center p-2 text-xs text-stone-600 hover:text-stone-400 transition-colors"
+                className="w-full text-center p-2 text-sm text-stone-400 hover:text-stone-200 transition-colors"
                 onClick={() => setEncounter(null)}
               >
                 暂不处理，继续修炼
@@ -680,13 +735,13 @@ export default function DashboardPage() {
           )}
 
           {encounterResult && (
-            <div className="bg-stone-900/60 rounded-lg p-4 border border-green-900/30 animate-in fade-in duration-300">
-              <p className="text-green-400 text-sm font-medium mb-2">✅ 奇遇结束</p>
-              <p className="text-stone-300 text-sm leading-relaxed">{encounterResult}</p>
+            <div className="bg-stone-800 rounded-lg p-4 border border-green-900/30 animate-in fade-in duration-300">
+              <p className="text-green-400 text-sm font-semibold mb-2">✅ 奇遇结束</p>
+              <p className="text-stone-300 text-base leading-relaxed">{encounterResult}</p>
               <Button
                 variant="outline"
                 size="sm"
-                className="mt-3 border-stone-700 text-stone-400"
+                className="mt-3 border-white/10 text-stone-300"
                 onClick={() => {
                   setEncounter(null);
                   setEncounterResult(null);
@@ -699,69 +754,62 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* 修炼历史 */}
-      <Card className="bg-stone-800/60 border-stone-600/50">
+      {/* 修炼历史（最多 3 条，更多去记录页） */}
+      <Card className="bg-stone-800 border-white/10">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base text-stone-100 flex items-center gap-2">
-            <History className="w-4 h-4 text-stone-400" />
-            修炼记录
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base text-white flex items-center gap-2">
+              <History className="w-4 h-4 text-stone-400" />
+              修炼记录
+            </CardTitle>
+            <button
+              className="flex items-center gap-0.5 text-xs text-stone-400 hover:text-amber-400 transition-colors"
+              onClick={() => router.push("/history")}
+            >
+              全部 <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-48">
-            {events.length === 0 ? (
-              <p className="text-stone-600 text-sm text-center py-4">
-                修炼之路方才开始……
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {events.map((event) => (
-                  <div key={event.id} className="border-l-2 border-stone-800 pl-3">
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant="outline"
-                        className={`text-xs ${
-                          event.type === "BREAKTHROUGH"
-                            ? "border-red-700 text-red-400"
-                            : event.type === "RANDOM_ENCOUNTER"
-                            ? "border-purple-700 text-purple-400"
-                            : "border-stone-700 text-stone-400"
-                        }`}
-                      >
-                        {event.type === "BREAKTHROUGH"
-                          ? "突破"
-                          : event.type === "RANDOM_ENCOUNTER"
-                          ? "奇遇"
-                          : "修炼"}
-                      </Badge>
-                      <span className="text-sm text-stone-300 font-medium">
-                        {event.title}
-                      </span>
-                    </div>
-                    <p className="text-xs text-stone-500 mt-1 line-clamp-2">
-                      {event.narrative}
-                    </p>
+          {events.length === 0 ? (
+            <p className="text-stone-400 text-sm text-center py-4">修炼之路方才开始……</p>
+          ) : (
+            <div className="space-y-3">
+              {events.slice(0, 3).map((event) => (
+                <div key={event.id} className="border-l-2 border-white/10 pl-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge
+                      variant="outline"
+                      className={`text-xs ${
+                        event.type === "BREAKTHROUGH"
+                          ? "border-red-700 text-red-400"
+                          : event.type === "ENCOUNTER" || event.type === "RANDOM_ENCOUNTER"
+                          ? "border-purple-700 text-purple-400"
+                          : "border-white/10 text-stone-400"
+                      }`}
+                    >
+                      {event.type === "BREAKTHROUGH" ? "突破" : event.type.includes("ENCOUNTER") ? "奇遇" : "修炼"}
+                    </Badge>
+                    <span className="text-sm text-white font-medium">{event.title}</span>
                   </div>
-                ))}
-              </div>
-            )}
-          </ScrollArea>
+                  <p className="text-xs text-stone-400 mt-1 line-clamp-2">{event.narrative}</p>
+                </div>
+              ))}
+              <button
+                className="w-full text-center pt-2 text-xs text-stone-500 hover:text-amber-400 transition-colors border-t border-white/5"
+                onClick={() => router.push("/history")}
+              >
+                查看全部修炼记录 →
+              </button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* 底部导航 */}
-      <div className="flex justify-between items-center py-4">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-stone-500"
-          onClick={() => router.push("/")}
-        >
-          <Home className="w-4 h-4 mr-1" />
-          首页
-        </Button>
-        <p className="text-xs text-stone-700">修仙模拟器 · 同人创作</p>
-      </div>
+      <BottomNav />
+
+      {/* 突破分享卡片 */}
+      <BreakthroughCard data={breakthroughCard} onClose={() => setBreakthroughCard(null)} />
     </main>
   );
 }
