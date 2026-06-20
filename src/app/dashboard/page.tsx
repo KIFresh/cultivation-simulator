@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import BottomNav from "@/components/bottom-nav";
 import BreakthroughCard, { hasBreakthroughCard, type BreakthroughCardData } from "@/components/breakthrough-card";
-import { SPIRITUAL_ROOTS, TASK_TYPES, REALMS, getCurrentRealm, getNextRealm, getRequiredExp, calculateTaskExp } from "@/lib";
+import { SPIRITUAL_ROOTS, TASK_TYPES, REALMS, getCurrentRealm, getNextRealm, getRequiredExp, calculateTaskExp, formatRealmLevel } from "@/lib";
 import type { SpiritualRoot } from "@/lib";
 import { toast } from "sonner";
 
@@ -520,7 +520,7 @@ export default function DashboardPage() {
                   </Badge>
                 </CardTitle>
                 <CardDescription className="text-stone-300">
-                  {cultivator.realm} · 第{cultivator.realmLevel}层
+                  {cultivator.realm} · {formatRealmLevel(cultivator.realm, cultivator.realmLevel)}
                   {nextRealm && ` → ${nextRealm.name}`}
                 </CardDescription>
               </div>
@@ -598,6 +598,14 @@ export default function DashboardPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-2">
+          {/* 有未处理奇遇时提示，防止再次触发覆盖 */}
+          {encounter && !encounterResult && (
+            <div className="flex items-center gap-2 rounded-lg bg-purple-950/40 border border-purple-800/40 px-3 py-2 text-xs text-purple-300">
+              <Sparkles className="w-3.5 h-3.5 shrink-0 text-purple-400" />
+              请先处理下方奇遇，再继续修炼
+            </div>
+          )}
+
           {tasks.length === 0 && (
             <p className="text-stone-400 text-sm text-center py-2">
               尚未开始今日修炼
@@ -624,8 +632,9 @@ export default function DashboardPage() {
               ) : (
                 <Button
                   size="sm"
-                  className="bg-amber-700 hover:bg-amber-600 h-8 px-3 text-xs shrink-0"
+                  className="bg-amber-700 hover:bg-amber-600 h-8 px-3 text-xs shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                   onClick={() => completeTask(task.id)}
+                  disabled={!!(encounter && !encounterResult)}
                 >
                   完成
                 </Button>
@@ -649,14 +658,15 @@ export default function DashboardPage() {
             {Object.entries(TASK_TYPES).map(([key, taskType]) => {
               const atLimit  = tasks.filter(t => t.type === key && t.completed).length >= taskType.dailyMax;
               const pending  = tasks.some(t => t.type === key && !t.completed);
+              const encounterPending = !!(encounter && !encounterResult);
               return (
                 <Button
                   key={key}
                   variant="outline"
                   size="sm"
-                  className={`border-white/10 text-white hover:text-amber-400 hover:border-amber-700 h-9 ${atLimit ? "opacity-40" : ""}`}
+                  className={`border-white/10 text-white hover:text-amber-400 hover:border-amber-700 h-9 ${atLimit || encounterPending ? "opacity-40" : ""}`}
                   onClick={() => createTask(key)}
-                  disabled={pending || atLimit}
+                  disabled={pending || atLimit || encounterPending}
                 >
                   {taskType.icon} <span className="ml-1">{taskType.name}</span>
                 </Button>

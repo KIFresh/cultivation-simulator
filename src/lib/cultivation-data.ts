@@ -323,6 +323,22 @@ export const NPCS: NPC[] = [
 // 辅助函数
 // ============================================================
 
+const LEVEL_LABELS: Record<number, string> = { 1: "初期", 2: "中期", 3: "后期" };
+const LIANQI_LABELS: Record<number, string> = {
+  1:"第一层",2:"第二层",3:"第三层",4:"第四层",5:"第五层",
+  6:"第六层",7:"第七层",8:"第八层",9:"第九层",10:"第十层",
+  11:"第十一层",12:"第十二层",13:"第十三层",
+};
+
+/**
+ * 将数字层数格式化为展示文字。
+ * 炼气期 → 第X层；其他境界 → 初期/中期/后期。
+ */
+export function formatRealmLevel(realmName: string, level: number): string {
+  if (realmName === "炼气期") return LIANQI_LABELS[level] ?? `第${level}层`;
+  return LEVEL_LABELS[level] ?? `第${level}期`;
+}
+
 /** 获取当前境界信息 */
 export function getCurrentRealm(realmName: string): Realm | undefined {
   return REALMS.find((r) => r.name === realmName);

@@ -3,7 +3,7 @@
 // ============================================================
 
 import Anthropic from "@anthropic-ai/sdk";
-import { SpiritualRoot, getCurrentRealm, getNextRealm, BREAKTHROUGH_ANIMATIONS, NPCS } from "./cultivation-data";
+import { SpiritualRoot, getCurrentRealm, getNextRealm, BREAKTHROUGH_ANIMATIONS, NPCS, formatRealmLevel } from "./cultivation-data";
 
 // 延迟初始化，避免 build 时无 key 报错
 let anthropic: Anthropic | null = null;
@@ -67,7 +67,7 @@ export async function generateDailyCultivationNarrative(params: {
 【修炼者信息】
 - 道号：${params.cultivatorName}
 - 灵根：${params.spiritualRoot}
-- 当前境界：${params.realm} 第${params.realmLevel}层
+- 当前境界：${params.realm} ${formatRealmLevel(params.realm, params.realmLevel)}
 - 当前修炼值：${params.cultivationExp}
 
 【今日修炼】
@@ -134,7 +134,7 @@ export async function generateBreakthroughNarrative(params: {
   const isNewRealm = params.fromRealm !== params.toRealm;
   const scene = isNewRealm
     ? `突破大境界：从 ${params.fromRealm} 突破到 ${params.toRealm}！`
-    : `${params.fromRealm} 第${params.fromLevel}层 → 第${params.toLevel}层`;
+    : `${params.fromRealm} ${formatRealmLevel(params.fromRealm, params.fromLevel)} → ${formatRealmLevel(params.fromRealm, params.toLevel)}`;
 
   const prompt = `生成一段修仙小说式的境界突破叙事。
 
@@ -182,7 +182,7 @@ ${scene}
 
     return {
       title: `${params.toRealm}突破！`,
-      narrative: `天地灵气疯狂涌入${params.cultivatorName}体内！丹田之中，灵力如沸水般翻涌……轰然一声，壁障碎裂！${params.cultivatorName}成功踏入${params.toRealm}第${params.toLevel}层！`,
+      narrative: `天地灵气疯狂涌入${params.cultivatorName}体内！丹田之中，灵力如沸水般翻涌……轰然一声，壁障碎裂！${params.cultivatorName}成功踏入${params.toRealm}${formatRealmLevel(params.toRealm, params.toLevel)}！`,
       mood: "燃",
       hint: `恭喜突破至${params.toRealm}！继续努力！`,
     };
@@ -214,7 +214,7 @@ export async function generateEncounterNarrative(params: {
 【修炼者信息】
 - 道号：${params.cultivatorName}
 - 灵根：${params.spiritualRoot}
-- 当前境界：${params.realm} 第${params.realmLevel}层
+- 当前境界：${params.realm} ${formatRealmLevel(params.realm, params.realmLevel)}
 
 要求：
 - 写一个有趣的奇遇场景（发现山洞、遇到灵兽、坊市交易、遗迹探索等）
