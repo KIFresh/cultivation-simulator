@@ -40,52 +40,49 @@ export default function LoginPage() {
 
   return (
     <main className="flex-1 flex flex-col items-center justify-center p-4 min-h-screen">
-      <div className="fixed inset-0 bg-gradient-to-b from-amber-950/15 via-[#121212] to-[#121212] pointer-events-none" />
       <div className="relative z-10 max-w-lg w-full space-y-6">
-        <Button variant="ghost" className="text-stone-400" onClick={() => router.push("/")}>
+        <Button variant="ghost" className="text-muted-foreground" onClick={() => router.push("/")}>
           <ArrowLeft className="w-4 h-4 mr-1" /> 返回
         </Button>
-        <Card className="bg-stone-800 border-white/10">
+        <Card className="bg-card border border-border">
           <CardHeader>
-            <CardTitle className="text-xl text-amber-400 flex items-center gap-2">
+            <CardTitle className="text-xl text-primary flex items-center gap-2">
               <LogIn className="w-5 h-5" /> 登录账号
             </CardTitle>
-            <CardDescription className="text-stone-300">
+            <CardDescription className="text-muted-foreground">
               已有道号？输入账号名和密码继续修炼
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm text-stone-300">账号名</label>
+              <label className="text-sm text-muted-foreground">账号名</label>
               <Input
                 placeholder="输入你的账号名"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="bg-stone-900 border-white/10 text-white"
                 onKeyDown={(e) => e.key === "Enter" && handleLogin()}
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm text-stone-300">密码</label>
+              <label className="text-sm text-muted-foreground">密码</label>
               <Input
                 type="password"
                 placeholder="输入密码"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="bg-stone-900 border-white/10 text-white"
                 onKeyDown={(e) => e.key === "Enter" && handleLogin()}
               />
             </div>
             <Button
-              className="w-full bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500"
+              className="w-full bg-primary hover:bg-primary/90"
               disabled={!name.trim() || !password || loading}
               onClick={handleLogin}
             >
               {loading ? "正在踏入修仙世界..." : "登录"}
               <Sparkles className="w-4 h-4 ml-2" />
             </Button>
-            <p className="text-sm text-stone-400 text-center">
-              还没有账号？<button className="text-amber-500 underline" onClick={() => router.push("/create")}>创建修炼者</button>
+            <p className="text-sm text-muted-foreground text-center">
+              还没有账号？<button className="text-primary underline" onClick={() => router.push("/create")}>创建修炼者</button>
             </p>
           </CardContent>
         </Card>

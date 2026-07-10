@@ -28,10 +28,10 @@ export default function CardPreviewPage() {
   const [data, setData] = useState<BreakthroughCardData | null>(null);
   return (
     <main className="min-h-screen flex flex-col items-center justify-center gap-4 p-8">
-      <button className="rounded bg-green-700 px-4 py-2 text-white" onClick={() => setData(ZHUJI)}>
+      <button className="rounded bg-primary px-4 py-2 text-white" onClick={() => setData(ZHUJI)}>
         预览 筑基卡
       </button>
-      <button className="rounded bg-amber-700 px-4 py-2 text-white" onClick={() => setData(JIEDAN)}>
+      <button className="rounded bg-primary px-4 py-2 text-white" onClick={() => setData(JIEDAN)}>
         预览 结丹卡
       </button>
       <BreakthroughCard data={data} onClose={() => setData(null)} />

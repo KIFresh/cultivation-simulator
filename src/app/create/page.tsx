@@ -134,14 +134,12 @@ export default function CreatePage() {
 
   return (
     <main className="flex-1 flex flex-col items-center justify-center p-4 min-h-screen">
-      <div className="fixed inset-0 bg-gradient-to-b from-amber-950/15 via-[#121212] to-[#121212] pointer-events-none" />
-
       <div className="relative z-10 max-w-lg w-full space-y-6">
         {/* 顶部导航：result 步骤不显示返回按钮，防止重测灵根 */}
         {step !== "result" && (
           <Button
             variant="ghost"
-            className="text-white"
+            className="text-foreground"
             onClick={() => {
               if (step === "quiz") setStep("name");
               else router.replace("/");
@@ -153,62 +151,58 @@ export default function CreatePage() {
         )}
 
         {step === "name" && (
-          <Card className="bg-stone-800 border-white/10">
+          <Card className="bg-card border border-border">
             <CardHeader>
-              <CardTitle className="text-xl text-amber-400 flex items-center gap-2">
+              <CardTitle className="text-xl text-primary flex items-center gap-2">
                 <Sparkles className="w-5 h-5" />
                 创建修炼者
               </CardTitle>
-              <CardDescription className="text-stone-300">
+              <CardDescription className="text-muted-foreground">
                 在修仙世界中，道号即是你的身份。取一个响亮的道号吧！
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm text-stone-300">账号名（唯一，登录用）</label>
+                <label className="text-sm text-muted-foreground">账号名（唯一，登录用）</label>
                 <Input
                   placeholder="例如：zhangsan123"
                   value={userName}
                   onChange={(e) => setUserName(e.target.value)}
-                  className="bg-stone-900 border-white/10 text-white"
                   maxLength={20}
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm text-stone-300">修仙道号（展示给道友看的）</label>
+                <label className="text-sm text-muted-foreground">修仙道号（展示给道友看的）</label>
                 <Input
                   placeholder="例如：青雲真人"
                   value={cultivatorName}
                   onChange={(e) => setCultivatorName(e.target.value)}
-                  className="bg-stone-900 border-white/10 text-white"
                   maxLength={12}
                 />
-                <p className="text-sm text-stone-400">道号可重名，取个响亮的吧</p>
+                <p className="text-sm text-muted-foreground">道号可重名，取个响亮的吧</p>
               </div>
               <div className="space-y-2">
-                <label className="text-sm text-stone-300">密码</label>
+                <label className="text-sm text-muted-foreground">密码</label>
                 <Input
                   type="password"
                   placeholder="至少 4 位"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="bg-stone-900 border-white/10 text-white"
                   maxLength={50}
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm text-stone-300">确认密码</label>
+                <label className="text-sm text-muted-foreground">确认密码</label>
                 <Input
                   type="password"
                   placeholder="再次输入密码"
                   value={passwordConfirm}
                   onChange={(e) => setPasswordConfirm(e.target.value)}
-                  className="bg-stone-900 border-white/10 text-white"
                   maxLength={50}
                 />
               </div>
               <Button
-                className="w-full bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500"
+                className="w-full bg-primary hover:bg-primary/90"
                 disabled={!userName.trim() || !cultivatorName.trim()}
                 onClick={handleNameSubmit}
               >
@@ -219,17 +213,17 @@ export default function CreatePage() {
         )}
 
         {step === "quiz" && (
-          <Card className="bg-stone-800 border-white/10">
+          <Card className="bg-card border border-border">
             <CardHeader>
-              <CardTitle className="text-xl text-amber-400">
+              <CardTitle className="text-xl text-primary">
                 灵根测试 ({quizIndex + 1}/{QUIZ_QUESTIONS.length})
               </CardTitle>
-              <CardDescription className="text-stone-300">
+              <CardDescription className="text-muted-foreground">
                 回答以下问题，天道将根据你的本心判定灵根资质
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-lg text-white font-semibold font-medium">
+              <p className="text-lg text-foreground font-semibold font-medium">
                 {QUIZ_QUESTIONS[quizIndex].question}
               </p>
               <div className="space-y-2">
@@ -237,10 +231,10 @@ export default function CreatePage() {
                   <Button
                     key={i}
                     variant="outline"
-                    className="w-full justify-start text-left h-auto py-3 border-white/10 hover:border-amber-500 hover:bg-stone-800 text-stone-300"
+                    className="w-full justify-start text-left h-auto py-3 border-border hover:border-primary hover:bg-muted text-foreground"
                     onClick={() => handleQuizAnswer(opt.element)}
                   >
-                    <span className="mr-2 text-amber-500 font-mono">
+                    <span className="mr-2 text-primary font-mono">
                       {["甲", "乙", "丙", "丁", "戊"][i]}.
                     </span>
                     {opt.text}
@@ -252,7 +246,7 @@ export default function CreatePage() {
         )}
 
         {step === "result" && spiritualRoot && (
-          <Card className="bg-stone-800 border-white/10">
+          <Card className="bg-card border border-border">
             <CardHeader className="text-center">
               <div className="text-4xl mb-2">
                 {spiritualRoot === "天灵根" ? "🌟" :
@@ -267,36 +261,36 @@ export default function CreatePage() {
               >
                 {spiritualRoot}
               </CardTitle>
-              <CardDescription className="text-stone-300 mt-2">
+              <CardDescription className="text-muted-foreground mt-2">
                 {SPIRITUAL_ROOTS[spiritualRoot].description}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-center gap-4 text-sm">
-                <Badge variant="outline" className="border-amber-700 text-amber-400">
+                <Badge variant="outline" className="border-primary text-primary">
                   <Star className="w-3 h-3 mr-1" />
                   稀有度: {"★".repeat(SPIRITUAL_ROOTS[spiritualRoot].rarity)}
                 </Badge>
-                <Badge variant="outline" className="border-white/10 text-stone-300">
+                <Badge variant="outline" className="border-border text-muted-foreground">
                   修炼速度: x{SPIRITUAL_ROOTS[spiritualRoot].speedBonus}
                 </Badge>
-                <Badge variant="outline" className="border-white/10 text-stone-300">
+                <Badge variant="outline" className="border-border text-muted-foreground">
                   {SPIRITUAL_ROOTS[spiritualRoot].element}
                 </Badge>
               </div>
 
-              <div className="bg-stone-800 rounded-lg p-4 text-base text-stone-300 space-y-2">
-                <p><span className="text-stone-300">道号：</span>{cultivatorName}</p>
-                <p><span className="text-stone-300">灵根：</span>
+              <div className="bg-muted rounded-lg p-4 text-base text-foreground space-y-2">
+                <p><span className="text-muted-foreground">道号：</span>{cultivatorName}</p>
+                <p><span className="text-muted-foreground">灵根：</span>
                   <span style={{ color: SPIRITUAL_ROOTS[spiritualRoot].color }}>
                     {spiritualRoot}
                   </span>
                 </p>
-                <p><span className="text-stone-300">初始境界：</span>炼气期 第一层</p>
+                <p><span className="text-muted-foreground">初始境界：</span>炼气期 第一层</p>
               </div>
 
               <Button
-                className="w-full bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 h-12 text-lg"
+                className="w-full bg-primary hover:bg-primary/90 h-12 text-lg"
                 onClick={handleCreate}
                 disabled={isCreating}
               >

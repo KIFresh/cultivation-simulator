@@ -7,16 +7,6 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-/* 突破卡片环境光动画 */
-@keyframes bt-glow {
-  0%, 100% { opacity: 0.55; transform: translate(-50%, -50%) scale(0.95); }
-  50%      { opacity: 1;    transform: translate(-50%, -50%) scale(1.1); }
-}
-@keyframes bt-spark {
-  0%, 100% { opacity: 0.2; transform: translateY(0); }
-  50%      { opacity: 1;   transform: translateY(-7px); }
-}
-
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -63,73 +53,99 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* 参考图色板 — 暖奶油底 + 灰蓝山峦 + 琥珀金 */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background: #F8F3E9;
+  --foreground: #2C2C2C;
+  --card: #FFFFFF;
+  --card-foreground: #2C2C2C;
+  --popover: #FFFFFF;
+  --popover-foreground: #2C2C2C;
+  --primary: #C8A050;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F0EBE0;
+  --secondary-foreground: #2C2C2C;
+  --muted: #E8E2D6;
+  --muted-foreground: #8A8070;
+  --accent: #C8A050;
+  --accent-foreground: #FFFFFF;
+  --destructive: #C0392B;
+  --border: #E0D8CC;
+  --input: #E0D8CC;
+  --ring: #C8A050;
+  --chart-1: #C8A050;
+  --chart-2: #8FA3A8;
+  --chart-3: #3D5A5E;
+  --chart-4: #B8C5C9;
+  --chart-5: #2C2C2C;
+  --radius: 0.75rem;
+  --sidebar: #F8F3E9;
+  --sidebar-foreground: #2C2C2C;
+  --sidebar-primary: #C8A050;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #E8E2D6;
+  --sidebar-accent-foreground: #2C2C2C;
+  --sidebar-border: #E0D8CC;
+  --sidebar-ring: #C8A050;
+  --font-sans: 'Noto Serif SC', 'Noto Sans SC', serif;
 }
 
+/* 深色模式 */
 .dark {
-  --background: oklch(0.13 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.17 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.17 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.22 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.22 0 0);
-  --muted-foreground: oklch(0.75 0 0);
-  --accent: oklch(0.22 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.17 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.22 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #1A1614;
+  --foreground: #E8DDD0;
+  --card: #2A2420;
+  --card-foreground: #E8DDD0;
+  --popover: #2A2420;
+  --popover-foreground: #E8DDD0;
+  --primary: #C8A050;
+  --primary-foreground: #1A1614;
+  --secondary: #3A322C;
+  --secondary-foreground: #E8DDD0;
+  --muted: #322C26;
+  --muted-foreground: #9A8A7A;
+  --accent: #C8A050;
+  --accent-foreground: #1A1614;
+  --destructive: #CC4A3A;
+  --border: #3E3630;
+  --input: #3E3630;
+  --ring: #C8A050;
+  --chart-1: #C8A050;
+  --chart-2: #8FA3A8;
+  --chart-3: #6A9A7A;
+  --chart-4: #5A7FA5;
+  --chart-5: #E8DDD0;
+  --sidebar: #221C18;
+  --sidebar-foreground: #E8DDD0;
+  --sidebar-primary: #C8A050;
+  --sidebar-primary-foreground: #1A1614;
+  --sidebar-accent: #3A322C;
+  --sidebar-accent-foreground: #E8DDD0;
+  --sidebar-border: #3E3630;
+  --sidebar-ring: #C8A050;
+}
+
+/* 扁平山峦背景 — SVG 多边形山 + 太阳 */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    /* 太阳 */
+    radial-gradient(circle 50px at 78% 16%, #F5E6C8 0%, #F5E6C8 55%, transparent 65%),
+    /* 远山 — 浅灰蓝 */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpolygon points='0,55 15,30 30,45 50,20 70,40 85,25 100,50 100,100 0,100' fill='%23B8C5C9'/%3E%3C/svg%3E"),
+    /* 中景山 — 中灰蓝 */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpolygon points='0,65 10,42 25,55 40,35 55,50 70,38 85,52 100,45 100,100 0,100' fill='%238FA3A8'/%3E%3C/svg%3E"),
+    /* 近山 — 深青绿 */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpolygon points='0,75 8,55 20,65 35,48 50,60 65,50 80,62 92,52 100,58 100,100 0,100' fill='%233D5A5E'/%3E%3C/svg%3E"),
+    /* 底层 — 暖奶油底色 */
+    var(--background);
+  background-size: 100% 100%, 100% 50%, 100% 60%, 100% 70%, 100% 100%;
+  background-position: 0 0, 0 0, 0 0, 0 0, 0 0;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
 }
 
 @layer base {

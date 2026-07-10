@@ -16,10 +16,10 @@ interface GameEvent {
 }
 
 const typeLabel = (type: string) => {
-  if (type === "BREAKTHROUGH")     return { text: "突破", cls: "border-red-700 text-red-400" };
-  if (type === "ENCOUNTER")        return { text: "奇遇", cls: "border-purple-700 text-purple-400" };
-  if (type === "RANDOM_ENCOUNTER") return { text: "奇遇", cls: "border-purple-700 text-purple-400" };
-  return { text: "修炼", cls: "border-white/20 text-stone-400" };
+  if (type === "BREAKTHROUGH")     return { text: "突破", cls: "border-red-300 text-red-700" };
+  if (type === "ENCOUNTER")        return { text: "奇遇", cls: "border-purple-300 text-purple-700" };
+  if (type === "RANDOM_ENCOUNTER") return { text: "奇遇", cls: "border-purple-300 text-purple-700" };
+  return { text: "修炼", cls: "border-border text-muted-foreground" };
 };
 
 const fmt = (iso: string) => {
@@ -63,7 +63,7 @@ export default function HistoryPage() {
   if (loading) {
     return (
       <main className="flex-1 p-4 max-w-lg mx-auto min-h-screen pb-24 space-y-3 animate-pulse">
-        {[...Array(6)].map((_, i) => <div key={i} className="h-20 bg-stone-800 rounded-xl" />)}
+        {[...Array(6)].map((_, i) => <div key={i} className="h-20 bg-muted rounded-xl" />)}
         <BottomNav />
       </main>
     );
@@ -72,12 +72,12 @@ export default function HistoryPage() {
   return (
     <main className="flex-1 p-4 max-w-lg mx-auto min-h-screen pb-24 space-y-4">
       <div className="pt-2">
-        <h1 className="text-xl font-bold text-amber-400">修炼记录</h1>
-        <p className="text-sm text-stone-400 mt-0.5">共 {total} 条修炼轨迹</p>
+        <h1 className="text-xl font-bold text-primary">修炼记录</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">共 {total} 条修炼轨迹</p>
       </div>
 
       {events.length === 0 ? (
-        <div className="text-center py-16 text-stone-400">
+        <div className="text-center py-16 text-muted-foreground">
           <p className="text-4xl mb-3">📜</p>
           <p>修炼之路方才开始……</p>
         </div>
@@ -86,15 +86,15 @@ export default function HistoryPage() {
           {events.map(event => {
             const { text, cls } = typeLabel(event.type);
             return (
-              <div key={event.id} className="bg-stone-800 rounded-xl p-4 border border-white/5">
+              <div key={event.id} className="bg-card rounded-xl p-4 border border-border">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className={`text-xs ${cls}`}>{text}</Badge>
-                    <span className="text-sm font-medium text-white">{event.title}</span>
+                    <span className="text-sm font-medium text-foreground">{event.title}</span>
                   </div>
-                  <span className="text-xs text-stone-500 shrink-0 ml-2">{fmt(event.createdAt)}</span>
+                  <span className="text-xs text-muted-foreground shrink-0 ml-2">{fmt(event.createdAt)}</span>
                 </div>
-                <p className="text-sm text-stone-300 leading-relaxed line-clamp-3">{event.narrative}</p>
+                <p className="text-sm text-foreground leading-relaxed line-clamp-3">{event.narrative}</p>
               </div>
             );
           })}
@@ -102,7 +102,7 @@ export default function HistoryPage() {
           {hasMore && (
             <Button
               variant="outline"
-              className="w-full border-white/10 text-stone-300 hover:text-white h-11"
+              className="w-full border-border text-foreground h-11"
               onClick={loadMore}
               disabled={loadingMore}
             >
@@ -112,7 +112,7 @@ export default function HistoryPage() {
           )}
 
           {!hasMore && events.length > 0 && (
-            <p className="text-center text-xs text-stone-600 py-2">已加载全部记录</p>
+            <p className="text-center text-xs text-muted-foreground py-2">已加载全部记录</p>
           )}
         </div>
       )}
