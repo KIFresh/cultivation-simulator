@@ -37,7 +37,7 @@ export default function HomePage() {
   };
 
   return (
-    <main className="flex-1 flex flex-col items-center justify-center p-4 min-h-screen bg-background">
+    <main className="flex-1 flex flex-col items-center justify-center p-4 min-h-screen bg-transparent">
       {devMode && (
         <div className="fixed top-0 left-0 right-0 bg-orange-500 text-white text-xs text-center py-1 z-50">
           DEV MODE
