@@ -13,9 +13,9 @@ import {
   canBreakthrough, getRootInfo, getStarterInventory, getItemById,
   getEquippedItems, getBackpackItems, getSchoolStage, getSchoolGrade,
   getDefaultOccupation, getUnlockedLocations, ATTR_INFO,
-  calcTravelCost, calculateMaxStamina,
+  calcTravelCost, calculateMaxStamina, getNPCsAtLocation,
 } from "@/lib";
-import type { Action, InventoryItem } from "@/lib";
+import type { Action, InventoryItem, NPC } from "@/lib";
 import { toast } from "sonner";
 
 interface CultivatorData {
@@ -52,6 +52,10 @@ export default function DashboardPage() {
   const [actionInput, setActionInput] = useState("");
   const [showItems, setShowItems] = useState(false);
   const [narrativeExpanded, setNarrativeExpanded] = useState(false);
+  const [npcChat, setNpcChat] = useState<NPC | null>(null);
+  const [npcMessage, setNpcMessage] = useState("");
+  const [npcChatHistory, setNpcChatHistory] = useState<{ role: string; content: string }[]>([]);
+  const currentNPCs = cultivator ? getNPCsAtLocation(currentLoc) : [];
 
   const loadLocalData = useCallback(() => {
     try {
@@ -337,6 +341,61 @@ export default function DashboardPage() {
               );
             })}
           </div>
+        )}
+
+        {/* 附近的人 */}
+        {currentNPCs.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground flex items-center gap-1">👥 附近的人</p>
+            <div className="flex gap-1 overflow-x-auto">
+              {currentNPCs.map((npc) => (
+                <button key={npc.name} onClick={() => { setNpcChat(npc); setNpcChatHistory([]); setNpcMessage(""); }}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs whitespace-nowrap border border-border bg-card hover:bg-muted transition-colors">
+                  <span>{npc.avatar}</span>
+                  <span className="text-foreground">{npc.name}</span>
+                  <span className="text-muted-foreground">{npc.realm}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* NPC 对话弹窗 */}
+        {npcChat && (
+          <Card className="border-primary/30 bg-card shadow-md">
+            <CardHeader className="pb-1 flex flex-row items-center justify-between">
+              <CardTitle className="text-xs text-foreground">{npcChat.avatar} 与{npcChat.name}交谈</CardTitle>
+              <button onClick={() => setNpcChat(null)} className="text-muted-foreground hover:text-primary text-xs">✕</button>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="max-h-24 overflow-y-auto space-y-1 text-xs text-foreground">
+                {npcChatHistory.length === 0 && <p className="text-muted-foreground italic">{npcChat.greeting}</p>}
+                {npcChatHistory.map((h, i) => (
+                  <p key={i} className={h.role === "player" ? "text-right text-primary" : "text-foreground"}>{h.content}</p>
+                ))}
+              </div>
+              <div className="flex gap-1">
+                <Input value={npcMessage} onChange={(e) => setNpcMessage(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && npcMessage.trim() && cultivator && cultivator.stamina >= 1) {
+                    setNpcChatHistory([...npcChatHistory, { role: "player", content: npcMessage }]);
+                    setNpcMessage("");
+                    if (cultivator) setCultivator({ ...cultivator, stamina: cultivator.stamina - 1 });
+                    toast(`💬 对${npcChat.name}说：${npcMessage}`, { duration: 2000 });
+                  }}}
+                  placeholder="说点什么...（消耗1行动力）" className="flex-1 h-7 text-[11px] bg-white border-border text-foreground" />
+                <Button size="icon" className="h-7 w-7 bg-primary hover:bg-[#B33A2A] shrink-0 text-white"
+                  disabled={!npcMessage.trim() || !cultivator || cultivator.stamina < 1}
+                  onClick={() => {
+                    setNpcChatHistory([...npcChatHistory, { role: "player", content: npcMessage }]);
+                    setNpcMessage("");
+                    if (cultivator) setCultivator({ ...cultivator, stamina: cultivator.stamina - 1 });
+                    toast(`💬 对${npcChat.name}说：${npcMessage}`, { duration: 2000 });
+                  }}>
+                  <Send className="w-3 h-3" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* 物品栏（折叠） */}

@@ -244,15 +244,20 @@ export const BREAKTHROUGH_ANIMATIONS: Record<string, string> = {
   "渡劫期": "天劫降临！九天神雷轰然而下，渡过此劫飞升仙界！",
 };
 
-export interface NPC { name: string; title: string; realm: string; personality: string; greeting: string; avatar: string; }
+export interface NPC { name: string; title: string; realm: string; personality: string; greeting: string; avatar: string; locationId: string; }
 export const NPCS: NPC[] = [
-  { name: "韩立", title: "韩老魔", realm: "大乘期", personality: "谨慎低调", greeting: "在下韩立，一介散修。", avatar: "🧘" },
-  { name: "南宫婉", title: "南宫仙子", realm: "化神期", personality: "清冷孤傲", greeting: "修仙之路漫漫，能在此相遇也算有缘。", avatar: "🌸" },
-  { name: "墨彩环", title: "墨府千金", realm: "筑基期", personality: "活泼灵动", greeting: "道友道友！你是从哪里来的？", avatar: "🦋" },
-  { name: "银月", title: "银月妖女", realm: "化神期", personality: "妖媚狡黠", greeting: "呵呵，又一个来送死的？", avatar: "🌙" },
-  { name: "大衍神君", title: "大衍老人", realm: "大乘期", personality: "神秘莫测", greeting: "老夫观你根骨……有几分意思。", avatar: "🔮" },
-  { name: "紫灵", title: "紫灵仙子", realm: "元婴期", personality: "温婉大方", greeting: "修仙之道，贵在坚持。", avatar: "💜" },
+  { name: "韩立", title: "韩老魔", realm: "大乘期", personality: "谨慎低调", greeting: "在下韩立，一介散修。", avatar: "🧘", locationId: "wild" },
+  { name: "南宫婉", title: "南宫仙子", realm: "化神期", personality: "清冷孤傲", greeting: "修仙之路漫漫，能在此相遇也算有缘。", avatar: "🌸", locationId: "cave" },
+  { name: "墨彩环", title: "墨府千金", realm: "筑基期", personality: "活泼灵动", greeting: "道友道友！你是从哪里来的？", avatar: "🦋", locationId: "school" },
+  { name: "银月", title: "银月妖女", realm: "化神期", personality: "妖媚狡黠", greeting: "呵呵，又一个来送死的？", avatar: "🌙", locationId: "downtown" },
+  { name: "大衍神君", title: "大衍老人", realm: "大乘期", personality: "神秘莫测", greeting: "老夫观你根骨……有几分意思。", avatar: "🔮", locationId: "market" },
+  { name: "紫灵", title: "紫灵仙子", realm: "元婴期", personality: "温婉大方", greeting: "修仙之道，贵在坚持。", avatar: "💜", locationId: "home" },
 ];
+
+/** 获取某地点的 NPC 列表 */
+export function getNPCsAtLocation(locationId: string): NPC[] {
+  return NPCS.filter((n) => n.locationId === locationId);
+}
 export function calculateSchoolRank(age: number, attributes: Record<string, number>): SchoolRank {
   const score = (attributes.insight || 0) * 3 + (attributes.mind || 0) * 2 + (attributes.root || 0) + (attributes.spirit || 0) + (attributes.luck || 0) * 1.5 + (attributes.charm || 0) * 0.5;
   const threshold = 15 * Math.min(1, age / 18);
