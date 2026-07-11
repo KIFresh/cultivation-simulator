@@ -16,10 +16,11 @@ export async function POST(request: NextRequest) {
     const oldAge = cultivator.age, newAge = oldAge + 1;
 
     const currentAttrs: Record<string, number> = rawAttributes || {};
-    const newAttributes = calculateYearlyAttributeGrowth(oldAge, newAge, currentAttrs, schoolRank);
+    const currentRankVal = currentRank || "普通";
+    const newAttributes = calculateYearlyAttributeGrowth(oldAge, newAge, currentAttrs, currentRankVal as any);
 
     const schoolStage = getSchoolStage(newAge);
-    let schoolRank = currentRank || "普通";
+    let schoolRank = currentRankVal;
     let examResult: { passed: boolean; rank: string; description: string } | null = null;
 
     if ([6, 12, 15, 18].includes(newAge) && schoolStage) {
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
     const narrativeOcc = parseOccupationFromNarrative(narrativeResult.narrative, occupation);
     if (narrativeOcc) occupation = narrativeOcc;
 
-    const updateData: Record<string, unknown> = { age: newAge, stamina: calculateMaxStamina(newAge) };
+    const updateData: Record<string, unknown> = { age: newAge, stamina: calculateMaxStamina(newAge, newAttributes) };
     if (newRealm !== cultivator.realm) { updateData.realm = newRealm; updateData.realmLevel = newRealmLevel; }
 
     const [updatedCultivator] = await prisma.$transaction([

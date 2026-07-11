@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     const canBreak = canBreakthrough(newRealm, newRealmLevel, newExp, cultivator.spiritualRoot);
 
-    const capped = { ...updatedCultivator, stamina: Math.min(updatedCultivator.stamina, calculateMaxStamina(updatedCultivator.age)) };
+    const capped = { ...updatedCultivator, stamina: Math.min(updatedCultivator.stamina, calculateMaxStamina(updatedCultivator.age, body.attributes)) };
     return NextResponse.json({ narrative: narrativeResult, cultivator: capped, expGained, canBreakthrough: canBreak, awakenEvent });
   } catch (error) {
     console.error("行动执行失败:", error);
