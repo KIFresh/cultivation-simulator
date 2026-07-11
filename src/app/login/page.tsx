@@ -21,7 +21,7 @@ export default function LoginPage() {
       localStorage.setItem("devMode", "true");
       localStorage.removeItem("userId");
       toast.success("开发者模式已开启");
-      router.replace("/dashboard");
+      router.replace("/");
       return;
     }
     setLoading(true);
