@@ -43,11 +43,24 @@ export async function POST(request: NextRequest) {
       extraContext: `${schoolContext}${examContext}\n职业：${occupation}`,
     });
 
-    let awakenEvent: { title: string; narrative: string } | null = null;
+    let awakenEvent: { title: string; narrative: string; bonuses?: Record<string, string> } | null = null;
     let newRealm = cultivator.realm, newRealmLevel = cultivator.realmLevel;
     if (cultivator.worldId === "earth" && cultivator.realm === "凡人" && cultivator.age < 16 && newAge >= 16) {
       newRealm = "炼气期"; newRealmLevel = 1;
-      awakenEvent = { title: "灵气觉醒", narrative: `${cultivator.name}迎来了十六岁生日。灵气开始复苏！` };
+      // 属性转换：六项属性影响修仙初始值
+      const attr = newAttributes;
+      const rootBonus = Math.floor((attr.root || 0) * 2);       // 根骨→体力上限
+      const spiritBonus = Math.floor((attr.spirit || 0) * 3);   // 灵性→修炼速度
+      const insightBonus = Math.floor((attr.insight || 0) * 2); // 悟性→突破概率
+      const luckBonus = Math.floor((attr.luck || 0) * 1.5);     // 气运→奇遇率
+      const charmBonus = Math.floor((attr.charm || 0) * 2);     // 魅力→初始好感
+      const mindBonus = Math.floor((attr.mind || 0) * 2);       // 心性→心魔抗性
+      const bonuses = { rootBonus: String(rootBonus), spiritBonus: String(spiritBonus), insightBonus: String(insightBonus), luckBonus: String(luckBonus), charmBonus: String(charmBonus), mindBonus: String(mindBonus) };
+      awakenEvent = {
+        title: "灵气觉醒",
+        narrative: `${cultivator.name}迎来了十六岁生日。灵气开始复苏！\n\n根骨${attr.root||0}→体力+${rootBonus}\n灵性${attr.spirit||0}→修炼速度+${spiritBonus}%\n悟性${attr.insight||0}→突破概率+${insightBonus}%\n气运${attr.luck||0}→奇遇率+${luckBonus}%\n魅力${attr.charm||0}→初始好感+${charmBonus}\n心性${attr.mind||0}→心魔抗性+${mindBonus}%`,
+        bonuses,
+      };
     }
 
     const narrativeOcc = parseOccupationFromNarrative(narrativeResult.narrative, occupation);

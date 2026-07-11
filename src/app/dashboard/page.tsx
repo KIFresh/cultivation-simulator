@@ -436,7 +436,7 @@ export default function DashboardPage() {
           <Card className="border-primary/40 bg-primary/5">
             <CardContent className="p-4">
               <p className="text-primary font-bold text-lg mb-2">{awakenEvent.title}</p>
-              <p className="text-foreground text-sm">{awakenEvent.narrative}</p>
+              <p className="text-foreground text-sm whitespace-pre-wrap">{awakenEvent.narrative}</p>
               <Button className="mt-3 w-full bg-primary hover:bg-[#B33A2A] text-white" onClick={() => setAwakenEvent(null)}>踏入仙途</Button>
             </CardContent>
           </Card>
