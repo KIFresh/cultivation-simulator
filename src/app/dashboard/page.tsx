@@ -192,18 +192,44 @@ export default function DashboardPage() {
     } catch (err) { console.error("突破失败:", err); toast.error("突破失败"); }
   };
 
-  const switchLocation = (locId: string) => {
+  const switchLocation = (locId: string, useTaxi = false) => {
     if (!cultivator) return;
     const target = locs.find((l) => l.id === locId);
     if (!target || locId === currentLoc) return;
     const cost = calcTravelCost(currentLoc, locId);
-    if (cultivator.stamina < cost) { toast.error(`行动力不足！需要${cost}点，当前${cultivator.stamina}点`); return; }
-    if (!window.confirm(`前往「${target.name}」需要消耗 ${cost} 点行动力，是否前往？`)) return;
-    const newStamina = cultivator.stamina - cost;
-    setCultivator({ ...cultivator, stamina: newStamina, location: locId });
+    const taxiStaminaCost = Math.max(1, Math.floor(cost / 3));
+    const taxiGoldCost = cost * 3;
+    const currentGold = cultivator.gold ?? 50;
+
+    if (!useTaxi) {
+      if (cultivator.stamina >= cost) {
+        const walk = window.confirm(`前往「${target.name}」\n步行：${cost}行动力\n打车：${taxiStaminaCost}行动力+${taxiGoldCost}金币\n\n确定=步行  取消=打车`);
+        if (!walk) {
+          if (currentGold >= taxiGoldCost && cultivator.stamina >= taxiStaminaCost) {
+            switchLocation(locId, true);
+          } else {
+            toast.error(currentGold < taxiGoldCost ? `金币不足！需要${taxiGoldCost}` : `行动力不足！需要${taxiStaminaCost}`);
+          }
+          return;
+        }
+      } else {
+        if (currentGold >= taxiGoldCost && cultivator.stamina >= taxiStaminaCost) {
+          if (window.confirm(`行动力不足（需要${cost}/${cultivator.stamina}）\n打车前往需${taxiStaminaCost}行动力+${taxiGoldCost}金币，是否打车？`)) {
+            switchLocation(locId, true);
+          }
+          return;
+        }
+        toast.error(`行动力不足！需要${cost}点`);
+        return;
+      }
+    }
+
+    const finalStamina = cultivator.stamina - (useTaxi ? taxiStaminaCost : cost);
+    const finalGold = useTaxi ? currentGold - taxiGoldCost : currentGold;
+    setCultivator({ ...cultivator, stamina: finalStamina, gold: finalGold, location: locId });
     setCurrentLoc(locId);
     localStorage.setItem("currentLocation", locId);
-    toast.success(`📍 来到${target.name}`, { duration: 1500 });
+    toast.success(`📍 ${useTaxi ? "打车到" : "来到"}${target.name}${useTaxi ? `(-${taxiGoldCost}金)` : ""}`, { duration: 1500 });
   };
 
   const handleActionClick = (actionId: string) => {
