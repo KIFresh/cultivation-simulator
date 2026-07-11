@@ -55,6 +55,7 @@ export default function DashboardPage() {
   const [npcChat, setNpcChat] = useState<NPC | null>(null);
   const [npcMessage, setNpcMessage] = useState("");
   const [npcChatHistory, setNpcChatHistory] = useState<{ role: string; content: string }[]>([]);
+  const [devMode, setDevMode] = useState(false);
   const currentNPCs = cultivator ? getNPCsAtLocation(currentLoc) : [];
 
   const loadLocalData = useCallback(() => {
@@ -101,8 +102,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const id = localStorage.getItem("userId");
-    if (!id) { router.push("/"); return; }
-    setUserId(id);
+    const dm = localStorage.getItem("devMode") === "true";
+    setDevMode(dm);
+    if (!id && !dm) { router.push("/"); return; }
+    if (id) setUserId(id);
   }, [router]);
   useEffect(() => { if (userId) loadCultivator(); }, [userId, loadCultivator]);
   useEffect(() => { loadLocalData(); }, [loadLocalData]);
@@ -251,8 +254,28 @@ export default function DashboardPage() {
   const currentLocName = locs.find((l) => l.id === currentLoc)?.name || "";
   const totalItems = getEquippedItems(inventory).length + getBackpackItems(inventory).length;
 
+  // 开发者模式：快速生成角色
+  const handleQuickCreate = async () => {
+    const els = ["金","木","水","火","土"]; const qs = ["上品","中品","下品"];
+    const root = Math.random() > 0.1 ? `${els[Math.floor(Math.random()*5)]}_${qs[Math.floor(Math.random()*3)]}` : "chaos";
+    const res = await fetch("/api/cultivator", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userName: `dev_${Date.now()}`, cultivatorName: `测试_${Date.now()}`, spiritualRoot: root, worldId: "earth" }) });
+    const data = await res.json();
+    if (!data.user) { toast.error("生成失败"); return; }
+    localStorage.setItem("userId", data.user.id);
+    localStorage.setItem("cultivatorName", data.user.cultivator.name);
+    localStorage.setItem("attributes", JSON.stringify({}));
+    window.location.reload();
+  };
+  // 开发者模式：重置数据
+  const handleReset = async () => {
+    if (!window.confirm("确定要重置所有数据吗？此操作不可恢复")) return;
+    localStorage.clear();
+    try { await fetch("/api/cultivator", { method: "DELETE" }); } catch {}
+    window.location.href = "/";
+  };
+
   if (loading) return <main className="flex-1 flex items-center justify-center min-h-screen bg-transparent"><p className="text-muted-foreground">加载中...</p></main>;
-  if (!cultivator) return <main className="flex-1 flex flex-col items-center justify-center min-h-screen bg-transparent p-4"><p className="text-muted-foreground mb-4">尚未创建修炼者</p><Button onClick={() => router.push("/create")}>创建角色</Button></main>;
+  if (!cultivator) return <main className="flex-1 flex flex-col items-center justify-center min-h-screen bg-transparent p-4"><p className="text-muted-foreground mb-4">尚未创建修炼者</p><div className="flex gap-2">{devMode ? <><Button onClick={handleQuickCreate}>快速生成</Button><Button variant="outline" className="border-border" onClick={handleReset}>重置数据</Button></> : <Button onClick={() => router.push("/create")}>创建角色</Button>}</div></main>;
 
   return (
     <main className="flex-1 flex flex-col min-h-screen bg-transparent pb-20">
@@ -261,6 +284,7 @@ export default function DashboardPage() {
         {/* 顶栏 */}
         <div className="flex items-center py-1 border-b border-border">
           <button onClick={() => router.push("/")} className="flex items-center gap-1 text-muted-foreground hover:text-primary transition-colors text-sm">
+          {devMode && <span className="ml-auto text-xs text-orange-500 font-bold">DEV MODE</span>}
             <Home className="w-4 h-4" /> 返回
           </button>
         </div>

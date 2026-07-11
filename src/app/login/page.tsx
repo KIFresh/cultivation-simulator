@@ -16,6 +16,14 @@ export default function LoginPage() {
 
   const handleLogin = async () => {
     if (!name.trim() || !password) return;
+    // 管理员登录
+    if (name.trim() === "admin" && password === "123456") {
+      localStorage.setItem("devMode", "true");
+      localStorage.removeItem("userId");
+      toast.success("开发者模式已开启");
+      router.replace("/dashboard");
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch("/api/auth/login", {
