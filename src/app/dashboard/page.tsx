@@ -279,7 +279,7 @@ export default function DashboardPage() {
             </div>
             <TooltipProvider delay={0}>
             <div className="flex flex-wrap gap-1">
-              {ATTR_INFO.filter((a) => (attributes[a.key] || 0) > 0).map((a) => (
+              {ATTR_INFO.map((a) => (
                 <Tooltip key={a.key}>
                   <TooltipTrigger render={<span className="inline-flex items-center gap-1 text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded cursor-help" />}>
                     {a.icon}{a.label}{Math.round(attributes[a.key] || 0)}
