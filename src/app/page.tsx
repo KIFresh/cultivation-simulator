@@ -1,7 +1,11 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Noto_Serif_SC } from "next/font/google";
+import { toast } from "sonner";
 
-// 使用 Next.js 优化字体加载，提升国风排版质感
 const notoSerifSC = Noto_Serif_SC({
   subsets: ["latin"],
   weight: ["400", "500", "700", "900"],
@@ -9,11 +13,49 @@ const notoSerifSC = Noto_Serif_SC({
 });
 
 export default function Home() {
+  const router = useRouter();
+  const [devMode, setDevMode] = useState(false);
+
+  useEffect(() => {
+    setDevMode(localStorage.getItem("devMode") === "true");
+  }, []);
+
+  const handleQuickCreate = async () => {
+    const els = ["金","木","水","火","土"]; const qs = ["上品","中品","下品"];
+    const root = Math.random() > 0.1 ? `${els[Math.floor(Math.random()*5)]}_${qs[Math.floor(Math.random()*3)]}` : "chaos";
+    const res = await fetch("/api/cultivator", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userName: `dev_${Date.now()}`, cultivatorName: `测试_${Date.now()}`, spiritualRoot: root, worldId: "earth" }) });
+    const data = await res.json();
+    if (!data.user) { toast.error("生成失败"); return; }
+    localStorage.setItem("userId", data.user.id);
+    localStorage.setItem("cultivatorName", data.user.cultivator.name);
+    localStorage.setItem("attributes", JSON.stringify({}));
+    window.location.href = "/dashboard";
+  };
+
+  const handleReset = async () => {
+    if (!window.confirm("确定要重置所有数据吗？此操作不可恢复")) return;
+    localStorage.clear();
+    setDevMode(false);
+    window.location.href = "/";
+  };
+
+  const handleExitDev = () => {
+    localStorage.removeItem("devMode");
+    window.location.href = "/";
+  };
   return (
     <div
       className={`min-h-screen bg-[#FDFBF7] text-[#2C2C2C] relative overflow-x-hidden selection:bg-[#8F9A8A] selection:text-white ${notoSerifSC.className}`}
     >
-      {/* 局部内联动画样式，确保零配置即可运行 */}
+      {devMode && (
+        <div className="fixed top-0 left-0 right-0 bg-orange-500 text-white text-xs text-center py-1 z-50 flex items-center justify-center gap-4">
+          <span>DEV MODE</span>
+          <button onClick={handleQuickCreate} className="underline hover:no-underline">快速生成</button>
+          <button onClick={handleReset} className="underline hover:no-underline">重置数据</button>
+          <button onClick={handleExitDev} className="underline hover:no-underline">退出</button>
+        </div>
+      )}
+      {/* 局部内联动画样式 */}
       <style dangerouslySetInnerHTML={{
         __html: `
           .fade-in-up {
