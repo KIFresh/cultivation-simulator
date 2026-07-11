@@ -64,3 +64,6 @@ cultivation-mobile/
 # ops/dev 脚本（含数据库地址/一次性操作/测试账号，不公开）
 *.py
 prisma/manual-add-indexes.sql
+
+# reasonix local state
+/.reasonix/
