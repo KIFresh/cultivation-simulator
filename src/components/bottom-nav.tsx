@@ -1,7 +1,8 @@
 "use client";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sword, ScrollText, Users } from "lucide-react";
+import { Sword, ScrollText, Users, Settings } from "lucide-react";
 
 const items = [
   { href: "/dashboard", icon: Sword,      label: "修炼" },
@@ -11,10 +12,19 @@ const items = [
 
 export default function BottomNav() {
   const path = usePathname();
+  const [devMode, setDevMode] = useState(false);
+
+  useEffect(() => {
+    setDevMode(localStorage.getItem("devMode") === "true");
+  }, []);
+
+  const allItems = devMode
+    ? [...items, { href: "/dev", icon: Settings, label: "调试" }]
+    : items;
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#F8F3E9]/95 backdrop-blur border-t border-[#E0D8CC] safe-area-bottom">
       <div className="flex max-w-lg mx-auto">
-        {items.map(({ href, icon: Icon, label }) => {
+        {allItems.map(({ href, icon: Icon, label }) => {
           const active = path === href;
           return (
             <Link
