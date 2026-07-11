@@ -307,6 +307,12 @@ export default function DashboardPage() {
               <span className="text-muted-foreground">💰 金币</span>
               <span className="text-foreground font-medium">{cultivator.gold ?? 50}</span>
             </div>
+            {inventory.some((i) => i.itemId === "phone") && (
+              <button onClick={() => router.push("/phone")}
+                className="w-full flex items-center gap-2 text-xs bg-primary/10 text-primary border border-primary/20 rounded-lg px-3 py-2 hover:bg-primary/20 transition-colors">
+                📱 打开手机
+              </button>
+            )}
             <TooltipProvider delay={0}>
             <div className="flex flex-wrap gap-1">
               {ATTR_INFO.map((a) => (

@@ -167,6 +167,7 @@ export const ITEMS: Record<string, Item> = {
   ancient_tome: { id: "ancient_tome", name: "古功法卷", icon: "📜", category: "treasure", description: "失传功法的古卷", effect: "领悟新功法" },
   compass: { id: "compass", name: "寻宝罗盘", icon: "🧭", category: "treasure", description: "感应宝物气息", effect: "探索宝物" },
   jade_slip: { id: "jade_slip", name: "玉简", icon: "📏", category: "treasure", description: "前辈修炼心得", effect: "悟性+3" },
+  phone: { id: "phone", name: "智能手机", icon: "📱", category: "treasure", description: "一部智能手机，可以安装各种APP", effect: "解锁手机界面" },
 };
 
 export function getStarterInventory(): InventoryItem[] { return []; }
@@ -196,6 +197,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   { itemId: "spirit_stone", price: 5, category: "材料" },
   { itemId: "talisman_shield", price: 60, category: "符箓" },
   { itemId: "talisman_fire", price: 45, category: "符箓" },
+  { itemId: "phone", price: 100, category: "特殊" },
 ];
 
 export function getShopItems(): (ShopItem & { item: Item })[] {
