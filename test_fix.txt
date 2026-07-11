@@ -1,0 +1,240 @@
+﻿"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Sparkles, ArrowLeft, Globe, Skull, Check } from "lucide-react";
+
+// 世界定义
+interface World {
+  id: string;
+  name: string;
+  icon: string;
+  tag: string;
+  tagColor: string;
+  description: string;
+}
+
+const WORLDS: World[] = [
+  {
+    id: "earth",
+    name: "地球",
+    icon: "🌍",
+    tag: "现实世界",
+    tagColor: "blue",
+    description: "以现代地球为背景的修仙世界，灵气稀薄但暗藏玄机...",
+  },
+  {
+    id: "crazy",
+    name: "疯狂世界",
+    icon: "💀",
+    tag: "异界",
+    tagColor: "red",
+    description: "规则崩坏的疯狂世界，机遇与危险并存...",
+  },
+];
+
+export default function CreatePage() {
+  const router = useRouter();
+  const [step, setStep] = useState<"name" | "world">("name");
+  const [userName, setUserName] = useState("");
+  const [cultivatorName, setCultivatorName] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [selectedWorld, setSelectedWorld] = useState<World | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+
+  const handleNameSubmit = () => {
+    if (!userName.trim() || !cultivatorName.trim()) return;
+    if (!password || password.length < 4) {
+      const { toast } = require("sonner");
+      toast.error("密码至少 4 位");
+      return;
+    }
+    if (password !== passwordConfirm) {
+      const { toast } = require("sonner");
+      toast.error("两次密码不一致");
+      return;
+    }
+    setStep("world");
+  };
+
+  const handleCreate = async () => {
+    if (!selectedWorld) return;
+    setIsCreating(true);
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: userName.trim(),
+          password,
+          cultivatorName: cultivatorName.trim(),
+          world: selectedWorld.id,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.user) {
+        localStorage.setItem("userId", data.user.id);
+        localStorage.setItem("worldId", selectedWorld.id);
+        localStorage.setItem("worldName", selectedWorld.name);
+        router.replace("/dashboard");
+      } else if (data.error) {
+        const { toast } = await import("sonner");
+        toast.error(data.error);
+      }
+    } catch (err) {
+      console.error("创建失败:", err);
+      setIsCreating(false);
+    }
+  };
+
+  return (
+    <main className="flex-1 flex flex-col items-center justify-center p-4 min-h-screen">
+      <div className="fixed inset-0 bg-gradient-to-b from-amber-950/15 via-[#121212] to-[#121212] pointer-events-none" />
+
+      <div className="relative z-10 max-w-lg w-full space-y-6">
+        <Button
+          variant="ghost"
+          className="text-white"
+          onClick={() => {
+            if (step === "world") setStep("name");
+            else router.replace("/");
+          }}
+        >
+          <ArrowLeft className="w-4 h-4 mr-1" />
+          返回
+        </Button>
+
+        {step === "name" && (
+          <Card className="bg-stone-800 border-white/10">
+            <CardHeader>
+              <CardTitle className="text-xl text-amber-400 flex items-center gap-2">
+                <Sparkles className="w-5 h-5" />
+                创建修炼者
+              </CardTitle>
+              <CardDescription className="text-stone-300">
+                在修仙世界中，道号即是你的身份。取一个响亮的道号吧！
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm text-stone-300">账号名（唯一，登录用）</label>
+                <Input
+                  placeholder="例如：zhangsan123"
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                  className="bg-stone-900 border-white/10 text-white"
+                  maxLength={20}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm text-stone-300">修仙道号（展示给道友看的）</label>
+                <Input
+                  placeholder="例如：青雲真人"
+                  value={cultivatorName}
+                  onChange={(e) => setCultivatorName(e.target.value)}
+                  className="bg-stone-900 border-white/10 text-white"
+                  maxLength={12}
+                />
+                <p className="text-sm text-stone-400">道号可重名，取个响亮的吧</p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm text-stone-300">密码</label>
+                <Input
+                  type="password"
+                  placeholder="至少 4 位"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="bg-stone-900 border-white/10 text-white"
+                  maxLength={50}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm text-stone-300">确认密码</label>
+                <Input
+                  type="password"
+                  placeholder="再次输入密码"
+                  value={passwordConfirm}
+                  onChange={(e) => setPasswordConfirm(e.target.value)}
+                  className="bg-stone-900 border-white/10 text-white"
+                  maxLength={50}
+                />
+              </div>
+              <Button
+                className="w-full bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500"
+                disabled={!userName.trim() || !cultivatorName.trim()}
+                onClick={handleNameSubmit}
+              >
+                下一步：选择世界
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {step === "world" && (
+          <div className="space-y-4">
+            <div className="text-center space-y-1">
+              <h2 className="text-xl font-bold text-amber-400">选择你的修仙世界</h2>
+              <p className="text-sm text-stone-400">每个世界都有独特的规则与机缘</p>
+            </div>
+
+            {WORLDS.map((w) => (
+              <Card
+                key={w.id}
+                className={`bg-stone-800 border cursor-pointer transition-all hover:border-amber-500 ${
+                  selectedWorld?.id === w.id
+                    ? "border-amber-500 ring-1 ring-amber-500"
+                    : "border-white/10"
+                }`}
+                onClick={() => setSelectedWorld(w)}
+              >
+                <CardContent className="pt-6">
+                  <div className="flex items-start gap-4">
+                    <div className="text-4xl shrink-0">{w.icon}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-lg font-semibold text-white">{w.name}</h3>
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full ${
+                            w.tagColor === "red"
+                              ? "bg-red-900/50 text-red-400"
+                              : "bg-blue-900/50 text-blue-400"
+                          }`}
+                        >
+                          {w.tag}
+                        </span>
+                      </div>
+                      <p className="text-sm text-stone-400">{w.description}</p>
+                      <p className="text-xs text-stone-500 mt-2 italic">（背景内容待补充）</p>
+                    </div>
+                    {selectedWorld?.id === w.id && (
+                      <div className="shrink-0 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center">
+                        <Check className="w-4 h-4 text-white" />
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+
+            <Button
+              className="w-full bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 h-12 text-lg"
+              disabled={!selectedWorld || isCreating}
+              onClick={handleCreate}
+            >
+              {isCreating
+                ? "正在踏入修仙之路..."
+                : `踏入 ${selectedWorld?.name || ""} · 开始修仙`}
+              <Sparkles className="w-5 h-5 ml-2" />
+            </Button>
+          </div>
+        )}
+      </div>
+    </main>
+
+

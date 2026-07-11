@@ -3,6 +3,7 @@ import {
   generateDailyCultivationNarrative,
   generateBreakthroughNarrative,
   generateEncounterNarrative,
+  generateBirthNarrative,
 } from "@/lib/narrative";
 import { prisma } from "@/lib/prisma";
 import { canBreakthrough, performBreakthrough } from "@/lib";
@@ -35,6 +36,22 @@ export async function POST(request: NextRequest) {
     const cultivator = user.cultivator;
 
     switch (type) {
+      case "BIRTH": {
+        const narrative = await generateBirthNarrative({
+          cultivatorName: cultivator.name,
+          spiritualRoot: cultivator.spiritualRoot,
+          worldName: body.worldName || "修仙世界",
+          identityName: body.identityName || "修士",
+          age: body.age || 1,
+          worldId: body.worldId,
+          family: body.family || [],
+        });
+        const event = await prisma.gameEvent.create({
+          data: { cultivatorId: cultivator.id, type: "BIRTH", title: narrative.title, narrative: narrative.narrative, reward: JSON.stringify({ mood: narrative.mood }) },
+        });
+        return NextResponse.json({ event, narrative });
+      }
+
       case "DAILY_CULTIVATION": {
         // 日常修炼叙事
         const narrative = await generateDailyCultivationNarrative({

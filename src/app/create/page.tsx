@@ -5,299 +5,404 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import type { SpiritualRoot } from "@/lib";
-import { SPIRITUAL_ROOTS } from "@/lib";
-import { Sparkles, ArrowLeft, Star } from "lucide-react";
+import { Sparkles, ArrowLeft, Check, Eye, EyeOff } from "lucide-react";
+import { generateEarthFamily } from "@/lib/family";
 
-// 灵根测试题目
-const QUIZ_QUESTIONS = [
-  {
-    question: "修炼路上遇到强敌，你会？",
-    options: [
-      { text: "正面迎战，以力破之", element: "金" },
-      { text: "以柔克刚，周旋制胜", element: "水" },
-      { text: "烈火燎原，速战速决", element: "火" },
-      { text: "扎根防守，以逸待劳", element: "土" },
-      { text: "借势而为，灵活应变", element: "木" },
-    ],
-  },
-  {
-    question: "在修仙界中，你最看重什么？",
-    options: [
-      { text: "强大的武力", element: "金" },
-      { text: "渊博的知识", element: "水" },
-      { text: "无畏的勇气", element: "火" },
-      { text: "稳固的根基", element: "土" },
-      { text: "自由的灵魂", element: "木" },
-    ],
-  },
-  {
-    question: "如果得到一件上古法宝，你会？",
-    options: [
-      { text: "炼化为本命法宝", element: "火" },
-      { text: "研究其中奥秘", element: "水" },
-      { text: "融入自身修为", element: "土" },
-      { text: "以其为基础创造新术", element: "木" },
-      { text: "打磨至完美再使用", element: "金" },
-    ],
-  },
+// 数据定义
+const WORLDS = [
+  { id: "earth", name: "地球", icon: "🌍", tag: "现实世界", desc: "灵气复苏的现代世界，16岁后才可觉醒修仙" },
+  { id: "crazy", name: "疯狂世界", icon: "💀", tag: "异界修仙", desc: "规则崩坏的扭曲世界，灵气无处不在" },
 ];
 
-// 根据元素分布决定灵根
-function determineSpiritualRoot(elements: string[]): SpiritualRoot {
-  const count: Record<string, number> = {};
-  elements.forEach((e) => {
-    count[e] = (count[e] || 0) + 1;
-  });
+const BIRTHS = [
+  { id: "waste", name: "废柴", points: 5, icon: "💩", desc: "天生废材，毫无修炼天赋" },
+  { id: "mortal", name: "凡人", points: 8, icon: "👤", desc: "普普通通，毫无特别之处" },
+  { id: "elite", name: "俊杰", points: 11, icon: "🌟", desc: "天赋异禀，远超常人" },
+  { id: "prodigy", name: "天骄", points: 14, icon: "⭐", desc: "百年难遇的修炼奇才" },
+  { id: "monster", name: "妖孽", points: 17, icon: "🔥", desc: "千年不出的妖孽之才" },
+  { id: "reborn", name: "谪仙转世", points: 21, icon: "✨", desc: "疑似仙人转世，天生道体" },
+  { id: "chosen", name: "大道之子", points: 25, icon: "👑", desc: "天道垂青，气运加身" },
+];
 
-  const uniqueElements = Object.keys(count).length;
+const IDENTITIES = [
+  { id: "orphan", name: "山野遗孤", cost: 0, icon: "🌄", desc: "无依无靠，自由但也无资源" },
+  { id: "scholar", name: "书香门第", cost: 2, icon: "📚", desc: "家学渊源，知识储备丰富" },
+  { id: "merchant", name: "商贾之子", cost: 3, icon: "💰", desc: "家境殷实，灵石不愁" },
+  { id: "general", name: "将门之后", cost: 4, icon: "⚔️", desc: "武学世家，根基扎实" },
+  { id: "sect", name: "散修传人", cost: 5, icon: "🔮", desc: "有师承渊源，起点更高" },
+];
 
-  if (uniqueElements === 1) return "天灵根";
-  if (uniqueElements === 5) return "杂灵根";
-  if (uniqueElements === 4) return "四灵根";
-  if (uniqueElements === 3) return "三灵根";
+const ELEMENTS = ["金", "木", "水", "火", "土"] as const;
+const QUALITIES = ["上品", "中品", "下品"] as const;
+const ELEMENT_COLORS: Record<string, string> = { "金": "#FFD700", "木": "#4CAF50", "水": "#2196F3", "火": "#FF5722", "土": "#8D6E63" };
+const QUALITY_COLORS: Record<string, string> = { "上品": "#FF6B35", "中品": "#4A90D9", "下品": "#9E9E9E" };
+const QUALITY_MULT: Record<string, number> = { "上品": 1.6, "中品": 1.3, "下品": 1.0 };
 
-  // 双灵根 — 有一定概率变异
-  if (Math.random() < 0.15) return "异灵根";
-  return "双灵根";
-}
+const TALENTS = [
+  { id: "protagonist", name: "天命主角", cost: 5, desc: "气运+3，奇遇概率大幅提升" },
+  { id: "sword", name: "剑道独尊", cost: 4, desc: "根骨+2，剑法修炼速度翻倍" },
+  { id: "pill", name: "丹道圣手", cost: 3, desc: "灵性+2，炼丹成功率提升" },
+  { id: "array", name: "阵法大师", cost: 3, desc: "悟性+2，阵法领悟力提升" },
+  { id: "forge", name: "炼器鬼手", cost: 3, desc: "根骨+1灵性+1，炼器水平提升" },
+  { id: "treasure", name: "多宝童子", cost: 4, desc: "气运+2，初始获得一件宝物" },
+  { id: "body", name: "体修奇才", cost: 2, desc: "根骨+2，肉身强度提升" },
+  { id: "mind", name: "神识过人", cost: 2, desc: "心性+2，神识强度提升" },
+];
+
+const ATTR_DEFS = [
+  { key: "root", label: "根骨", icon: "🦴", desc: "影响气血、恢复、炼体" },
+  { key: "spirit", label: "灵性", icon: "✨", desc: "影响灵气亲和、法术" },
+  { key: "insight", label: "悟性", icon: "🧠", desc: "影响功法领悟、学习" },
+  { key: "luck", label: "气运", icon: "🍀", desc: "影响奇遇、宝物获取" },
+  { key: "charm", label: "魅力", icon: "💫", desc: "影响NPC好感、社交" },
+  { key: "mind", label: "心性", icon: "💎", desc: "影响心魔抵抗、意志" },
+];
 
 export default function CreatePage() {
   const router = useRouter();
-  const [step, setStep] = useState<"name" | "quiz" | "result">("name");
+  const [step, setStep] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [nameError, setNameError] = useState("");
+  const [checking, setChecking] = useState(false);
+
+  // 各步骤数据
   const [userName, setUserName] = useState("");
-  const [cultivatorName, setCultivatorName] = useState("");
   const [password, setPassword] = useState("");
-  const [passwordConfirm, setPasswordConfirm] = useState("");
-  const [quizIndex, setQuizIndex] = useState(0);
-  const [elements, setElements] = useState<string[]>([]);
-  const [spiritualRoot, setSpiritualRoot] = useState<SpiritualRoot | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
+  const [selectedWorld, setSelectedWorld] = useState<typeof WORLDS[0] | null>(null);
+  const [selectedBirth, setSelectedBirth] = useState<typeof BIRTHS[0] | null>(null);
+  const [selectedIdentity, setSelectedIdentity] = useState<typeof IDENTITIES[0] | null>(null);
+  const [selectedRoot, setSelectedRoot] = useState<{ element: string; quality: string; multiplier: number } | null>(null);
+  const [selectedTalentIds, setSelectedTalentIds] = useState<string[]>([]);
+  const [attributes, setAttributes] = useState<Record<string, number>>({ root: 0, spirit: 0, insight: 0, luck: 0, charm: 0, mind: 0 });
 
-  const handleNameSubmit = () => {
-    if (!userName.trim() || !cultivatorName.trim()) return;
-    if (!password || password.length < 4) {
-      const { toast } = require("sonner");
-      toast.error("密码至少 4 位");
-      return;
-    }
-    if (password !== passwordConfirm) {
-      const { toast } = require("sonner");
-      toast.error("两次密码不一致");
-      return;
-    }
-    setStep("quiz");
-  };
+  const birthPoints = selectedBirth?.points || 0;
+  const identityCost = selectedIdentity?.cost || 0;
+  const rootCost = selectedRoot ? 2 : 0;
+  const talentCost = selectedTalentIds.reduce((sum, id) => sum + (TALENTS.find((t) => t.id === id)?.cost || 0), 0);
+  const attrUsed = Object.values(attributes).reduce((a, b) => a + b, 0);
+  const remaining = birthPoints - identityCost - rootCost - talentCost - attrUsed;
+  const maxAttrPoints = remaining + attrUsed;
 
-  const handleQuizAnswer = (element: string) => {
-    const newElements = [...elements, element];
-    if (quizIndex < QUIZ_QUESTIONS.length - 1) {
-      setElements(newElements);
-      setQuizIndex(quizIndex + 1);
-    } else {
-      const root = determineSpiritualRoot(newElements);
-      setSpiritualRoot(root);
-      setStep("result");
+  const steps = ["账号", "世界", "出生", "身份", "灵根", "天赋", "属性", "确认"];
+  const stepLabels = ["输入账号", "选择世界", "先天资质", "身份背景", "灵根", "天赋特长", "分配属性", "确认创建"];
+
+  const goNext = () => { if (step < steps.length - 1) setStep(step + 1); };
+  const goBack = () => { if (step > 0) setStep(step - 1); };
+
+  // 检查账号名是否重复
+  const handleCheckName = async () => {
+    if (!userName || password.length < 6) return;
+    setChecking(true);
+    setNameError("");
+    try {
+      const res = await fetch(`/api/auth/check-name?name=${encodeURIComponent(userName)}`);
+      const data = await res.json();
+      if (data.exists) {
+        setNameError("该账号名已被占用，请换一个");
+      } else {
+        goNext();
+      }
+    } catch {
+      setNameError("检测失败，请重试");
+    } finally {
+      setChecking(false);
     }
   };
 
   const handleCreate = async () => {
-    if (!spiritualRoot) return;
-    setIsCreating(true);
-
+    if (!selectedRoot) return;
+    setLoading(true);
     try {
-      const res = await fetch("/api/auth/login", {
+      const rootId = selectedRoot.element === "chaos" ? "chaos" : `${selectedRoot.element}_${selectedRoot.quality}`;
+      const res = await fetch("/api/cultivator", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: userName.trim(),
-          password,
-          cultivatorName: cultivatorName.trim(),
-          spiritualRoot,
-        }),
+        body: JSON.stringify({ userName, cultivatorName: userName, spiritualRoot: rootId, password: password || undefined, worldId: selectedWorld?.id }),
       });
-
       const data = await res.json();
-      if (data.user) {
-        localStorage.setItem("userId", data.user.id);
-        router.replace("/dashboard");
-      } else if (data.error) {
-        const { toast } = await import("sonner");
-        toast.error(data.error);
+      if (!res.ok) { alert(data.error); setLoading(false); return; }
+
+      localStorage.setItem("userId", data.user.id);
+      localStorage.setItem("cultivatorName", userName);
+      localStorage.setItem("attributes", JSON.stringify(attributes));
+
+      if (selectedWorld?.id === "earth") {
+        const family = generateEarthFamily(1, selectedIdentity?.id || "scholar");
+        localStorage.setItem("family", JSON.stringify(family));
       }
-    } catch (err) {
-      console.error("创建失败:", err);
-      setIsCreating(false);
+
+      // 生成出生叙事
+      try {
+        await fetch("/api/narrative", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: data.user.id, type: "BIRTH", worldName: selectedWorld?.name,
+            identityName: selectedIdentity?.name, age: 1, worldId: selectedWorld?.id,
+            family: selectedWorld?.id === "earth" ? JSON.parse(localStorage.getItem("family") || "{}").members || [] : [],
+          }),
+        });
+      } catch {}
+
+      router.replace("/dashboard");
+    } catch (err) { console.error(err); alert("创建失败"); setLoading(false); }
+  };
+
+  // 天赋选择切换
+  const toggleTalent = (id: string) => {
+    const t = TALENTS.find((t) => t.id === id);
+    if (!t) return;
+    if (selectedTalentIds.includes(id)) {
+      setSelectedTalentIds(selectedTalentIds.filter((i) => i !== id));
+    } else if (remaining >= t.cost) {
+      setSelectedTalentIds([...selectedTalentIds, id]);
     }
   };
 
+  // 属性调整
+  const adjustAttr = (key: string, delta: number) => {
+    const cur = attributes[key] || 0;
+    const newVal = cur + delta;
+    if (newVal < 0) return;
+    if (delta > 0 && remaining < delta) return;
+    setAttributes({ ...attributes, [key]: newVal });
+  };
+
+  const handleReset = () => setAttributes({ root: 0, spirit: 0, insight: 0, luck: 0, charm: 0, mind: 0 });
+  const handleBalance = () => {
+    const pts = maxAttrPoints;
+    const base = Math.floor(pts / 6);
+    const rem = pts % 6;
+    const keys = ["root", "spirit", "insight", "luck", "charm", "mind"];
+    const newAttrs: Record<string, number> = {};
+    keys.forEach((k, i) => { newAttrs[k] = base + (i < rem ? 1 : 0); });
+    setAttributes(newAttrs);
+  };
+  const handleRandom = () => {
+    let pts = maxAttrPoints;
+    const keys = ["root", "spirit", "insight", "luck", "charm", "mind"];
+    const newAttrs: Record<string, number> = {};
+    for (let i = 0; i < keys.length; i++) {
+      if (i === keys.length - 1) { newAttrs[keys[i]] = pts; break; }
+      const v = Math.floor(Math.random() * (pts + 1));
+      newAttrs[keys[i]] = v;
+      pts -= v;
+    }
+    setAttributes(newAttrs);
+  };
+
   return (
-    <main className="flex-1 flex flex-col items-center justify-center p-4 min-h-screen">
-      <div className="relative z-10 max-w-lg w-full space-y-6">
-        {/* 顶部导航：result 步骤不显示返回按钮，防止重测灵根 */}
-        {step !== "result" && (
-          <Button
-            variant="ghost"
-            className="text-foreground"
-            onClick={() => {
-              if (step === "quiz") setStep("name");
-              else router.replace("/");
-            }}
-          >
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            返回
-          </Button>
+    <main className="flex-1 flex flex-col items-center justify-center p-4 min-h-screen bg-background">
+      <div className="max-w-lg w-full space-y-4">
+        <div className="flex justify-start">
+          <button onClick={() => router.push("/")} className="flex items-center gap-1 text-muted-foreground hover:text-primary transition-colors text-sm">
+            <ArrowLeft className="w-4 h-4" /> 返回首页
+          </button>
+        </div>
+        {/* 步骤指示器 */}
+        <div className="flex items-center gap-1 justify-center">
+          {steps.map((s, i) => (
+            <div key={i} className={`flex items-center gap-1 ${i > 0 ? "ml-0.5" : ""}`}>
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                i === step ? "bg-primary text-white" : i < step ? "bg-primary/30 text-primary" : "bg-muted text-muted-foreground"
+              }`}>{i + 1}</div>
+              {i < steps.length - 1 && <div className={`w-4 h-0.5 ${i < step ? "bg-primary/30" : "bg-muted"}`} />}
+            </div>
+          ))}
+        </div>
+        <p className="text-center text-xs text-muted-foreground mb-2">{stepLabels[step]}</p>
+
+        {/* 天资点余额 */}
+        {step >= 2 && (
+          <div className="text-center text-sm">
+            <span className="text-primary font-bold">天资点：{remaining}</span>
+            <span className="text-muted-foreground ml-2">/ {birthPoints}</span>
+          </div>
         )}
 
-        {step === "name" && (
-          <Card className="bg-card border border-border">
-            <CardHeader>
-              <CardTitle className="text-xl text-primary flex items-center gap-2">
-                <Sparkles className="w-5 h-5" />
-                创建修炼者
-              </CardTitle>
-              <CardDescription className="text-muted-foreground">
-                在修仙世界中，道号即是你的身份。取一个响亮的道号吧！
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm text-muted-foreground">账号名（唯一，登录用）</label>
-                <Input
-                  placeholder="例如：zhangsan123"
-                  value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
-                  maxLength={20}
-                />
+        {/* 步骤 0: 账号 */}
+        {step === 0 && (
+          <Card className="border-border bg-card shadow-md">
+            <CardHeader><CardTitle className="text-foreground">创建账号</CardTitle><CardDescription className="text-muted-foreground">输入账号名和密码</CardDescription></CardHeader>
+            <CardContent className="space-y-3">
+              <div><label className="text-sm text-foreground">账号名</label><Input value={userName} onChange={(e) => { setUserName(e.target.value); setNameError(""); }} placeholder="登录用账号名" className="bg-white border-border text-foreground" /></div>
+              <div><label className="text-sm text-foreground">密码</label>
+                <div className="relative">
+                  <Input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="至少6位" className="bg-white border-border text-foreground pr-10" />
+                  <button onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"><Eye className="w-4 h-4" /></button>
+                </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm text-muted-foreground">修仙道号（展示给道友看的）</label>
-                <Input
-                  placeholder="例如：青雲真人"
-                  value={cultivatorName}
-                  onChange={(e) => setCultivatorName(e.target.value)}
-                  maxLength={12}
-                />
-                <p className="text-sm text-muted-foreground">道号可重名，取个响亮的吧</p>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm text-muted-foreground">密码</label>
-                <Input
-                  type="password"
-                  placeholder="至少 4 位"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  maxLength={50}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm text-muted-foreground">确认密码</label>
-                <Input
-                  type="password"
-                  placeholder="再次输入密码"
-                  value={passwordConfirm}
-                  onChange={(e) => setPasswordConfirm(e.target.value)}
-                  maxLength={50}
-                />
-              </div>
-              <Button
-                className="w-full bg-primary hover:bg-primary/90"
-                disabled={!userName.trim() || !cultivatorName.trim()}
-                onClick={handleNameSubmit}
-              >
-                下一步：灵根测试
-              </Button>
+              {nameError && <p className="text-xs text-red-500">{nameError}</p>}
+              <Button className="w-full bg-primary hover:bg-[#B33A2A] text-white" disabled={!userName || password.length < 6 || checking} onClick={handleCheckName}>{checking ? "检测中..." : "下一步"}</Button>
             </CardContent>
           </Card>
         )}
 
-        {step === "quiz" && (
-          <Card className="bg-card border border-border">
-            <CardHeader>
-              <CardTitle className="text-xl text-primary">
-                灵根测试 ({quizIndex + 1}/{QUIZ_QUESTIONS.length})
-              </CardTitle>
-              <CardDescription className="text-muted-foreground">
-                回答以下问题，天道将根据你的本心判定灵根资质
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-lg text-foreground font-semibold font-medium">
-                {QUIZ_QUESTIONS[quizIndex].question}
-              </p>
-              <div className="space-y-2">
-                {QUIZ_QUESTIONS[quizIndex].options.map((opt, i) => (
-                  <Button
-                    key={i}
-                    variant="outline"
-                    className="w-full justify-start text-left h-auto py-3 border-border hover:border-primary hover:bg-muted text-foreground"
-                    onClick={() => handleQuizAnswer(opt.element)}
-                  >
-                    <span className="mr-2 text-primary font-mono">
-                      {["甲", "乙", "丙", "丁", "戊"][i]}.
-                    </span>
-                    {opt.text}
-                  </Button>
-                ))}
+        {/* 步骤 1: 世界 */}
+        {step === 1 && (
+          <div className="space-y-2">
+            {WORLDS.map((w) => (
+              <Card key={w.id} className={`border cursor-pointer transition-all hover:border-primary/50 ${selectedWorld?.id === w.id ? "border-primary bg-primary/5" : "border-border bg-card"} shadow-md`} onClick={() => setSelectedWorld(w)}>
+                <CardContent className="p-4 flex items-center gap-3">
+                  <span className="text-2xl">{w.icon}</span>
+                  <div className="flex-1"><p className="font-semibold text-foreground">{w.name}</p><p className="text-xs text-muted-foreground">{w.desc}</p></div>
+                  {selectedWorld?.id === w.id && <Check className="w-5 h-5 text-primary" />}
+                </CardContent>
+              </Card>
+            ))}
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1 border-border" onClick={goBack}>返回</Button>
+              <Button className="flex-1 bg-primary hover:bg-[#B33A2A] text-white" disabled={!selectedWorld} onClick={goNext}>下一步</Button>
+            </div>
+          </div>
+        )}
+
+        {/* 步骤 2: 出生 */}
+        {step === 2 && (
+          <div className="space-y-2">
+            {BIRTHS.map((b) => {
+              const canAfford = true;
+              return (
+                <Card key={b.id} className={`border cursor-pointer transition-all ${selectedBirth?.id === b.id ? "border-primary bg-primary/5" : canAfford ? "border-border bg-card hover:border-primary/50" : "border-border/50 bg-muted/30 opacity-50"} shadow-md`} onClick={() => canAfford && setSelectedBirth(b)}>
+                  <CardContent className="p-3 flex items-center gap-3">
+                    <span className="text-xl">{b.icon}</span>
+                    <div className="flex-1"><p className="font-semibold text-foreground">{b.name}</p><p className="text-xs text-muted-foreground">{b.desc}</p></div>
+                    <span className="text-sm font-bold text-primary">{b.points}点</span>
+                    {selectedBirth?.id === b.id && <Check className="w-4 h-4 text-primary" />}
+                  </CardContent>
+                </Card>
+              );
+            })}
+            <div className="flex gap-2"><Button variant="outline" className="flex-1 border-border" onClick={goBack}>返回</Button><Button className="flex-1 bg-primary hover:bg-[#B33A2A] text-white" disabled={!selectedBirth} onClick={goNext}>下一步</Button></div>
+          </div>
+        )}
+
+        {/* 步骤 3: 身份 */}
+        {step === 3 && (
+          <div className="space-y-2">
+            {IDENTITIES.map((id) => {
+              const canAfford = id.cost <= remaining + (selectedIdentity?.id === id.id ? identityCost : 0);
+              return (
+                <Card key={id.id} className={`border cursor-pointer transition-all ${selectedIdentity?.id === id.id ? "border-primary bg-primary/5" : canAfford ? "border-border bg-card hover:border-primary/50" : "border-border/50 opacity-40"} shadow-md`} onClick={() => canAfford && setSelectedIdentity(id)}>
+                  <CardContent className="p-3 flex items-center gap-3">
+                    <span className="text-xl">{id.icon}</span>
+                    <div className="flex-1"><p className="font-semibold text-foreground">{id.name}</p><p className="text-xs text-muted-foreground">{id.desc}</p></div>
+                    <span className="text-sm text-muted-foreground">-{id.cost}点</span>
+                    {selectedIdentity?.id === id.id && <Check className="w-4 h-4 text-primary" />}
+                  </CardContent>
+                </Card>
+              );
+            })}
+            <div className="flex gap-2"><Button variant="outline" className="flex-1 border-border" onClick={goBack}>返回</Button><Button className="flex-1 bg-primary hover:bg-[#B33A2A] text-white" disabled={!selectedIdentity} onClick={goNext}>下一步</Button></div>
+          </div>
+        )}
+
+        {/* 步骤 4: 灵根 */}
+        {step === 4 && (
+          <div className="space-y-2">
+            {ELEMENTS.map((el) => (
+              <div key={el} className="space-y-1">
+                <p className="text-sm font-semibold text-foreground" style={{ color: ELEMENT_COLORS[el] }}>{el}灵根</p>
+                <div className="flex gap-1">
+                  {QUALITIES.map((q) => {
+                    const id = `${el}_${q}`;
+                    const isSelected = selectedRoot?.element === el && selectedRoot?.quality === q;
+                    const canAfford = 2 <= remaining + (isSelected ? 2 : 0);
+                    return (
+                      <Card key={id} className={`flex-1 border cursor-pointer transition-all ${isSelected ? "border-primary bg-primary/5" : canAfford ? "border-border bg-card hover:border-primary/50" : "border-border/50 opacity-30"} shadow-sm`} onClick={() => canAfford && setSelectedRoot({ element: el, quality: q, multiplier: QUALITY_MULT[q] })}>
+                        <CardContent className="p-2 text-center">
+                          <p className="text-xs font-semibold" style={{ color: QUALITY_COLORS[q] }}>{q}</p>
+                          <p className="text-[10px] text-muted-foreground">{QUALITY_MULT[q]}x</p>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+            {/* chaos */}
+            <Card className={`border cursor-pointer transition-all ${selectedRoot?.element === "chaos" ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/50"} shadow-md`} onClick={() => setSelectedRoot({ element: "chaos", quality: "凡品", multiplier: 0.2 })}>
+              <CardContent className="p-3 flex items-center gap-3">
+                <span className="text-xl">🌫️</span>
+                <div className="flex-1"><p className="font-semibold text-foreground">五行杂灵根</p><p className="text-xs text-muted-foreground">五行俱全，凡品，0.2x</p></div>
+                {selectedRoot?.element === "chaos" && <Check className="w-4 h-4 text-primary" />}
+              </CardContent>
+            </Card>
+            <div className="flex gap-2"><Button variant="outline" className="flex-1 border-border" onClick={goBack}>返回</Button><Button className="flex-1 bg-primary hover:bg-[#B33A2A] text-white" disabled={!selectedRoot} onClick={goNext}>下一步</Button></div>
+          </div>
+        )}
+
+        {/* 步骤 5: 天赋 */}
+        {step === 5 && (
+          <div className="space-y-2">
+            {TALENTS.map((t) => {
+              const isSelected = selectedTalentIds.includes(t.id);
+              const canAfford = t.cost <= remaining + (isSelected ? t.cost : 0);
+              return (
+                <Card key={t.id} className={`border cursor-pointer transition-all ${isSelected ? "border-primary bg-primary/5" : canAfford ? "border-border bg-card hover:border-primary/50" : "border-border/50 opacity-30"} shadow-md`} onClick={() => toggleTalent(t.id)}>
+                  <CardContent className="p-3 flex items-center gap-3">
+                    <div className="flex-1"><p className="font-semibold text-foreground">{t.name}</p><p className="text-xs text-muted-foreground">{t.desc}</p></div>
+                    <span className="text-sm text-muted-foreground">-{t.cost}点</span>
+                    {isSelected && <Check className="w-4 h-4 text-primary" />}
+                  </CardContent>
+                </Card>
+              );
+            })}
+            <div className="flex gap-2"><Button variant="outline" className="flex-1 border-border" onClick={goBack}>返回</Button><Button className="flex-1 bg-primary hover:bg-[#B33A2A] text-white" onClick={goNext}>下一步</Button></div>
+          </div>
+        )}
+
+        {/* 步骤 6: 属性 */}
+        {step === 6 && (
+          <Card className="border-border bg-card shadow-md">
+            <CardHeader><CardTitle className="text-foreground">分配属性</CardTitle><CardDescription className="text-muted-foreground">剩余 {remaining} 点可分配</CardDescription></CardHeader>
+            <CardContent className="space-y-2">
+              {ATTR_DEFS.map((a) => (
+                <div key={a.key} className="flex items-center gap-3 py-1.5 border-b border-muted last:border-0">
+                  <span className="text-lg">{a.icon}</span>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-foreground">{a.label}</p>
+                    <p className="text-[10px] text-muted-foreground">{a.desc}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => adjustAttr(a.key, -1)} className="w-7 h-7 flex items-center justify-center rounded bg-muted text-muted-foreground hover:bg-muted/80 disabled:opacity-30 text-sm">-</button>
+                    <span className="w-6 text-center text-sm font-bold text-foreground">{attributes[a.key] || 0}</span>
+                    <button onClick={() => adjustAttr(a.key, 1)} className="w-7 h-7 flex items-center justify-center rounded bg-muted text-muted-foreground hover:bg-muted/80 disabled:opacity-30 text-sm">+</button>
+                  </div>
+                </div>
+              ))}
+              <div className="flex gap-2 pt-2">
+                <button onClick={handleReset} className="flex-1 py-2 rounded-lg bg-muted border border-border text-sm text-muted-foreground hover:bg-muted/80">重置</button>
+                <button onClick={handleBalance} className="flex-1 py-2 rounded-lg bg-muted border border-border text-sm text-muted-foreground hover:bg-muted/80">均衡</button>
+                <button onClick={handleRandom} className="flex-1 py-2 rounded-lg bg-muted border border-border text-sm text-muted-foreground hover:bg-muted/80">随机</button>
               </div>
             </CardContent>
+            <div className="flex gap-2 p-4 pt-0">
+              <Button variant="outline" className="flex-1 border-border" onClick={goBack}>返回</Button>
+              <Button className="flex-1 bg-primary hover:bg-[#B33A2A] text-white" onClick={goNext}>下一步</Button>
+            </div>
           </Card>
         )}
 
-        {step === "result" && spiritualRoot && (
-          <Card className="bg-card border border-border">
-            <CardHeader className="text-center">
-              <div className="text-4xl mb-2">
-                {spiritualRoot === "天灵根" ? "🌟" :
-                 spiritualRoot === "异灵根" ? "💎" :
-                 spiritualRoot === "双灵根" ? "✨" :
-                 spiritualRoot === "三灵根" ? "🔮" :
-                 spiritualRoot === "四灵根" ? "🍃" : "🌱"}
-              </div>
-              <CardTitle
-                className="text-2xl font-bold"
-                style={{ color: SPIRITUAL_ROOTS[spiritualRoot].color }}
-              >
-                {spiritualRoot}
-              </CardTitle>
-              <CardDescription className="text-muted-foreground mt-2">
-                {SPIRITUAL_ROOTS[spiritualRoot].description}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-center gap-4 text-sm">
-                <Badge variant="outline" className="border-primary text-primary">
-                  <Star className="w-3 h-3 mr-1" />
-                  稀有度: {"★".repeat(SPIRITUAL_ROOTS[spiritualRoot].rarity)}
-                </Badge>
-                <Badge variant="outline" className="border-border text-muted-foreground">
-                  修炼速度: x{SPIRITUAL_ROOTS[spiritualRoot].speedBonus}
-                </Badge>
-                <Badge variant="outline" className="border-border text-muted-foreground">
-                  {SPIRITUAL_ROOTS[spiritualRoot].element}
-                </Badge>
-              </div>
-
-              <div className="bg-muted rounded-lg p-4 text-base text-foreground space-y-2">
-                <p><span className="text-muted-foreground">道号：</span>{cultivatorName}</p>
-                <p><span className="text-muted-foreground">灵根：</span>
-                  <span style={{ color: SPIRITUAL_ROOTS[spiritualRoot].color }}>
-                    {spiritualRoot}
-                  </span>
-                </p>
-                <p><span className="text-muted-foreground">初始境界：</span>炼气期 第一层</p>
-              </div>
-
-              <Button
-                className="w-full bg-primary hover:bg-primary/90 h-12 text-lg"
-                onClick={handleCreate}
-                disabled={isCreating}
-              >
-                {isCreating ? "正在踏入修仙之路..." : "踏入仙途！"}
-                <Sparkles className="w-5 h-5 ml-2" />
-              </Button>
+        {/* 步骤 7: 确认 */}
+        {step === 7 && (
+          <Card className="border-border bg-card shadow-md">
+            <CardHeader><CardTitle className="text-foreground">确认创建</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex justify-between text-sm"><span className="text-muted-foreground">道号</span><span className="text-foreground font-medium">{userName}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-muted-foreground">世界</span><span className="text-foreground font-medium">{selectedWorld?.icon} {selectedWorld?.name}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-muted-foreground">出生</span><span className="text-foreground font-medium">{selectedBirth?.name} · {selectedBirth?.points}天资点</span></div>
+              <div className="flex justify-between text-sm"><span className="text-muted-foreground">身份</span><span className="text-foreground font-medium">{selectedIdentity?.name}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-muted-foreground">灵根</span><span className="text-foreground font-medium">{selectedRoot?.element === "chaos" ? "五行杂灵根 · 凡品 (0.2x)" : `${selectedRoot?.element}灵根 · ${selectedRoot?.quality} (${selectedRoot?.multiplier}x)`}</span></div>
+              {selectedTalentIds.length > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">天赋</span><span className="text-foreground font-medium">{selectedTalentIds.map((id) => TALENTS.find((t) => t.id === id)?.name).join("、")}</span></div>}
+              <div className="flex justify-between text-sm"><span className="text-muted-foreground">属性</span><span className="text-foreground font-medium">{ATTR_DEFS.map((a) => `${a.icon}${attributes[a.key] || 0}`).join(" · ")}</span></div>
+              <div className="flex justify-between text-sm border-t border-muted pt-2"><span className="text-muted-foreground">已用天资点</span><span className="text-primary font-bold">{birthPoints - remaining}/{birthPoints}</span></div>
             </CardContent>
+            <div className="flex gap-2 p-4 pt-0">
+              <Button variant="outline" className="flex-1 border-border" onClick={goBack}>返回</Button>
+              <Button className="flex-1 bg-primary hover:bg-[#B33A2A] text-white" disabled={loading} onClick={handleCreate}>{loading ? "创建中..." : "踏入仙途"}</Button>
+            </div>
           </Card>
         )}
       </div>

@@ -8,17 +8,12 @@ import { Loader2 } from "lucide-react";
 import BottomNav from "@/components/bottom-nav";
 
 interface GameEvent {
-  id: string;
-  type: string;
-  title: string;
-  narrative: string;
-  createdAt: string;
+  id: string; type: string; title: string; narrative: string; createdAt: string;
 }
 
 const typeLabel = (type: string) => {
-  if (type === "BREAKTHROUGH")     return { text: "突破", cls: "border-red-300 text-red-700" };
-  if (type === "ENCOUNTER")        return { text: "奇遇", cls: "border-purple-300 text-purple-700" };
-  if (type === "RANDOM_ENCOUNTER") return { text: "奇遇", cls: "border-purple-300 text-purple-700" };
+  if (type === "BREAKTHROUGH") return { text: "突破", cls: "border-red-300 text-red-700" };
+  if (type === "ENCOUNTER" || type === "RANDOM_ENCOUNTER") return { text: "奇遇", cls: "border-purple-300 text-purple-700" };
   return { text: "修炼", cls: "border-border text-muted-foreground" };
 };
 
@@ -29,28 +24,25 @@ const fmt = (iso: string) => {
 
 export default function HistoryPage() {
   const router = useRouter();
-  const [events, setEvents]     = useState<GameEvent[]>([]);
-  const [page, setPage]         = useState(1);
-  const [hasMore, setHasMore]   = useState(false);
-  const [total, setTotal]       = useState(0);
-  const [loading, setLoading]   = useState(true);
+  const [events, setEvents] = useState<GameEvent[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const fetchEvents = useCallback(async (p: number, append = false) => {
     const id = localStorage.getItem("userId");
     if (!id) { router.replace("/"); return; }
-
-    const res  = await fetch(`/api/events?userId=${id}&page=${p}&limit=20`);
+    const res = await fetch(`/api/events?userId=${id}&page=${p}&limit=20`);
     const data = await res.json();
-
     setEvents(prev => append ? [...prev, ...(data.events || [])] : (data.events || []));
     setHasMore(data.hasMore || false);
     setTotal(data.total || 0);
   }, [router]);
 
-  useEffect(() => {
-    fetchEvents(1).finally(() => setLoading(false));
-  }, [fetchEvents]);
+  useEffect(() => { fetchEvents(1).finally(() => setLoading(false)); }, [fetchEvents]);
 
   const loadMore = async () => {
     setLoadingMore(true);
@@ -84,28 +76,32 @@ export default function HistoryPage() {
       ) : (
         <div className="space-y-3">
           {events.map(event => {
-            const { text, cls } = typeLabel(event.type);
+            const isLong = event.narrative.length > 150;
+            const isExp = expanded[event.id];
             return (
               <div key={event.id} className="bg-card rounded-xl p-4 border border-border">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className={`text-xs ${cls}`}>{text}</Badge>
+                    <Badge variant="outline" className={`text-xs ${typeLabel(event.type).cls}`}>{typeLabel(event.type).text}</Badge>
                     <span className="text-sm font-medium text-foreground">{event.title}</span>
                   </div>
                   <span className="text-xs text-muted-foreground shrink-0 ml-2">{fmt(event.createdAt)}</span>
                 </div>
-                <p className="text-sm text-foreground leading-relaxed line-clamp-3">{event.narrative}</p>
+                <div className={`text-sm text-foreground leading-relaxed ${!isExp && isLong ? "line-clamp-3" : ""}`}>
+                  {event.narrative}
+                </div>
+                {isLong && (
+                  <button onClick={() => setExpanded(prev => ({ ...prev, [event.id]: !prev[event.id] }))}
+                    className="text-primary text-xs hover:underline mt-1">
+                    {isExp ? "▲ 收起" : "▼ 展开全文"}
+                  </button>
+                )}
               </div>
             );
           })}
 
           {hasMore && (
-            <Button
-              variant="outline"
-              className="w-full border-border text-foreground h-11"
-              onClick={loadMore}
-              disabled={loadingMore}
-            >
+            <Button variant="outline" className="w-full border-border text-foreground h-11" onClick={loadMore} disabled={loadingMore}>
               {loadingMore ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               {loadingMore ? "加载中…" : "加载更多"}
             </Button>

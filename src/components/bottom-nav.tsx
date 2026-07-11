@@ -1,13 +1,12 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sword, ClipboardList, ScrollText, User } from "lucide-react";
+import { Sword, ScrollText, Users } from "lucide-react";
 
 const items = [
-  { href: "/dashboard", icon: Sword,         label: "修炼" },
-  { href: "/tasks",     icon: ClipboardList, label: "任务" },
-  { href: "/history",   icon: ScrollText,    label: "记录" },
-  { href: "/profile",   icon: User,          label: "我的" },
+  { href: "/dashboard", icon: Sword,      label: "修炼" },
+  { href: "/relationships", icon: Users,  label: "关系" },
+  { href: "/history",   icon: ScrollText, label: "记录" },
 ];
 
 export default function BottomNav() {

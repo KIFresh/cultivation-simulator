@@ -1,0 +1,15 @@
+﻿
+            <Button
+              className="w-full bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 h-12 text-lg"
+              disabled={!selectedWorld || isCreating}
+              onClick={handleCreate}
+            >
+              {isCreating
+                ? "姝ｅ湪韪忓叆淇粰涔嬭矾..."
+                : `韪忓叆 ${selectedWorld?.name || ""} 路 寮€濮嬩慨浠檂}
+              <Sparkles className="w-5 h-5 ml-2" />
+            </Button>
+          </div>
+        )}
+      </div>
+    </main>

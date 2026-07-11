@@ -6,54 +6,34 @@ import { SPIRITUAL_ROOTS, type SpiritualRoot } from "@/lib";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { userName, cultivatorName, spiritualRoot } = body;
+    const { userName, cultivatorName, spiritualRoot, password, worldId } = body;
 
     if (!userName || !cultivatorName || !spiritualRoot) {
-      return NextResponse.json(
-        { error: "缺少必填信息" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "缺少必填信息" }, { status: 400 });
     }
 
     if (!SPIRITUAL_ROOTS[spiritualRoot as SpiritualRoot]) {
-      return NextResponse.json(
-        { error: "无效的灵根类型" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "无效的灵根类型" }, { status: 400 });
     }
 
-    // 检查账号名是否已存在
     const existing = await prisma.user.findUnique({ where: { name: userName } });
-    if (existing) {
-      return NextResponse.json(
-        { error: "该账号名已被占用" },
-        { status: 409 }
-      );
-    }
+    if (existing) return NextResponse.json({ error: "该账号名已被占用" }, { status: 409 });
 
-    // 创建用户 + 修炼者
     const user = await prisma.user.create({
       data: {
         name: userName,
+        password: password || undefined,
         cultivator: {
-          create: {
-            name: cultivatorName,
-            spiritualRoot,
-          },
+          create: { name: cultivatorName, spiritualRoot, worldId: worldId || "earth" },
         },
       },
-      include: {
-        cultivator: true,
-      },
+      include: { cultivator: true },
     });
 
     return NextResponse.json({ user });
   } catch (error) {
     console.error("创建修炼者失败:", error);
-    return NextResponse.json(
-      { error: "创建失败，请重试" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "创建失败，请重试" }, { status: 500 });
   }
 }
 
@@ -80,14 +60,6 @@ export async function GET(request: NextRequest) {
               take: 10,
             },
           },
-        },
-        dailyTasks: {
-          where: {
-            date: {
-              gte: new Date(new Date().setHours(0, 0, 0, 0)),
-            },
-          },
-          orderBy: { date: "desc" },
         },
       },
     });

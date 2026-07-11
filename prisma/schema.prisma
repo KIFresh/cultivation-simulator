@@ -9,52 +9,43 @@ datasource db {
 
 model User {
   id            String    @id @default(cuid())
-  name          String    @unique // 账号名（唯一，登录用）
-  password      String?   // bcrypt 加密（新账号必填）
+  name          String    @unique
+  password      String?
   email         String?   @unique
   bilibiliId    String?   @unique
   avatar        String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   cultivator    Cultivator?
-  dailyTasks    DailyTask[]
 }
 
 model Cultivator {
   id                String   @id @default(cuid())
   userId            String   @unique
   user              User     @relation(fields: [userId], references: [id])
-  name              String   // 修仙者名字
+  name              String
   spiritualRoot     String   @default("杂灵根")
-  realm             String   @default("炼气期")
-  realmLevel        Int      @default(1)
+  realm             String   @default("凡人")
+  realmLevel        Int      @default(0)
   cultivationExp    Int      @default(0)
   totalExp          Int      @default(0)
-  stamina           Int      @default(100)
+  stamina           Int      @default(20)
   breakthroughCount Int      @default(0)
   title             String?
+  worldId           String?
+  age               Int      @default(1)
+  location          String?
+  npcRelations      String?
+  gold              Int      @default(50)
   createdAt         DateTime @default(now())
   events            GameEvent[]
-}
-
-model DailyTask {
-  id               String   @id @default(cuid())
-  userId           String
-  user             User     @relation(fields: [userId], references: [id])
-  type             String   @default("STUDY") // STUDY, EXERCISE, SLEEP, MEDITATE, WORK, CUSTOM
-  description      String?
-  completed        Boolean  @default(false)
-  cultivationBonus Int      @default(0)
-  date             DateTime @default(now())
-
-  @@index([userId, date])
 }
 
 model GameEvent {
   id           String   @id @default(cuid())
   cultivatorId String
   cultivator   Cultivator @relation(fields: [cultivatorId], references: [id])
-  type         String   @default("DAILY_CULTIVATION")
+  type         String   @default("ACTION")
   title        String
   narrative    String
   choices      String?
@@ -75,4 +66,9 @@ model ShareCard {
   createdAt     DateTime @default(now())
 
   @@index([cultivatorId])
+}
+
+model AppSetting {
+  key    String @id
+  value  String
 }
