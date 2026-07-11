@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     const isEarth = cultivator.worldId === "earth";
     if (isEarth && cultivator.age < action.minAgeEarth) return NextResponse.json({ error: `年龄不足` }, { status: 400 });
 
-    const expGained = calculateActionExp(actionId, cultivator.spiritualRoot);
+    const expGained = calculateActionExp(actionId, cultivator.spiritualRoot, body.attributes);
     let newRealm = cultivator.realm, newRealmLevel = cultivator.realmLevel;
     let newExp = cultivator.cultivationExp + expGained, newTotalExp = cultivator.totalExp + expGained;
     let awakenEvent: { title: string; narrative: string } | null = null;

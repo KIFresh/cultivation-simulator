@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     const oldAge = cultivator.age, newAge = oldAge + 1;
 
     const currentAttrs: Record<string, number> = rawAttributes || {};
-    const newAttributes = calculateYearlyAttributeGrowth(oldAge, newAge, currentAttrs);
+    const newAttributes = calculateYearlyAttributeGrowth(oldAge, newAge, currentAttrs, schoolRank);
 
     const schoolStage = getSchoolStage(newAge);
     let schoolRank = currentRank || "普通";

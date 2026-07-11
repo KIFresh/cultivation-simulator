@@ -128,10 +128,13 @@ export function getAvailableActions(worldId: string, age: number): Action[] {
   return ACTIONS.filter((a) => worldId === "earth" ? age >= a.minAgeEarth : true);
 }
 export function getActionById(actionId: string): Action | undefined { return ACTIONS.find((a) => a.id === actionId); }
-export function calculateActionExp(actionId: string, spiritualRoot: string): number {
+export function calculateActionExp(actionId: string, spiritualRoot: string, attributes?: Record<string, number>): number {
   const action = ACTIONS.find((a) => a.id === actionId);
   if (!action) return 5;
-  return Math.floor(action.baseExp * getRootInfo(spiritualRoot).speedBonus);
+  const base = action.baseExp * getRootInfo(spiritualRoot).speedBonus;
+  // 灵性加成：每点灵性 +5% 修炼速度
+  const spiritBonus = attributes ? 1 + (attributes.spirit || 0) * 0.05 : 1;
+  return Math.floor(base * spiritBonus);
 }
 
 // ============================================================
@@ -282,11 +285,15 @@ export function calcTravelCost(fromLocId: string, toLocId: string): number {
   const to = LOCATIONS.find((l) => l.id === toLocId);
   return from && to ? Math.max(1, Math.abs(from.distanceFromHome - to.distanceFromHome)) : 1;
 }
-export function calculateMaxStamina(age: number): number {
-  if (age <= 0) return 5; if (age >= 18) return 20;
-  if (age < 6) return Math.round(5 + (age / 6) * 6);
-  if (age < 12) return Math.round(11 + ((age - 6) / 6) * 7);
-  return Math.round(18 + ((age - 12) / 6) * 2);
+export function calculateMaxStamina(age: number, attributes?: Record<string, number>): number {
+  let base: number;
+  if (age <= 0) base = 5;
+  else if (age >= 18) base = 20;
+  else if (age < 6) base = Math.round(5 + (age / 6) * 6);
+  else if (age < 12) base = Math.round(11 + ((age - 6) / 6) * 7);
+  else base = Math.round(18 + ((age - 12) / 6) * 2);
+  const rootBonus = attributes ? Math.round((attributes.root || 0) * 0.5) : 0;
+  return base + rootBonus;
 }
 
 // ============================================================
@@ -303,12 +310,14 @@ export const ATTR_INFO: AttrInfo[] = [
 ];
 
 const ATTR_KEYS = ["root", "spirit", "insight", "luck", "charm", "mind"] as const;
-export function calculateYearlyAttributeGrowth(oldAge: number, newAge: number, currentAttributes: Record<string, number>): Record<string, number> {
+export function calculateYearlyAttributeGrowth(oldAge: number, newAge: number, currentAttributes: Record<string, number>, schoolRank?: SchoolRank): Record<string, number> {
   const result = { ...currentAttributes };
+  const multiplier = schoolRank ? (SCHOOL_RANKS[schoolRank]?.attrMultiplier ?? 1.0) : 1.0;
+  const insightBonus = (currentAttributes.insight || 0) * 0.1 + 1;
   if (newAge <= 0 || oldAge >= 18) return result;
   const startAge = Math.max(0, oldAge), endAge = Math.min(18, newAge);
   for (let age = startAge; age < endAge; age++) {
-    let totalGrowthForYear = age < 6 ? 1 / 6 : age < 12 ? 5 / 6 : 4 / 6;
+    let totalGrowthForYear = (age < 6 ? 1 / 6 : age < 12 ? 5 / 6 : 4 / 6) * multiplier * insightBonus;
     if (totalGrowthForYear <= 0) continue;
     const totalCurrent = Object.values(result).reduce((a, b) => a + b, 0) || 1;
     for (const key of ATTR_KEYS) {

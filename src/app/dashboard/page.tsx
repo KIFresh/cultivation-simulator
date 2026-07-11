@@ -79,7 +79,7 @@ export default function DashboardPage() {
       if (data.user?.cultivator) {
         const capped = {
           ...data.user.cultivator,
-          stamina: Math.min(data.user.cultivator.stamina, calculateMaxStamina(data.user.cultivator.age)),
+          stamina: Math.min(data.user.cultivator.stamina, calculateMaxStamina(data.user.cultivator.age, attributes)),
         };
         setCultivator(capped);
         const actions = getAvailableActions(capped.worldId || "earth", capped.age);
@@ -119,7 +119,7 @@ export default function DashboardPage() {
       try { const raw = localStorage.getItem("family"); if (raw) familyData = JSON.parse(raw); } catch {}
       const res = await fetch("/api/action", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, actionId, freeInput: input || undefined, worldId: cultivator.worldId, family: familyData }),
+        body: JSON.stringify({ userId, actionId, freeInput: input || undefined, worldId: cultivator.worldId, family: familyData, attributes }),
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "行动失败"); return; }
