@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Noto_Serif_SC } from "next/font/google";
+import { Settings } from "lucide-react";
 import { toast } from "sonner";
+import SettingsDialog from "@/components/settings-dialog";
 
 const notoSerifSC = Noto_Serif_SC({
   subsets: ["latin"],
@@ -15,6 +17,7 @@ const notoSerifSC = Noto_Serif_SC({
 export default function Home() {
   const router = useRouter();
   const [devMode, setDevMode] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     setDevMode(localStorage.getItem("devMode") === "true");
@@ -113,6 +116,13 @@ export default function Home() {
             </span>
           </div>
           <div className="flex gap-8 items-center">
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="text-[#5C5C5C] hover:text-[#8B2626] transition-colors"
+              title="设置"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
             {/* 对接 Next.js 路由的登录入口 */}
             <Link
               href="/login"
@@ -249,6 +259,7 @@ export default function Home() {
           </div>
         </div>
       </div>
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>
   );
 }
