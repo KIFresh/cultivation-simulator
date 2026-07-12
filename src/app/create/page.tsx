@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Sparkles, ArrowLeft, Check, Eye, EyeOff } from "lucide-react";
+import { Sparkles, ArrowLeft, Check } from "lucide-react";
 import { generateEarthFamily } from "@/lib/family";
 
 // 数据定义
@@ -60,15 +59,17 @@ const ATTR_DEFS = [
 
 export default function CreatePage() {
   const router = useRouter();
+  const [userId, setUserId] = useState<string | null>(null);
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [nameError, setNameError] = useState("");
-  const [checking, setChecking] = useState(false);
+
+  useEffect(() => {
+    const uid = localStorage.getItem("userId");
+    if (!uid) { router.replace("/login"); return; }
+    setUserId(uid);
+  }, [router]);
 
   // 各步骤数据
-  const [userName, setUserName] = useState("");
-  const [password, setPassword] = useState("");
   const [selectedWorld, setSelectedWorld] = useState<typeof WORLDS[0] | null>(null);
   const [selectedBirth, setSelectedBirth] = useState<typeof BIRTHS[0] | null>(null);
   const [selectedIdentity, setSelectedIdentity] = useState<typeof IDENTITIES[0] | null>(null);
@@ -84,47 +85,28 @@ export default function CreatePage() {
   const remaining = birthPoints - identityCost - rootCost - talentCost - attrUsed;
   const maxAttrPoints = remaining + attrUsed;
 
-  const steps = ["账号", "世界", "出生", "身份", "灵根", "天赋", "属性", "确认"];
-  const stepLabels = ["输入账号", "选择世界", "先天资质", "身份背景", "灵根", "天赋特长", "分配属性", "确认创建"];
+  const steps = ["世界", "出生", "身份", "灵根", "天赋", "属性", "确认"];
+  const stepLabels = ["选择世界", "先天资质", "身份背景", "灵根", "天赋特长", "分配属性", "确认创建"];
 
   const goNext = () => { if (step < steps.length - 1) setStep(step + 1); };
   const goBack = () => { if (step > 0) setStep(step - 1); };
-
-  // 检查账号名是否重复
-  const handleCheckName = async () => {
-    if (!userName || password.length < 6) return;
-    setChecking(true);
-    setNameError("");
-    try {
-      const res = await fetch(`/api/auth/check-name?name=${encodeURIComponent(userName)}`);
-      const data = await res.json();
-      if (data.exists) {
-        setNameError("该账号名已被占用，请换一个");
-      } else {
-        goNext();
-      }
-    } catch {
-      setNameError("检测失败，请重试");
-    } finally {
-      setChecking(false);
-    }
-  };
 
   const handleCreate = async () => {
     if (!selectedRoot) return;
     setLoading(true);
     try {
       const rootId = selectedRoot.element === "chaos" ? "chaos" : `${selectedRoot.element}_${selectedRoot.quality}`;
+      const cultivatorName = localStorage.getItem("cultivatorName") || userId;
       const res = await fetch("/api/cultivator", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userName, cultivatorName: userName, spiritualRoot: rootId, password: password || undefined, worldId: selectedWorld?.id }),
+        body: JSON.stringify({ userId, cultivatorName, spiritualRoot: rootId, worldId: selectedWorld?.id }),
       });
       const data = await res.json();
       if (!res.ok) { alert(data.error); setLoading(false); return; }
 
       localStorage.setItem("userId", data.user.id);
-      localStorage.setItem("cultivatorName", userName);
+      localStorage.setItem("cultivatorName", cultivatorName ?? "");
       localStorage.setItem("attributes", JSON.stringify(attributes));
 
       if (selectedWorld?.id === "earth") {
@@ -214,33 +196,15 @@ export default function CreatePage() {
         <p className="text-center text-xs text-muted-foreground mb-2">{stepLabels[step]}</p>
 
         {/* 天资点余额 */}
-        {step >= 2 && (
+        {step >= 1 && (
           <div className="text-center text-sm">
             <span className="text-primary font-bold">天资点：{remaining}</span>
             <span className="text-muted-foreground ml-2">/ {birthPoints}</span>
           </div>
         )}
 
-        {/* 步骤 0: 账号 */}
+        {/* 步骤 0: 世界 */}
         {step === 0 && (
-          <Card className="border-border bg-card shadow-md">
-            <CardHeader><CardTitle className="text-foreground">创建账号</CardTitle><CardDescription className="text-muted-foreground">输入账号名和密码</CardDescription></CardHeader>
-            <CardContent className="space-y-3">
-              <div><label className="text-sm text-foreground">账号名</label><Input value={userName} onChange={(e) => { setUserName(e.target.value); setNameError(""); }} placeholder="登录用账号名" className="bg-white border-border text-foreground" /></div>
-              <div><label className="text-sm text-foreground">密码</label>
-                <div className="relative">
-                  <Input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="至少6位" className="bg-white border-border text-foreground pr-10" />
-                  <button onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"><Eye className="w-4 h-4" /></button>
-                </div>
-              </div>
-              {nameError && <p className="text-xs text-red-500">{nameError}</p>}
-              <Button className="w-full bg-primary hover:bg-[#B33A2A] text-white" disabled={!userName || password.length < 6 || checking} onClick={handleCheckName}>{checking ? "检测中..." : "下一步"}</Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* 步骤 1: 世界 */}
-        {step === 1 && (
           <div className="space-y-2">
             {WORLDS.map((w) => (
               <Card key={w.id} className={`border cursor-pointer transition-all hover:border-primary/50 ${selectedWorld?.id === w.id ? "border-primary bg-primary/5" : "border-border bg-card"} shadow-md`} onClick={() => setSelectedWorld(w)}>
@@ -258,8 +222,8 @@ export default function CreatePage() {
           </div>
         )}
 
-        {/* 步骤 2: 出生 */}
-        {step === 2 && (
+        {/* 步骤 1: 出生 */}
+        {step === 1 && (
           <div className="space-y-2">
             {BIRTHS.map((b) => {
               const canAfford = true;
@@ -278,8 +242,8 @@ export default function CreatePage() {
           </div>
         )}
 
-        {/* 步骤 3: 身份 */}
-        {step === 3 && (
+        {/* 步骤 2: 身份 */}
+        {step === 2 && (
           <div className="space-y-2">
             {IDENTITIES.map((id) => {
               const canAfford = id.cost <= remaining + (selectedIdentity?.id === id.id ? identityCost : 0);
@@ -298,8 +262,8 @@ export default function CreatePage() {
           </div>
         )}
 
-        {/* 步骤 4: 灵根 */}
-        {step === 4 && (
+        {/* 步骤 3: 灵根 */}
+        {step === 3 && (
           <div className="space-y-2">
             {ELEMENTS.map((el) => (
               <div key={el} className="space-y-1">
@@ -333,8 +297,8 @@ export default function CreatePage() {
           </div>
         )}
 
-        {/* 步骤 5: 天赋 */}
-        {step === 5 && (
+        {/* 步骤 4: 天赋 */}
+        {step === 4 && (
           <div className="space-y-2">
             {TALENTS.map((t) => {
               const isSelected = selectedTalentIds.includes(t.id);
@@ -353,8 +317,8 @@ export default function CreatePage() {
           </div>
         )}
 
-        {/* 步骤 6: 属性 */}
-        {step === 6 && (
+        {/* 步骤 5: 属性 */}
+        {step === 5 && (
           <Card className="border-border bg-card shadow-md">
             <CardHeader><CardTitle className="text-foreground">分配属性</CardTitle><CardDescription className="text-muted-foreground">剩余 {remaining} 点可分配</CardDescription></CardHeader>
             <CardContent className="space-y-2">
@@ -385,12 +349,12 @@ export default function CreatePage() {
           </Card>
         )}
 
-        {/* 步骤 7: 确认 */}
-        {step === 7 && (
+        {/* 步骤 6: 确认 */}
+        {step === 6 && (
           <Card className="border-border bg-card shadow-md">
             <CardHeader><CardTitle className="text-foreground">确认创建</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex justify-between text-sm"><span className="text-muted-foreground">道号</span><span className="text-foreground font-medium">{userName}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-muted-foreground">道号</span><span className="text-foreground font-medium">{localStorage.getItem("cultivatorName") || "未知"}</span></div>
               <div className="flex justify-between text-sm"><span className="text-muted-foreground">世界</span><span className="text-foreground font-medium">{selectedWorld?.icon} {selectedWorld?.name}</span></div>
               <div className="flex justify-between text-sm"><span className="text-muted-foreground">出生</span><span className="text-foreground font-medium">{selectedBirth?.name} · {selectedBirth?.points}天资点</span></div>
               <div className="flex justify-between text-sm"><span className="text-muted-foreground">身份</span><span className="text-foreground font-medium">{selectedIdentity?.name}</span></div>
