@@ -68,11 +68,11 @@ export async function POST(request: NextRequest) {
     const narrativeOcc = parseOccupationFromNarrative(narrativeResult.narrative, occupation);
     if (narrativeOcc) occupation = narrativeOcc;
 
-    const updateData: Record<string, unknown> = { age: newAge, stamina: calculateMaxStamina(newAge, newAttributes) };
+    const updateData: Prisma.CultivatorUpdateInput = { age: newAge, stamina: calculateMaxStamina(newAge, newAttributes) };
     if (newRealm !== cultivator.realm) { updateData.realm = newRealm; updateData.realmLevel = newRealmLevel; }
 
     const [updatedCultivator] = await prisma.$transaction([
-      prisma.cultivator.update({ where: { id: cultivator.id }, data: updateData as Prisma.CultivatorUpdateInput }),
+      prisma.cultivator.update({ where: { id: cultivator.id }, data: updateData }),
       prisma.gameEvent.create({ data: { cultivatorId: cultivator.id, type: "YEAR_ADVANCE", title: awakenEvent ? awakenEvent.title : narrativeResult.title, narrative: awakenEvent ? awakenEvent.narrative : narrativeResult.narrative, reward: JSON.stringify({ oldAge, newAge, mood: narrativeResult.mood, schoolRank, occupation }) } }),
     ]);
 
