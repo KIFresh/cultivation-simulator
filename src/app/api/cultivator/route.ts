@@ -17,6 +17,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "无效的灵根类型" }, { status: 400 });
     }
 
+    // 新场景：已有 user，只创建 cultivator
+    if (body.userId) {
+      const existingUser = await prisma.user.findUnique({
+        where: { id: body.userId },
+        include: { cultivator: true },
+      });
+      if (!existingUser) {
+        return NextResponse.json({ error: "用户不存在" }, { status: 404 });
+      }
+      if (existingUser.cultivator) {
+        return NextResponse.json({ error: "该用户已有修炼者" }, { status: 409 });
+      }
+
+      const user = await prisma.user.update({
+        where: { id: body.userId },
+        data: {
+          cultivator: {
+            create: {
+              name: body.cultivatorName,
+              spiritualRoot: body.spiritualRoot,
+              worldId: body.worldId || "earth",
+            },
+          },
+        },
+        include: { cultivator: true },
+      });
+
+      return NextResponse.json({ user });
+    }
+
     const existing = await prisma.user.findUnique({ where: { name: userName } });
     if (existing) return NextResponse.json({ error: "该账号名已被占用" }, { status: 409 });
 
