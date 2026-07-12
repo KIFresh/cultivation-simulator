@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateYearAdvanceNarrative } from "@/lib/narrative";
 import { Prisma } from "@/generated/prisma/client";
+import { sanitizeAttributes } from "@/lib/utils";
 import { getSchoolStage, getSchoolGrade, calculateSchoolRank, getSchoolName, getDefaultOccupation, parseOccupationFromNarrative, calculateYearlyAttributeGrowth, calculateMaxStamina, type SchoolRank } from "@/lib";
 
 export async function POST(request: NextRequest) {
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
     const cultivator = user.cultivator;
     const oldAge = cultivator.age, newAge = oldAge + 1;
 
-    const currentAttrs: Record<string, number> = rawAttributes || {};
+    const currentAttrs: Record<string, number> = sanitizeAttributes(rawAttributes) || {};
     const currentRankVal = currentRank || "普通";
     const newAttributes = calculateYearlyAttributeGrowth(oldAge, newAge, currentAttrs, currentRankVal as SchoolRank);
 

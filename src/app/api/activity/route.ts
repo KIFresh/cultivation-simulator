@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAvailableActivities, applyActivityEffects } from "@/lib";
 import { Prisma } from "@/generated/prisma/client";
+import { sanitizeAttributes } from "@/lib/utils";
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
 
     if (c.stamina < activity.staminaCost) return NextResponse.json({ error: "行动力不足" }, { status: 400 });
 
-    const currentAttrs: Record<string, number> = attributes || {};
+    const currentAttrs: Record<string, number> = sanitizeAttributes(attributes) || {};
     const newAttrs = applyActivityEffects(activity, currentAttrs);
 
     const [updated] = await prisma.$transaction([
