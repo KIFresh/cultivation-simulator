@@ -104,6 +104,7 @@ export default function CreatePage() {
       });
       const data = await res.json();
       if (!res.ok) { alert(data.error); setLoading(false); return; }
+      if (!data?.user) { alert("创建失败：服务器返回异常"); setLoading(false); return; }
 
       localStorage.setItem("userId", data.user.id);
       localStorage.setItem("cultivatorName", cultivatorName ?? "");

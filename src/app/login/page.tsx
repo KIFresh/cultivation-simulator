@@ -28,6 +28,11 @@ export default function UnifiedLoginPage() {
       });
       const data = await res.json();
 
+      if (!data.user) {
+        setError(data.message || "服务器返回异常");
+        return;
+      }
+
       if (data.action === "login") {
         localStorage.setItem("userId", data.user.id);
         localStorage.setItem("cultivatorName", data.user.name);

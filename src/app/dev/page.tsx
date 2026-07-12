@@ -56,9 +56,9 @@ export default function DevPage() {
       return;
     }
     localStorage.setItem("userId", data.user.id);
-    localStorage.setItem("cultivatorName", data.user.cultivator.name);
+    localStorage.setItem("cultivatorName", data.user.cultivator?.name ?? data.user.name);
     localStorage.setItem("attributes", JSON.stringify({}));
-    toast.success(`已生成角色：${data.user.cultivator.name}`);
+    toast.success(`已生成角色：${data.user.cultivator?.name ?? data.user.name}`);
     window.location.href = "/dashboard";
   };
 
