@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { SPIRITUAL_ROOTS, type SpiritualRoot } from "@/lib";
+import { hashPassword } from "@/lib/auth";
 
 // POST — 创建修炼者
 export async function POST(request: NextRequest) {
@@ -19,10 +20,12 @@ export async function POST(request: NextRequest) {
     const existing = await prisma.user.findUnique({ where: { name: userName } });
     if (existing) return NextResponse.json({ error: "该账号名已被占用" }, { status: 409 });
 
+    const hashedPassword = password ? hashPassword(password) : undefined;
+
     const user = await prisma.user.create({
       data: {
         name: userName,
-        password: password || undefined,
+        password: hashedPassword ? `${hashedPassword.salt}:${hashedPassword.hash}` : undefined,
         cultivator: {
           create: { name: cultivatorName, spiritualRoot, worldId: worldId || "earth" },
         },

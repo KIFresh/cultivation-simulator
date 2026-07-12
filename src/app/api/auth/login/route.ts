@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import crypto from "node:crypto";
-
-function hashPassword(password: string, salt?: string): { hash: string; salt: string } {
-  const s = salt || crypto.randomBytes(16).toString("hex");
-  const h = crypto.scryptSync(password, s, 64).toString("hex");
-  return { hash: h, salt: s };
-}
+import { hashPassword } from "@/lib/auth";
 
 // POST — 注册
 export async function POST(request: NextRequest) {
