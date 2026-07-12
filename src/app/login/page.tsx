@@ -16,16 +16,30 @@ export default function LoginPage() {
 
   const handleLogin = async () => {
     if (!name.trim() || !password) return;
-    // 管理员登录
-    if (name.trim() === "admin" && password === "123456") {
-      localStorage.setItem("devMode", "true");
-      localStorage.removeItem("userId");
-      toast.success("开发者模式已开启");
-      router.replace("/");
-      return;
-    }
     setLoading(true);
     try {
+      // 管理员登录 — 服务端验证
+      if (name.trim() === "admin") {
+        const adminRes = await fetch("/api/auth/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password }),
+        });
+        const adminData = await adminRes.json();
+        if (adminData.valid) {
+          localStorage.setItem("devMode", "true");
+          localStorage.removeItem("userId");
+          toast.success("开发者模式已开启");
+          router.replace("/");
+          return;
+        }
+        if (adminData.disabled) {
+          toast.error("开发者模式未启用（服务端未配置管理员密钥）");
+          return;
+        }
+        // 密码错误，继续尝试普通登录（不直接报错，避免暴露 admin 存在）
+      }
+
       const res = await fetch("/api/auth/login", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
