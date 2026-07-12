@@ -1,0 +1,811 @@
+# 统一登录注册 + 设置弹窗 — 实施计划
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** 将 `/login` 和 `/create` 合为统一流程（输入账号密码，有账号则登录，无账号则自动创建后进入角色创建向导），移除管理員后门，在首页新增设置弹窗（AI 供应方配置 + 开发者模式）。
+
+**Architecture:** 新建 `POST /api/auth/auto` 统一接口处理检测/登录/创建；前端 `login/page.tsx` 重写为统一表单；`create/page.tsx` 移除注册步骤；`settings-dialog.tsx` 组件嵌入首页导航栏。
+
+**Tech Stack:** Next.js 16 App Router, Prisma 7/SQLite, shadcn/ui Dialog + Select + Input + Button, Lucide icons, sonner toast
+
+**设计文档:** `docs/superpowers/specs/2026-07-12-unified-auth-settings-design.md`
+
+## 全局约束
+
+- 不改动现有游戏逻辑（境界、突破、奇遇、叙事等）
+- `POST /api/cultivator` 保留旧调用方式（向后兼容）
+- 视觉风格保持现有古风水墨设计语言
+- 所有新文件和修改不得引入新的 npm 依赖（shadcn/ui 组件已在项目中使用）
+
+---
+
+### 任务 1: 新建 `POST /api/auth/auto` 统一接口
+
+**文件:**
+- 创建: `src/app/api/auth/auto/route.ts`
+
+**接口:**
+- 消费: `prisma.user`（已有）、`hashPassword` 逻辑（参考 `src/app/api/auth/login/route.ts` 中的实现）
+- 产生: `POST /api/auth/auto` — 返回 `{ action, user?, message? }`
+
+- [ ] **Step 1: 创建 `src/app/api/auth/auto/route.ts`**
+
+```typescript
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import crypto from "node:crypto";
+
+function hashPassword(password: string, salt?: string): { hash: string; salt: string } {
+  const s = salt || crypto.randomBytes(16).toString("hex");
+  const h = crypto.scryptSync(password, s, 64).toString("hex");
+  return { hash: h, salt: s };
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { name, password } = await request.json();
+
+    if (!name || !password) {
+      return NextResponse.json(
+        { action: "error", message: "请输入账号名和密码" },
+        { status: 400 }
+      );
+    }
+
+    const existing = await prisma.user.findUnique({ where: { name } });
+
+    // 账号存在 → 验证密码
+    if (existing) {
+      if (!existing.password) {
+        return NextResponse.json(
+          { action: "error", message: "账号异常，请联系管理员" },
+          { status: 401 }
+        );
+      }
+      const [salt, storedHash] = existing.password.split(":");
+      const { hash } = hashPassword(password, salt);
+      if (hash !== storedHash) {
+        return NextResponse.json(
+          { action: "error", message: "密码错误" },
+          { status: 401 }
+        );
+      }
+      return NextResponse.json({ action: "login", user: existing });
+    }
+
+    // 账号不存在 → 自动创建（仅 user，无 cultivator）
+    if (password.length < 4) {
+      return NextResponse.json(
+        { action: "error", message: "密码至少 4 位" },
+        { status: 400 }
+      );
+    }
+
+    const { hash, salt } = hashPassword(password);
+    const user = await prisma.user.create({
+      data: {
+        name,
+        password: `${salt}:${hash}`,
+      },
+    });
+
+    return NextResponse.json({ action: "created", user });
+  } catch (error) {
+    console.error("统一登录/注册失败:", error);
+    return NextResponse.json(
+      { action: "error", message: "服务器错误" },
+      { status: 500 }
+    );
+  }
+}
+```
+
+- [ ] **Step 2: 验证编译通过**
+
+Run: `npx tsc --noEmit --pretty 2>&1 | head -30`
+Expected: 无类型错误（或只报与该文件无关的错误）
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add src/app/api/auth/auto/route.ts
+git commit -m "feat: 新建 POST /api/auth/auto 统一登录注册接口"
+```
+
+---
+
+### 任务 2: 修改 `POST /api/cultivator` 兼容 userId 场景
+
+**文件:**
+- 修改: `src/app/api/cultivator/route.ts`
+
+**接口:**
+- 消费: `POST /api/auth/auto` 产生的 `userId`
+- 产生: `POST /api/cultivator` 接受 `userId` 参数（可选）
+
+- [ ] **Step 1: 修改 `POST /api/cultivator` — 添加 userId 分支**
+
+在现有 `POST` handler 中，在查重逻辑之前添加 userId 分支：
+
+```typescript
+// 新场景：已有 user，只创建 cultivator
+if (body.userId) {
+  const existingUser = await prisma.user.findUnique({
+    where: { id: body.userId },
+    include: { cultivator: true },
+  });
+  if (!existingUser) {
+    return NextResponse.json({ error: "用户不存在" }, { status: 404 });
+  }
+  if (existingUser.cultivator) {
+    return NextResponse.json({ error: "该用户已有修炼者" }, { status: 409 });
+  }
+
+  const user = await prisma.user.update({
+    where: { id: body.userId },
+    data: {
+      cultivator: {
+        create: {
+          name: body.cultivatorName,
+          spiritualRoot: body.spiritualRoot,
+          worldId: body.worldId || "earth",
+        },
+      },
+    },
+    include: { cultivator: true },
+  });
+
+  return NextResponse.json({ user });
+}
+```
+
+把这个分支**插入**到现有代码的 `try` 块开头，在 `userName`/`cultivatorName`/`spiritualRoot` 校验之后、查重之前。注意：`cultivatorName` 和 `spiritualRoot` 仍然需要校验。
+
+- [ ] **Step 2: 验证编译通过**
+
+Run: `npx tsc --noEmit --pretty 2>&1 | head -30`
+Expected: 无类型错误
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add src/app/api/cultivator/route.ts
+git commit -m "feat: POST /api/cultivator 支持 userId 场景"
+```
+
+---
+
+### 任务 3: 删除旧路由
+
+**文件:**
+- 删除: `src/app/api/auth/check-name/route.ts`
+- 删除: `src/app/api/auth/login/route.ts`
+
+> 原因：`check-name` 的查重功能由 `auto` 接口内部处理；`login` 路由的登录功能由 `auto` 接口替代。
+
+- [ ] **Step 1: 删除两个旧路由文件**
+
+```bash
+rm "src/app/api/auth/check-name/route.ts"
+rm "src/app/api/auth/login/route.ts"
+```
+
+- [ ] **Step 2: 验证编译通过**
+
+Run: `npx tsc --noEmit --pretty 2>&1 | head -30`
+Expected: 无类型错误（确保没有其他地方 import 这两个路由）
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add -A
+git commit -m "refactor: 删除 /api/auth/check-name 和 /api/auth/login 旧路由"
+```
+
+---
+
+### 任务 4: 重写登录页 `src/app/login/page.tsx`
+
+**文件:**
+- 重写: `src/app/login/page.tsx`
+
+**接口:**
+- 消费: `POST /api/auth/auto`
+- 产生: 写入 `localStorage.userId` + `localStorage.cultivatorName`，跳转 `/dashboard` 或 `/create`
+
+- [ ] **Step 1: 重写 `src/app/login/page.tsx`**
+
+基于现有代码重写，保留古风视觉风格（Card、背景动画），替换为统一表单：
+
+```tsx
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Sparkles, ArrowLeft, Eye, EyeOff, LogIn } from "lucide-react";
+import { toast } from "sonner";
+
+export default function UnifiedLoginPage() {
+  const router = useRouter();
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async () => {
+    if (!name.trim() || !password) return;
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/auth/auto", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), password }),
+      });
+      const data = await res.json();
+
+      if (data.action === "login") {
+        localStorage.setItem("userId", data.user.id);
+        localStorage.setItem("cultivatorName", data.user.name);
+        toast.success(`欢迎回来，${data.user.name}道友！`);
+        router.replace("/dashboard");
+      } else if (data.action === "created") {
+        localStorage.setItem("userId", data.user.id);
+        localStorage.setItem("cultivatorName", data.user.name);
+        toast.success("道籍已录，塑造你的化身吧");
+        router.replace("/create");
+      } else {
+        setError(data.message || "操作失败");
+      }
+    } catch {
+      setError("网络错误，请重试");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <main className="flex-1 flex flex-col items-center justify-center p-4 min-h-screen">
+      <div className="relative z-10 max-w-lg w-full space-y-6">
+        <Button variant="ghost" className="text-muted-foreground" onClick={() => router.push("/")}>
+          <ArrowLeft className="w-4 h-4 mr-1" /> 返回
+        </Button>
+        <Card className="bg-card border border-border">
+          <CardHeader>
+            <CardTitle className="text-xl text-primary flex items-center gap-2">
+              <LogIn className="w-5 h-5" /> 踏入仙途
+            </CardTitle>
+            <CardDescription className="text-muted-foreground">
+              新道友自动创建道籍，老道友直接登录
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm text-muted-foreground">账号名</label>
+              <Input
+                placeholder="输入你的账号名"
+                value={name}
+                onChange={(e) => { setName(e.target.value); setError(""); }}
+                onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-muted-foreground">密码</label>
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="输入密码"
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); setError(""); }}
+                  onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+                  className="pr-10"
+                />
+                <button
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+            {error && <p className="text-xs text-red-500">{error}</p>}
+            <Button
+              className="w-full bg-primary hover:bg-primary/90"
+              disabled={!name.trim() || !password || loading}
+              onClick={handleSubmit}
+            >
+              {loading ? "正在感应天道..." : "开始修仙"}
+              <Sparkles className="w-4 h-4 ml-2" />
+            </Button>
+            <p className="text-xs text-muted-foreground text-center">
+              · 新道友自动创建 ·
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    </main>
+  );
+}
+```
+
+关键变更点：
+- 删除 admin/123456 管理員后门代码块
+- 删除「创建修炼者」底部链接
+- 密码框添加可见切换（`Eye`/`EyeOff`）
+- 调用 `/api/auth/auto` 替代两段式逻辑
+- loading 文案改为「正在感应天道…」
+- 错误信息在表单内显示，不用 toast
+
+- [ ] **Step 2: 验证编译通过**
+
+Run: `npx tsc --noEmit --pretty 2>&1 | head -30`
+Expected: 无类型错误
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add src/app/login/page.tsx
+git commit -m "feat: 重写登录页为统一登录/注册表单，移除管理員后门"
+```
+
+---
+
+### 任务 5: 修改 `src/app/create/page.tsx` 移除步骤0
+
+**文件:**
+- 修改: `src/app/create/page.tsx`
+
+- [ ] **Step 1: 进入 `/create` 的守卫逻辑**
+
+在 `CreatePage` 函数体开头添加：
+
+```typescript
+const [userId, setUserId] = useState<string | null>(null);
+
+useEffect(() => {
+  const uid = localStorage.getItem("userId");
+  if (!uid) {
+    router.replace("/login");
+    return;
+  }
+  setUserId(uid);
+}, []);
+```
+
+如果 `userId` 为 null，显示 loading 或空状态。
+
+- [ ] **Step 2: 移除步骤 0 相关代码**
+
+- 删除 `const [showPassword, setShowPassword] = useState(false);`
+- 删除 `const [nameError, setNameError] = useState("");`
+- 删除 `const [checking, setChecking] = useState(false);`
+- 删除 `const [userName, setUserName] = useState("");`
+- 删除 `const [password, setPassword] = useState("");`
+- 删除 `handleCheckName` 函数
+- 删除 `steps` 数组中的 `"账号"`，删除 `stepLabels` 中的 `"输入账号"`
+- 将 `steps` 从 8 项改为 7 项
+- 删除步骤 0 的 Card 渲染块（`{step === 0 && ...}`）
+- 删除 `handleCreate` 中的 `userName` 和 `password` 相关校验
+
+- [ ] **Step 3: 修改 `handleCreate` 提交逻辑**
+
+将：
+```typescript
+const res = await fetch("/api/cultivator", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ userName, cultivatorName: userName, spiritualRoot: rootId, password: password || undefined, worldId: selectedWorld?.id }),
+});
+```
+改为：
+```typescript
+const res = await fetch("/api/cultivator", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ userId, cultivatorName: cultivatorName || userId, spiritualRoot: rootId, worldId: selectedWorld?.id }),
+});
+```
+
+注意：需要用 `userId`（从 localStorage 获取的变量）替代 `userName`。同时需要确定 cultivatedName（道号）。在统一流程中，账号名已经在 login 时录入，所以可以：
+- 让用户再输入一次道号，或
+- 直接用账号名作为道号（推荐，简化流程）
+
+推荐方案：直接复用账号名。需要额外调用一个获取用户信息的接口来拿到 name，或者在 auto 接口返回时就保存 `userName` 到 localStorage。
+
+**创建页的实际代码实现：**
+```typescript
+const cultivatorName = localStorage.getItem("cultivatorName") || userId;
+
+const res = await fetch("/api/cultivator", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ userId, cultivatorName, spiritualRoot: rootId, worldId: selectedWorld?.id }),
+});
+```
+
+> 备注：`cultivatorName` 已经在 Task 4 的登录页面中写入 `localStorage`（`localStorage.setItem("cultivatorName", data.user.name)`），所以这里直接读取即可。
+
+- [ ] **Step 4: 验证编译通过**
+
+Run: `npx tsc --noEmit --pretty 2>&1 | head -30`
+Expected: 无类型错误
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/app/create/page.tsx
+git commit -m "feat: 创建角色页移除步骤0（账号注册），7步向导"
+```
+
+---
+
+### 任务 6: 新建设置弹窗组件 `src/components/settings-dialog.tsx`
+
+**文件:**
+- 创建: `src/components/settings-dialog.tsx`
+
+**接口:**
+- 消费: `GET /api/settings`（读取配置）、`POST /api/settings`（保存配置）
+- 产生: `<SettingsDialog open={...} onOpenChange={...} />` 组件
+
+- [ ] **Step 1: 创建 `settings-dialog.tsx`**
+
+```tsx
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Eye, EyeOff, Settings, Save } from "lucide-react";
+import { toast } from "sonner";
+
+interface ProviderConfig {
+  type: string;
+  apiKey: string;
+  model: string;
+  baseUrl: string;
+}
+
+interface SettingsDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+const PROVIDER_TYPES = [
+  { value: "", label: "不使用" },
+  { value: "anthropic", label: "Anthropic" },
+  { value: "openai", label: "OpenAI" },
+  { value: "ollama", label: "Ollama" },
+];
+
+const LABELS = ["主供应方", "备用 ①", "备用 ②"];
+
+export default function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
+  const [providers, setProviders] = useState<ProviderConfig[]>([
+    { type: "", apiKey: "", model: "", baseUrl: "" },
+    { type: "", apiKey: "", model: "", baseUrl: "" },
+    { type: "", apiKey: "", model: "", baseUrl: "" },
+  ]);
+  const [devMode, setDevMode] = useState(false);
+  const [showKeys, setShowKeys] = useState<boolean[]>([false, false, false]);
+  const [loading, setLoading] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
+  // 加载配置
+  useEffect(() => {
+    if (!open) return;
+    setDevMode(localStorage.getItem("devMode") === "true");
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((data) => {
+        const s = data.settings || {};
+        setProviders([
+          {
+            type: s.AI_PROVIDER_1 || "",
+            apiKey: s.AI_PROVIDER_1_KEY || "",
+            model: s.AI_PROVIDER_1_MODEL || "",
+            baseUrl: s.AI_PROVIDER_1_BASE_URL || "",
+          },
+          {
+            type: s.AI_PROVIDER_2 || "",
+            apiKey: s.AI_PROVIDER_2_KEY || "",
+            model: s.AI_PROVIDER_2_MODEL || "",
+            baseUrl: s.AI_PROVIDER_2_BASE_URL || "",
+          },
+          {
+            type: s.AI_PROVIDER_3 || "",
+            apiKey: s.AI_PROVIDER_3_KEY || "",
+            model: s.AI_PROVIDER_3_MODEL || "",
+            baseUrl: s.AI_PROVIDER_3_BASE_URL || "",
+          },
+        ]);
+      })
+      .catch(() => {});
+    setDirty(false);
+  }, [open]);
+
+  const updateProvider = useCallback((index: number, field: keyof ProviderConfig, value: string) => {
+    setProviders((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+    setDirty(true);
+  }, []);
+
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const settings: Record<string, string> = {};
+      providers.forEach((p, i) => {
+        const idx = i + 1;
+        settings[`AI_PROVIDER_${idx}`] = p.type;
+        if (p.apiKey) settings[`AI_PROVIDER_${idx}_KEY`] = p.apiKey;
+        if (p.model) settings[`AI_PROVIDER_${idx}_MODEL`] = p.model;
+        if (p.baseUrl) settings[`AI_PROVIDER_${idx}_BASE_URL`] = p.baseUrl;
+      });
+
+      const res = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings }),
+      });
+
+      if (!res.ok) throw new Error("保存失败");
+
+      // 刷新运行时配置
+      const { syncProviderConfig } = await import("@/lib/narrative");
+      await syncProviderConfig();
+
+      toast.success("配置已保存");
+      setDirty(false);
+    } catch {
+      toast.error("保存配置失败");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleDevMode = () => {
+    const next = !devMode;
+    setDevMode(next);
+    localStorage.setItem("devMode", next ? "true" : "false");
+    setDirty(true);
+  };
+
+  const needsApiKey = (type: string) => type === "anthropic" || type === "openai";
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => {
+      if (!next && dirty) {
+        if (!window.confirm("有未保存的修改，确定关闭吗？")) return;
+      }
+      onOpenChange(next);
+    }}>
+      <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Settings className="w-5 h-5" /> 设置
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-6 py-2">
+          {providers.map((p, i) => (
+            <div key={i} className="space-y-3 border-b border-border pb-4 last:border-0">
+              <h4 className="text-sm font-semibold text-foreground">
+                AI 供应方 {LABELS[i]}
+              </h4>
+
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">类型</label>
+                <Select
+                  value={p.type}
+                  onValueChange={(v) => updateProvider(i, "type", v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择供应方" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROVIDER_TYPES.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {needsApiKey(p.type) && (
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">API Key</label>
+                  <div className="relative">
+                    <Input
+                      type={showKeys[i] ? "text" : "password"}
+                      value={p.apiKey}
+                      onChange={(e) => updateProvider(i, "apiKey", e.target.value)}
+                      placeholder="sk-..."
+                      className="pr-10"
+                    />
+                    <button
+                      onClick={() => setShowKeys((prev) => {
+                        const next = [...prev];
+                        next[i] = !next[i];
+                        return next;
+                      })}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                    >
+                      {showKeys[i] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {p.type && (
+                <>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">模型</label>
+                    <Input
+                      value={p.model}
+                      onChange={(e) => updateProvider(i, "model", e.target.value)}
+                      placeholder={p.type === "anthropic" ? "claude-sonnet-4-20250514" : p.type === "openai" ? "gpt-4o" : "qwen2.5"}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">接口地址</label>
+                    <Input
+                      value={p.baseUrl}
+                      onChange={(e) => updateProvider(i, "baseUrl", e.target.value)}
+                      placeholder={p.type === "ollama" ? "http://localhost:11434" : "https://api.openai.com"}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+
+          {/* 开发者模式 */}
+          <div className="flex items-center justify-between py-3 border-t border-border">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-foreground">🛠️ 开发者模式</span>
+            </div>
+            <button
+              onClick={toggleDevMode}
+              className={`relative w-11 h-6 rounded-full transition-colors ${
+                devMode ? "bg-primary" : "bg-muted"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                  devMode ? "translate-x-5" : ""
+                }`}
+              />
+            </button>
+          </div>
+
+          <Button
+            className="w-full"
+            onClick={handleSave}
+            disabled={loading || !dirty}
+          >
+            <Save className="w-4 h-4 mr-2" />
+            {loading ? "保存中..." : "保存配置"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+```
+
+- [ ] **Step 2: 验证编译通过**
+
+Run: `npx tsc --noEmit --pretty 2>&1 | head -30`
+Expected: 无类型错误
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add src/components/settings-dialog.tsx
+git commit -m "feat: 新建设置弹窗组件（AI供应方配置 + 开发者模式）"
+```
+
+---
+
+### 任务 7: 修改首页 `src/app/page.tsx` 添加设置入口
+
+**文件:**
+- 修改: `src/app/page.tsx`
+
+- [ ] **Step 1: 添加 `SettingsDialog` 引用和状态**
+
+在文件顶部 import 添加：
+```tsx
+import { Settings } from "lucide-react";
+import SettingsDialog from "@/components/settings-dialog";
+```
+
+在 `Home` 函数中添加 state：
+```tsx
+const [settingsOpen, setSettingsOpen] = useState(false);
+```
+
+- [ ] **Step 2: 导航栏添加齿轮图标**
+
+在导航栏的 `div className="flex gap-8 items-center"` 中，在「仙录登入」Link 之前加入齿轮按钮：
+
+```tsx
+<button
+  onClick={() => setSettingsOpen(true)}
+  className="text-[#5C5C5C] hover:text-[#8B2626] transition-colors"
+  title="设置"
+>
+  <Settings className="w-5 h-5" />
+</button>
+```
+
+- [ ] **Step 3: 在 JSX 末尾添加 SettingsDialog**
+
+在关闭 `</div>`（根容器）之前添加：
+```tsx
+<SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+```
+
+- [ ] **Step 4: 验证编译通过**
+
+Run: `npx tsc --noEmit --pretty 2>&1 | head -30`
+Expected: 无类型错误
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/app/page.tsx
+git commit -m "feat: 首页导航栏添加设置齿轮图标，弹出配置弹窗"
+```
+
+---
+
+### 任务 8: 最终集成验证 + 提交
+
+- [ ] **Step 1: 完整编译检查**
+
+```bash
+npx tsc --noEmit --pretty 2>&1 | head -50
+```
+Expected: 无类型错误
+
+- [ ] **Step 2: 确认文件变更清单**
+
+确认以下文件都已变更：
+- 新建: `src/app/api/auth/auto/route.ts`
+- 新建: `src/components/settings-dialog.tsx`
+- 修改: `src/app/api/cultivator/route.ts`
+- 修改: `src/app/login/page.tsx`
+- 修改: `src/app/create/page.tsx`
+- 修改: `src/app/page.tsx`
+- 删除: `src/app/api/auth/check-name/route.ts`
+- 删除: `src/app/api/auth/login/route.ts`
+
+- [ ] **Step 3: 最终提交**
+
+```bash
+git add -A
+git status
+git commit -m "feat: 统一登录注册 + 设置弹窗（完成）"
+```
