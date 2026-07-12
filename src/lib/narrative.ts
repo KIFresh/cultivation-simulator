@@ -38,7 +38,7 @@ function loadProviders(): ProviderConfig[] {
     const baseUrl = runtimeSettings?.[`AI_PROVIDER_${i}_BASE_URL`] || process.env[`AI_PROVIDER_${i}_BASE_URL`] || undefined;
     if ((type === "anthropic" || type === "openai") && !apiKey) continue;
     if (type === "ollama" && !baseUrl) continue;
-    providers.push({ priority: i, type: type as any, apiKey, model, baseUrl });
+    providers.push({ priority: i, type: type as ProviderConfig["type"], apiKey, model, baseUrl });
   }
   return providers;
 }
@@ -62,7 +62,7 @@ async function callAI(params: { systemPrompt: string; userPrompt: string; maxTok
             model, max_tokens: maxTokens, system: params.systemPrompt,
             messages: [{ role: "user", content: params.userPrompt }], temperature,
           });
-          return (resp.content as any).filter((c: any) => c.type === "text").map((c: any) => c.text || "").join("");
+          return (resp.content as Array<{ type: string; text?: string }>).filter((c) => c.type === "text").map((c) => c.text || "").join("");
         }
         case "openai": {
           const OpenAI = (await import("openai")).default;

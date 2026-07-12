@@ -33,7 +33,7 @@ for (const [el, info] of Object.entries(ELEMENT_MAP)) {
 }
 NEW_ROOT_MAP["chaos"] = { element: "五行杂灵根", quality: "凡品", multiplier: 0.2, color: "#607D8B" };
 
-export const SPIRITUAL_ROOTS: Record<string, SpiritualRootInfo> = new Proxy({} as any, {
+export const SPIRITUAL_ROOTS: Record<string, SpiritualRootInfo> = new Proxy({} as Record<string, SpiritualRootInfo>, {
   get(_, key: string) {
     if (OLD_ROOTS[key]) return OLD_ROOTS[key];
     const n = NEW_ROOT_MAP[key];

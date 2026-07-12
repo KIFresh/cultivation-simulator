@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getShopItems, getItemById } from "@/lib";
+import { Prisma } from "@/generated/prisma/client";
 
 interface InventoryEntry {
   itemId: string;
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
         data: {
           gold: { decrement: totalCost },
           inventory: JSON.stringify(inv),
-        } as any,
+        } as Prisma.CultivatorUpdateInput,
       }),
     ]);
 

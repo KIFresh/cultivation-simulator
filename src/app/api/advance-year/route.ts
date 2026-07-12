@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateYearAdvanceNarrative } from "@/lib/narrative";
-import { getSchoolStage, getSchoolGrade, calculateSchoolRank, getSchoolName, getDefaultOccupation, parseOccupationFromNarrative, calculateYearlyAttributeGrowth, calculateMaxStamina } from "@/lib";
+import { Prisma } from "@/generated/prisma/client";
+import { getSchoolStage, getSchoolGrade, calculateSchoolRank, getSchoolName, getDefaultOccupation, parseOccupationFromNarrative, calculateYearlyAttributeGrowth, calculateMaxStamina, type SchoolRank } from "@/lib";
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
 
     const currentAttrs: Record<string, number> = rawAttributes || {};
     const currentRankVal = currentRank || "普通";
-    const newAttributes = calculateYearlyAttributeGrowth(oldAge, newAge, currentAttrs, currentRankVal as any);
+    const newAttributes = calculateYearlyAttributeGrowth(oldAge, newAge, currentAttrs, currentRankVal as SchoolRank);
 
     const schoolStage = getSchoolStage(newAge);
     let schoolRank = currentRankVal;
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
     if (newRealm !== cultivator.realm) { updateData.realm = newRealm; updateData.realmLevel = newRealmLevel; }
 
     const [updatedCultivator] = await prisma.$transaction([
-      prisma.cultivator.update({ where: { id: cultivator.id }, data: updateData as any }),
+      prisma.cultivator.update({ where: { id: cultivator.id }, data: updateData as Prisma.CultivatorUpdateInput }),
       prisma.gameEvent.create({ data: { cultivatorId: cultivator.id, type: "YEAR_ADVANCE", title: awakenEvent ? awakenEvent.title : narrativeResult.title, narrative: awakenEvent ? awakenEvent.narrative : narrativeResult.narrative, reward: JSON.stringify({ oldAge, newAge, mood: narrativeResult.mood, schoolRank, occupation }) } }),
     ]);
 

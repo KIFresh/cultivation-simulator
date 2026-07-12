@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAvailableActivities, applyActivityEffects } from "@/lib";
+import { Prisma } from "@/generated/prisma/client";
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
     const [updated] = await prisma.$transaction([
       prisma.cultivator.update({
         where: { id: c.id },
-        data: { stamina: { decrement: activity.staminaCost }, gold: { increment: activity.goldDelta } } as any,
+        data: { stamina: { decrement: activity.staminaCost }, gold: { increment: activity.goldDelta } } as Prisma.CultivatorUpdateInput,
       }),
     ]);
 
