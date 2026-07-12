@@ -5,56 +5,44 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Sparkles, ArrowLeft, LogIn } from "lucide-react";
+import { Sparkles, ArrowLeft, Eye, EyeOff, LogIn } from "lucide-react";
 import { toast } from "sonner";
 
-export default function LoginPage() {
+export default function UnifiedLoginPage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleLogin = async () => {
+  const handleSubmit = async () => {
     if (!name.trim() || !password) return;
     setLoading(true);
+    setError("");
     try {
-      // 管理员登录 — 服务端验证
-      if (name.trim() === "admin") {
-        const adminRes = await fetch("/api/auth/admin", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password }),
-        });
-        const adminData = await adminRes.json();
-        if (adminData.valid) {
-          localStorage.setItem("devMode", "true");
-          localStorage.removeItem("userId");
-          toast.success("开发者模式已开启");
-          router.replace("/");
-          return;
-        }
-        if (adminData.disabled) {
-          toast.error("开发者模式未启用（服务端未配置管理员密钥）");
-          return;
-        }
-        // 密码错误，继续尝试普通登录（不直接报错，避免暴露 admin 存在）
-      }
-
-      const res = await fetch("/api/auth/login", {
-        method: "PUT",
+      const res = await fetch("/api/auth/auto", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim(), password }),
       });
       const data = await res.json();
-      if (data.user) {
+
+      if (data.action === "login") {
         localStorage.setItem("userId", data.user.id);
-        toast.success(`欢迎回来，${data.user.cultivator?.name || data.user.name}道友！`);
+        localStorage.setItem("cultivatorName", data.user.name);
+        toast.success(`欢迎回来，${data.user.name}道友！`);
         router.replace("/dashboard");
+      } else if (data.action === "created") {
+        localStorage.setItem("userId", data.user.id);
+        localStorage.setItem("cultivatorName", data.user.name);
+        toast.success("道籍已录，塑造你的化身吧");
+        router.replace("/create");
       } else {
-        toast.error(data.error || "登录失败");
+        setError(data.message || "操作失败");
       }
     } catch {
-      toast.error("登录失败，请重试");
+      setError("网络错误，请重试");
     } finally {
       setLoading(false);
     }
@@ -69,10 +57,10 @@ export default function LoginPage() {
         <Card className="bg-card border border-border">
           <CardHeader>
             <CardTitle className="text-xl text-primary flex items-center gap-2">
-              <LogIn className="w-5 h-5" /> 登录账号
+              <LogIn className="w-5 h-5" /> 踏入仙途
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              已有道号？输入账号名和密码继续修炼
+              新道友自动创建道籍，老道友直接登录
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -81,30 +69,40 @@ export default function LoginPage() {
               <Input
                 placeholder="输入你的账号名"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                onChange={(e) => { setName(e.target.value); setError(""); }}
+                onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
               />
             </div>
             <div className="space-y-2">
               <label className="text-sm text-muted-foreground">密码</label>
-              <Input
-                type="password"
-                placeholder="输入密码"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-              />
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="输入密码"
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); setError(""); }}
+                  onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+                  className="pr-10"
+                />
+                <button
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
+            {error && <p className="text-xs text-red-500">{error}</p>}
             <Button
               className="w-full bg-primary hover:bg-primary/90"
               disabled={!name.trim() || !password || loading}
-              onClick={handleLogin}
+              onClick={handleSubmit}
             >
-              {loading ? "正在踏入修仙世界..." : "登录"}
+              {loading ? "正在感应天道..." : "开始修仙"}
               <Sparkles className="w-4 h-4 ml-2" />
             </Button>
-            <p className="text-sm text-muted-foreground text-center">
-              还没有账号？<button className="text-primary underline" onClick={() => router.push("/create")}>创建修炼者</button>
+            <p className="text-xs text-muted-foreground text-center">
+              · 新道友自动创建 ·
             </p>
           </CardContent>
         </Card>
