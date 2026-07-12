@@ -8,14 +8,15 @@ export async function POST(request: NextRequest) {
     const { userId, activityId, attributes } = body;
     if (!userId || !activityId) return NextResponse.json({ error: "缺少必填参数" }, { status: 400 });
 
-    const activities = getAvailableActivities(0, false);
-    const activity = activities.find((a) => a.id === activityId);
-    if (!activity) return NextResponse.json({ error: "无效的活动" }, { status: 400 });
-
     const user = await prisma.user.findUnique({ where: { id: userId }, include: { cultivator: true } });
     if (!user?.cultivator) return NextResponse.json({ error: "请先创建修炼者" }, { status: 400 });
 
     const c = user.cultivator;
+    const isAwake = c.realm !== "凡人";
+    const activities = getAvailableActivities(c.age, isAwake);
+    const activity = activities.find((a) => a.id === activityId);
+    if (!activity) return NextResponse.json({ error: "无效的活动" }, { status: 400 });
+
     if (c.stamina < activity.staminaCost) return NextResponse.json({ error: "行动力不足" }, { status: 400 });
 
     const currentAttrs: Record<string, number> = attributes || {};
