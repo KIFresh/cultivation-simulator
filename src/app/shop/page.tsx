@@ -30,6 +30,10 @@ export default function ShopPage() {
     const data = await res.json();
     if (!res.ok) { toast.error(data.error || "购买失败"); return; }
     setGold(data.cultivator.gold);
+    // 同步背包到 localStorage（后端已持久化，前端同步以便 dashboard 使用）
+    if (data.cultivator.inventory) {
+      try { localStorage.setItem("inventory", data.cultivator.inventory); } catch {}
+    }
     toast.success(`购入成功！金币 -${data.totalCost}`);
   };
 

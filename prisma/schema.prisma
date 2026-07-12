@@ -36,6 +36,7 @@ model Cultivator {
   age               Int      @default(1)
   location          String?
   npcRelations      String?
+  inventory         String?
   gold              Int      @default(50)
   createdAt         DateTime @default(now())
   events            GameEvent[]

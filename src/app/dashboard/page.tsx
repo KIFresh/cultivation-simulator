@@ -87,6 +87,15 @@ export default function DashboardPage() {
           stamina: Math.min(data.user.cultivator.stamina, calculateMaxStamina(data.user.cultivator.age, attributes)),
         };
         setCultivator(capped);
+        // 从后端同步背包数据
+        if (capped.inventory) {
+          let backendInv = [];
+          try { backendInv = JSON.parse(capped.inventory); } catch {}
+          if (backendInv.length > 0) {
+            setInventory(backendInv);
+            localStorage.setItem("inventory", JSON.stringify(backendInv));
+          }
+        }
         const actions = getAvailableActions(capped.worldId || "earth", capped.age);
         setAvailableActions(actions);
         if (isAwakened(capped.realm)) {
