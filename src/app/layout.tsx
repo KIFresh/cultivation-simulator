@@ -46,7 +46,7 @@ export default function RootLayout({
           id="fix-extension-styles"
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
-            __html: `(function(){var o=new MutationObserver(function(){document.querySelectorAll("[style*='user-select']").forEach(function(e){e.style.removeProperty("user-select")})});o.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:["style"]});setTimeout(function(){o.disconnect()},5e3)})()`,
+            __html: `(function(){document.querySelectorAll("[style*='user-select']").forEach(function(e){e.style.removeProperty("user-select")});var o=new MutationObserver(function(){document.querySelectorAll("[style*='user-select']").forEach(function(e){e.style.removeProperty("user-select")})});o.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:["style"]});setTimeout(function(){o.disconnect()},5e3)})()`,
           }}
         />
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
