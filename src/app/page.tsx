@@ -259,7 +259,7 @@ export default function Home() {
           </div>
         </div>
       </div>
-      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} onDevModeChange={setDevMode} />
     </div>
   );
 }

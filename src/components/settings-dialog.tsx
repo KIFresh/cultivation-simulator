@@ -29,6 +29,7 @@ interface ProviderConfig {
 interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onDevModeChange?: (next: boolean) => void;
 }
 
 const PROVIDER_TYPES = [
@@ -40,7 +41,7 @@ const PROVIDER_TYPES = [
 
 const LABELS = ["主供应方", "备用 ①", "备用 ②"];
 
-export default function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
+export default function SettingsDialog({ open, onOpenChange, onDevModeChange }: SettingsDialogProps) {
   const [providers, setProviders] = useState<ProviderConfig[]>([
     { type: "", apiKey: "", model: "", baseUrl: "" },
     { type: "", apiKey: "", model: "", baseUrl: "" },
@@ -127,6 +128,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
     setDevMode(next);
     localStorage.setItem("devMode", next ? "true" : "false");
     setDirty(true);
+    onDevModeChange?.(next);
   };
 
   const needsApiKey = (type: string) => type === "anthropic" || type === "openai";
