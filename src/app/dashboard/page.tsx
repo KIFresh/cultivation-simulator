@@ -17,6 +17,7 @@ import {
 } from "@/lib";
 import type { Action, InventoryItem, NPC } from "@/lib";
 import { toast } from "sonner";
+import MemoryPanel from "@/components/memory-panel";
 
 interface CultivatorData {
   id: string; name: string; spiritualRoot: string; realm: string;
@@ -56,6 +57,7 @@ export default function DashboardPage() {
   const [npcMessage, setNpcMessage] = useState("");
   const [npcChatHistory, setNpcChatHistory] = useState<{ role: string; content: string }[]>([]);
   const [devMode, setDevMode] = useState(false);
+  const [memoryEntries, setMemoryEntries] = useState<any[]>([]);
   const currentNPCs = cultivator ? getNPCsAtLocation(currentLoc) : [];
 
   const loadLocalData = useCallback(() => {
@@ -87,6 +89,12 @@ export default function DashboardPage() {
           stamina: Math.min(data.user.cultivator.stamina, calculateMaxStamina(data.user.cultivator.age, attributes)),
         };
         setCultivator(capped);
+        // 读取记忆条目
+        if (capped.storyEntries) {
+          try {
+            setMemoryEntries(Array.isArray(capped.storyEntries) ? capped.storyEntries : []);
+          } catch {}
+        }
         // 从后端同步背包数据（始终以服务端为唯一数据源）
         if (capped.inventory) {
           try {
@@ -251,6 +259,29 @@ export default function DashboardPage() {
     setCurrentLoc(locId);
     localStorage.setItem("currentLocation", locId);
     toast.success(`📍 ${useTaxi ? "打车到" : "来到"}${target.name}${useTaxi ? `(-${taxiGoldCost}金)` : ""}`, { duration: 1500 });
+
+    // 持久化旅行消耗到后端
+    if (userId) {
+      fetch("/api/travel", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, locationId: locId, staminaCost: useTaxi ? taxiStaminaCost : cost, goldCost: useTaxi ? taxiGoldCost : 0, useTaxi }),
+      }).catch((err) => console.error("旅行持久化失败:", err));
+    }
+  };
+
+  const sendNpcMessage = async (msg: string) => {
+    if (!userId || !cultivator || !npcChat || cultivator.stamina < 1) return;
+    setNpcChatHistory((prev) => [...prev, { role: "player", content: msg }]);
+    setNpcMessage("");
+    toast(`💬 对${npcChat.name}说：${msg}`, { duration: 2000 });
+    try {
+      const res = await fetch("/api/npc-chat", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, message: msg }),
+      });
+      const data = await res.json();
+      if (data.cultivator) setCultivator(data.cultivator);
+    } catch { /* 静默失败，下次同步会修正 */ }
   };
 
   const handleActionClick = (actionId: string) => {
@@ -420,21 +451,11 @@ export default function DashboardPage() {
               </div>
               <div className="flex gap-1">
                 <Input value={npcMessage} onChange={(e) => setNpcMessage(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && npcMessage.trim() && cultivator && cultivator.stamina >= 1) {
-                    setNpcChatHistory([...npcChatHistory, { role: "player", content: npcMessage }]);
-                    setNpcMessage("");
-                    if (cultivator) setCultivator({ ...cultivator, stamina: cultivator.stamina - 1 });
-                    toast(`💬 对${npcChat.name}说：${npcMessage}`, { duration: 2000 });
-                  }}}
+                  onKeyDown={(e) => { if (e.key === "Enter" && npcMessage.trim() && cultivator && cultivator.stamina >= 1) sendNpcMessage(npcMessage); }}
                   placeholder="说点什么...（消耗1行动力）" className="flex-1 h-7 text-[11px] bg-white border-border text-foreground" />
                 <Button size="icon" className="h-7 w-7 bg-primary hover:bg-[#B33A2A] shrink-0 text-white"
                   disabled={!npcMessage.trim() || !cultivator || cultivator.stamina < 1}
-                  onClick={() => {
-                    setNpcChatHistory([...npcChatHistory, { role: "player", content: npcMessage }]);
-                    setNpcMessage("");
-                    if (cultivator) setCultivator({ ...cultivator, stamina: cultivator.stamina - 1 });
-                    toast(`💬 对${npcChat.name}说：${npcMessage}`, { duration: 2000 });
-                  }}>
+                  onClick={() => sendNpcMessage(npcMessage)}>
                   <Send className="w-3 h-3" />
                 </Button>
               </div>
@@ -575,6 +596,12 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         )}
+
+        <MemoryPanel
+          cultivatorId={userId!}
+          entries={memoryEntries}
+          onEntriesChange={setMemoryEntries}
+        />
       </div>
       <BottomNav />
     </main>
