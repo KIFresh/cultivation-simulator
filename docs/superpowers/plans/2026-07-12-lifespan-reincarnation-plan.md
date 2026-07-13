@@ -63,7 +63,29 @@ git commit -m "feat: Cultivator 新增 maxAge/bonusAge/reincarnationCount/talent
 
 - [ ] **Step 1: 添加基础寿元表和计算函数**
 
-在 `REALMS` 数组之后添加：
+在 `REALMS` 数组之后添加 `calculateMaxAge` 函数。同时需要实现「前世记忆」天赋的效果：
+
+在 `getRootInfo` 函数中增加可选参数 `talents?: string[]`，当包含 `"前世记忆"` 时，修炼速度叠加加成：
+
+```typescript
+export function getRootInfo(rootKey: string, talents?: string[]): SpiritualRootInfo {
+  const info = SPIRITUAL_ROOTS[rootKey] || {
+    name: rootKey, description: "", rarity: 1,
+    speedBonus: 1.0, color: "#8B7355", element: "未知",
+  };
+  // 前世记忆天赋：每世 +10% 修炼速度
+  if (talents?.includes("前世记忆")) {
+    const reincCount = /* 由调用方传入 */ 0;
+    const bonus = 1 + reincCount * 0.1;
+    return { ...info, speedBonus: info.speedBonus * bonus };
+  }
+  return info;
+}
+```
+
+注：实际调用时 `reincCount` 由调用方传入 `cultivator.reincarnationCount`。
+
+然后添加寿元表：
 
 ```typescript
 /** 各境界基础寿元（年） */
@@ -128,7 +150,7 @@ import { calculateMaxAge } from "@/lib/cultivation-data";
 // 计算/更新寿元上限
 const attrs = sanitizeAttributes(rawAttributes) || {};
 let maxAge = cultivator.maxAge;
-if (maxAge === null || cultivator.realm !== currentRealm) {
+if (maxAge === null) {
   maxAge = calculateMaxAge(cultivator.realm, attrs, cultivator.bonusAge || 0);
 }
 
@@ -239,6 +261,7 @@ if (body.action === "reincarnate") {
       npcRelations: null,
       title: null,
       maxAge: null,
+      bonusAge: 0,
       storyEntries: "[]",
       storyEntriesUpdatedAt: new Date(),
       reincarnationCount: newCount,
@@ -401,7 +424,23 @@ git commit -m "feat: 新增道消弹窗组件 DaoXiaoModal"
 import DaoXiaoModal from "@/components/dao-xiao-modal";
 ```
 
-在 `Home` 函数中添加 state：
+在 `Home` 函数的现有 `CultivatorData` 接口中添加 4 个新字段（第 22-28 行附近）：
+
+```typescript
+interface CultivatorData {
+  id: string; name: string; spiritualRoot: string; realm: string;
+  realmLevel: number; cultivationExp: number; totalExp: number;
+  stamina: number; age: number; worldId: string | null;
+  title: string | null; breakthroughCount: number; location: string | null;
+  gold: number;
+  maxAge: number | null;              // 新增
+  bonusAge: number;                   // 新增
+  reincarnationCount: number;         // 新增
+  talents: string | null;             // 新增
+}
+```
+
+然后添加 import 和 state：
 ```tsx
 const [daoXiao, setDaoXiao] = useState<{ summary: any; name: string } | null>(null);
 const [warnEarly, setWarnEarly] = useState(false);
