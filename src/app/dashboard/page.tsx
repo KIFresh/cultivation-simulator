@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,6 +59,8 @@ export default function DashboardPage() {
   const [devMode, setDevMode] = useState(false);
   const [memoryEntries, setMemoryEntries] = useState<any[]>([]);
   const currentNPCs = cultivator ? getNPCsAtLocation(currentLoc) : [];
+  const attributesRef = useRef(attributes);
+  attributesRef.current = attributes;
 
   const loadLocalData = useCallback(() => {
     try {
@@ -86,7 +88,7 @@ export default function DashboardPage() {
       if (data.user?.cultivator) {
         const capped = {
           ...data.user.cultivator,
-          stamina: Math.min(data.user.cultivator.stamina, calculateMaxStamina(data.user.cultivator.age, attributes)),
+          stamina: Math.min(data.user.cultivator.stamina, calculateMaxStamina(data.user.cultivator.age, attributesRef.current)),
         };
         setCultivator(capped);
         // 读取记忆条目
