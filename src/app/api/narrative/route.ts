@@ -4,6 +4,9 @@ import {
   generateBreakthroughNarrative,
   generateEncounterNarrative,
   generateBirthNarrative,
+  appendToSummary,
+  shouldCompress,
+  compressStorySummary,
 } from "@/lib/narrative";
 import { prisma } from "@/lib/prisma";
 import { canBreakthrough, performBreakthrough } from "@/lib";
@@ -37,6 +40,7 @@ export async function POST(request: NextRequest) {
 
     switch (type) {
       case "BIRTH": {
+        const currentSummary = cultivator.storySummary;
         const narrative = await generateBirthNarrative({
           cultivatorName: cultivator.name,
           spiritualRoot: cultivator.spiritualRoot,
@@ -45,14 +49,22 @@ export async function POST(request: NextRequest) {
           age: body.age || 1,
           worldId: body.worldId,
           family: body.family || [],
+          storySummary: currentSummary || undefined,
         });
         const event = await prisma.gameEvent.create({
           data: { cultivatorId: cultivator.id, type: "BIRTH", title: narrative.title, narrative: narrative.narrative, reward: JSON.stringify({ mood: narrative.mood }) },
+        });
+        // 追加概要
+        const newSummary = appendToSummary(currentSummary, { title: narrative.title, narrative: narrative.narrative });
+        await prisma.cultivator.update({
+          where: { id: cultivator.id },
+          data: { storySummary: newSummary, storySummaryUpdatedAt: new Date() },
         });
         return NextResponse.json({ event, narrative });
       }
 
       case "DAILY_CULTIVATION": {
+        const currentSummary = cultivator.storySummary;
         // 日常修炼叙事
         const narrative = await generateDailyCultivationNarrative({
           cultivatorName: cultivator.name,
@@ -62,6 +74,7 @@ export async function POST(request: NextRequest) {
           taskType: taskType || "CUSTOM",
           taskDescription,
           cultivationExp: cultivator.cultivationExp,
+          storySummary: currentSummary || undefined,
         });
 
         // 保存事件
@@ -73,6 +86,17 @@ export async function POST(request: NextRequest) {
             narrative: narrative.narrative,
             reward: JSON.stringify({ mood: narrative.mood, hint: narrative.hint }),
           },
+        });
+
+        // 追加概要，超长则压缩
+        const newSummary = appendToSummary(currentSummary, { title: narrative.title, narrative: narrative.narrative });
+        let finalSummary = newSummary;
+        if (shouldCompress(newSummary)) {
+          finalSummary = await compressStorySummary(newSummary, cultivator.name);
+        }
+        await prisma.cultivator.update({
+          where: { id: cultivator.id },
+          data: { storySummary: finalSummary, storySummaryUpdatedAt: new Date() },
         });
 
         // 检查是否可以突破
@@ -105,6 +129,7 @@ export async function POST(request: NextRequest) {
           );
         }
 
+        const currentSummary = cultivator.storySummary;
         const narrative = await generateBreakthroughNarrative({
           cultivatorName: cultivator.name,
           spiritualRoot: cultivator.spiritualRoot as import("@/lib").SpiritualRoot,
@@ -114,6 +139,7 @@ export async function POST(request: NextRequest) {
           toLevel: result.newLevel,
           totalExp: cultivator.totalExp,
           breakthroughCount: cultivator.breakthroughCount,
+          storySummary: currentSummary || undefined,
         });
 
         // 更新修炼者 + 保存事件
@@ -142,6 +168,18 @@ export async function POST(request: NextRequest) {
           }),
         ]);
 
+        // 追加概要，超长则压缩
+        const newSummary = appendToSummary(currentSummary, { title: narrative.title, narrative: narrative.narrative });
+        let finalSummary = newSummary;
+        if (shouldCompress(newSummary)) {
+          finalSummary = await compressStorySummary(newSummary, cultivator.name);
+        }
+        // 单独更新概要（因为上面的 transaction 已处理其他字段）
+        await prisma.cultivator.update({
+          where: { id: cultivator.id },
+          data: { storySummary: finalSummary, storySummaryUpdatedAt: new Date() },
+        });
+
         return NextResponse.json({
           event,
           narrative,
@@ -151,12 +189,14 @@ export async function POST(request: NextRequest) {
       }
 
       case "ENCOUNTER": {
+        const currentSummary = cultivator.storySummary;
         // 随机奇遇
         const narrative = await generateEncounterNarrative({
           cultivatorName: cultivator.name,
           spiritualRoot: cultivator.spiritualRoot as import("@/lib").SpiritualRoot,
           realm: cultivator.realm,
           realmLevel: cultivator.realmLevel,
+          storySummary: currentSummary || undefined,
         });
 
         // 如果用户做了选择
@@ -186,6 +226,17 @@ export async function POST(request: NextRequest) {
             }),
           ]);
 
+          // 追加概要，超长则压缩
+          const newSummary = appendToSummary(currentSummary, { title: narrative.title, narrative: narrative.narrative });
+          let finalSummary = newSummary;
+          if (shouldCompress(newSummary)) {
+            finalSummary = await compressStorySummary(newSummary, cultivator.name);
+          }
+          await prisma.cultivator.update({
+            where: { id: cultivator.id },
+            data: { storySummary: finalSummary, storySummaryUpdatedAt: new Date() },
+          });
+
           return NextResponse.json({
             narrative,
             chosenOption: choiceIndex,
@@ -202,6 +253,13 @@ export async function POST(request: NextRequest) {
             narrative: narrative.narrative,
             choices: JSON.stringify(narrative.choices),
           },
+        });
+
+        // 追加概要
+        const newSummary = appendToSummary(currentSummary, { title: narrative.title, narrative: narrative.narrative });
+        await prisma.cultivator.update({
+          where: { id: cultivator.id },
+          data: { storySummary: newSummary, storySummaryUpdatedAt: new Date() },
         });
 
         return NextResponse.json({ event, narrative });

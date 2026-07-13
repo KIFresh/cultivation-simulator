@@ -99,7 +99,7 @@ function extractJson<T>(text: string, fallback: T): T {
  * 追加格式：【标题】叙事前60字…
  * 纯字符串操作，无 AI 调用。
  */
-function appendToSummary(currentSummary: string | null, event: { title: string; narrative: string }): string {
+export function appendToSummary(currentSummary: string | null, event: { title: string; narrative: string }): string {
   const summaryLine = `【${event.title}】${event.narrative.slice(0, 60)}…`;
   if (!currentSummary) return summaryLine;
   return currentSummary + '\n' + summaryLine;
@@ -109,7 +109,7 @@ function appendToSummary(currentSummary: string | null, event: { title: string; 
  * 判断剧情概要是否超过压缩阈值（1000 中文字符）。
  * 纯字符串长度判断，无 AI 调用。
  */
-function shouldCompress(summary: string): boolean {
+export function shouldCompress(summary: string): boolean {
   const text = summary.replace(/\n/g, '');
   return text.length > 1000;
 }
