@@ -15,7 +15,7 @@
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | ~~`storySummary`~~ | ~~`String?`~~ | **移除**，不再单独存储 |
-| `storyEntriesUpdatedAt` | `DateTime?` | 保留，记录 entries 最后修改时间 |
+| `storyEntriesUpdatedAt` | `DateTime?` | 新增（原名 storySummaryUpdatedAt），记录 entries 最后修改时间 |
 | `storyEntries` | `String?` | **新增**，JSON 数组存储逐条记忆 |
 
 `storySummary` 由 `storyEntries` 实时生成，不再持久化存储，消除数据同步问题。
@@ -138,7 +138,7 @@ export async function compressStorySummary(
   ├─ 8. 判断：条目数 > 50 或 总字数 > 1000
   │     ├─ 是 → compressStorySummary() AI 压缩
   │     │      → 创建一条压缩摘要条目: createEntry("📜 记忆凝练", compressedText, false)
-  │     │      → 标记为 important=true，不截断
+  │     │      → 不标记重要，下次压缩时自动合并
   │     │      → 删除原非重要条目，仅保留重要 ⭐ 条目 + 这条凝练条目
   │     └─ 否 → 跳过
   ├─ 9. 保存 cultivator.storyEntries
@@ -261,7 +261,7 @@ if (body.action === "compressMemory") {
 
   const compressedText = await compressStorySummary(entries, cultivator.name);
   const compressedEntry = createEntry("📜 记忆凝练", compressedText, false);
-  compressedEntry.important = true;
+  // 不标记 important，下次压缩时自然合并
 
   const newEntries = [...importantEntries, compressedEntry];
 
