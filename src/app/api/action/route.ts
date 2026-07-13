@@ -8,7 +8,7 @@ import { sanitizeAttributes } from "@/lib/utils";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { userId, actionId, freeInput, worldId, family } = body;
+    const { userId, actionId, freeInput, worldId } = body;
     if (!userId || !actionId) return NextResponse.json({ error: "缺少必填参数" }, { status: 400 });
 
     const action = getActionById(actionId);
