@@ -219,7 +219,7 @@ export async function POST(request: NextRequest) {
             choice.risk === "high" ? 50 : choice.risk === "medium" ? 30 : 15;
 
           // 原子操作：更新修为 + 保存事件 + 更新概要
-          await prisma.$transaction([
+          const [event] = await prisma.$transaction([
             prisma.cultivator.update({
               where: { id: cultivator.id },
               data: {
@@ -243,6 +243,7 @@ export async function POST(request: NextRequest) {
           ]);
 
           return NextResponse.json({
+            event,
             narrative,
             chosenOption: choiceIndex,
             expBonus,

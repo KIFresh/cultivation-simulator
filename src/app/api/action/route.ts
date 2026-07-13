@@ -51,10 +51,20 @@ export async function POST(request: NextRequest) {
       finalSummary = await compressStorySummary(newSummary, cultivator.name);
     }
 
-    const [updatedCultivator] = await prisma.$transaction([
+    // 构建事务操作
+    const txOps: any[] = [
       prisma.cultivator.update({ where: { id: cultivator.id }, data: { stamina: { decrement: action.actionPointCost }, cultivationExp: newExp, totalExp: newTotalExp, realm: newRealm, realmLevel: newRealmLevel, storySummary: finalSummary, storySummaryUpdatedAt: new Date() } }),
       prisma.gameEvent.create({ data: { cultivatorId: cultivator.id, type: "ACTION", title: narrativeResult.title, narrative: narrativeResult.narrative, reward: JSON.stringify({ expGained, actionName: action.name, mood: narrativeResult.mood }) } }),
-    ]);
+    ];
+
+    // 如果有觉醒事件，也持久化
+    if (awakenEvent) {
+      txOps.push(prisma.gameEvent.create({
+        data: { cultivatorId: cultivator.id, type: "AWAKENING", title: awakenEvent.title, narrative: awakenEvent.narrative, reward: JSON.stringify({ mood: "奇" }) },
+      }));
+    }
+
+    const [updatedCultivator] = await prisma.$transaction(txOps);
 
     const canBreak = canBreakthrough(newRealm, newRealmLevel, newExp, cultivator.spiritualRoot);
 

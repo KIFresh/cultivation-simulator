@@ -231,19 +231,14 @@ export async function generateEncounterNarrative(params: {
 /** 生成 NPC 对话 */
 export async function generateNPCDialogue(params: {
   npcName: string; npcPersonality: string; npcRealm: string; cultivatorName: string; cultivatorRealm: string; historySummary?: string;
-  storySummary?: string;
 }): Promise<{ dialogue: string; npcMood: string; reward?: { type: string; description: string } }> {
-  let prompt = `生成一段修仙世界NPC对话。
+  const prompt = `生成一段修仙世界NPC对话。
 
 【NPC】${params.npcName}，性格${params.npcPersonality}，境界${params.npcRealm}
 【玩家】${params.cultivatorName}，境界${params.cultivatorRealm}${params.historySummary ? `，过往：${params.historySummary}` : ""}
 
 要求：200-300字，对话贴合NPC性格，可能给指点/礼物/任务
 返回JSON：{"dialogue":"对话","npcMood":"友善/冷淡/严厉","reward":{...}或null}`;
-
-  if (params.storySummary) {
-    prompt += `\n\n【已发生的剧情】\n${params.storySummary}\n\n请基于以上已发生的剧情，继续写接下来的故事。`;
-  }
 
   try {
     const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 500, temperature: 0.8 });
