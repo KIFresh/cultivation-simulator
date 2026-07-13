@@ -14,8 +14,7 @@
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| ~~`storySummary`~~ | ~~`String?`~~ | **移除**，不再单独存储 |
-| `storyEntriesUpdatedAt` | `DateTime?` | 新增（原名 storySummaryUpdatedAt），记录 entries 最后修改时间 |
+| `storyEntriesUpdatedAt` | `DateTime?` | **新增**，记录 entries 最后修改时间 |
 | `storyEntries` | `String?` | **新增**，JSON 数组存储逐条记忆 |
 
 `storySummary` 由 `storyEntries` 实时生成，不再持久化存储，消除数据同步问题。
@@ -136,7 +135,7 @@ export async function compressStorySummary(
   ├─ 5. 保存 GameEvent
   ├─ 6. createEntry(title, narrative) 创建新条目
   ├─ 7. 追加到 entries 数组
-  ├─ 8. 判断：条目数 > 50 或 总字数 > 1000
+  ├─ 8. 计算 summaryText = buildSummaryFromEntries(entries)，判断：条目数 > 50 或 summaryText.length > 1000
   │     ├─ 是 → compressStorySummary() AI 压缩
   │     │      → 创建一条压缩摘要条目: createEntry("📜 记忆凝练", compressedText, false)
   │     │      → 不标记重要，下次压缩时自动合并
@@ -190,7 +189,7 @@ export async function compressStorySummary(
 | ⭐/☆ 点击 | 切换 important 标记，星标条目压缩时优先保留 |
 | ✏️ 点击 | 该行变成输入框，可编辑 summary，回车保存 |
 | 🗑️ 点击 | 确认后删除该条目 |
-| 编辑全文概要 | textarea 编辑完整文本，点击保存 → 创建一条 `title="📝 玩家记述"` 的特殊条目，清除非重要旧条目 |
+| 编辑全文概要 | textarea 编辑完整文本，点击保存 → 创建一条 `title="📝 玩家记述"` 的特殊条目，保留所有重要 ⭐ 条目，清除非重要旧条目 |
 | 「压缩记忆」按钮 | 手动触发：`POST /api/cultivator` 传 `{ action: "compressMemory", userId }`，后端调 AI 压缩 |
 | 面板折叠 | 默认展开，localStorage 记忆折叠状态 |
 
