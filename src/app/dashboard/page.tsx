@@ -87,14 +87,19 @@ export default function DashboardPage() {
           stamina: Math.min(data.user.cultivator.stamina, calculateMaxStamina(data.user.cultivator.age, attributes)),
         };
         setCultivator(capped);
-        // 从后端同步背包数据
+        // 从后端同步背包数据（始终以服务端为唯一数据源）
         if (capped.inventory) {
-          let backendInv = [];
-          try { backendInv = JSON.parse(capped.inventory); } catch {}
-          if (backendInv.length > 0) {
-            setInventory(backendInv);
-            localStorage.setItem("inventory", JSON.stringify(backendInv));
+          try {
+            const backendInv = JSON.parse(capped.inventory);
+            setInventory(Array.isArray(backendInv) ? backendInv : []);
+            localStorage.setItem("inventory", JSON.stringify(Array.isArray(backendInv) ? backendInv : []));
+          } catch {
+            setInventory([]);
+            localStorage.setItem("inventory", JSON.stringify([]));
           }
+        } else {
+          setInventory([]);
+          localStorage.setItem("inventory", JSON.stringify([]));
         }
         const actions = getAvailableActions(capped.worldId || "earth", capped.age);
         setAvailableActions(actions);

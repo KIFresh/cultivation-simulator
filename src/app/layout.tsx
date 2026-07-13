@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "next-themes";
+import Script from "next/script";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -37,12 +39,22 @@ export default function RootLayout({
     <html
       lang="zh-CN"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col">
-        <TooltipProvider>
-          {children}
-          <Toaster richColors />
-        </TooltipProvider>
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
+        <Script
+          id="fix-extension-styles"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var o=new MutationObserver(function(){document.querySelectorAll("[style*='user-select']").forEach(function(e){e.style.removeProperty("user-select")})});o.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:["style"]});setTimeout(function(){o.disconnect()},5e3)})()`,
+          }}
+        />
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <TooltipProvider>
+            {children}
+            <Toaster richColors />
+          </TooltipProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

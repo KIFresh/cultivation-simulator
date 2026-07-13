@@ -4,8 +4,10 @@ import { prisma } from "@/lib/prisma";
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get("userId");
-  const page  = Math.max(1, parseInt(searchParams.get("page")  || "1"));
-  const limit = Math.min(50, parseInt(searchParams.get("limit") || "20"));
+  const rawPage  = parseInt(searchParams.get("page")  || "1");
+  const rawLimit = parseInt(searchParams.get("limit") || "20");
+  const page  = Math.max(1, Number.isNaN(rawPage)  ? 1 : rawPage);
+  const limit = Math.min(50, Math.max(1, Number.isNaN(rawLimit) ? 20 : rawLimit));
 
   if (!userId) return NextResponse.json({ error: "缺少 userId" }, { status: 400 });
 

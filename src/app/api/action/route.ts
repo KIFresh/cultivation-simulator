@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActionById, calculateActionExp, canBreakthrough, MORTAL_REALM, isAwakened, calculateMaxStamina } from "@/lib";
 import { generateActionNarrative } from "@/lib/narrative";
-import { Prisma } from "@/generated/prisma/client";
+import { sanitizeAttributes } from "@/lib/utils";
+
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,7 +23,8 @@ export async function POST(request: NextRequest) {
     const isEarth = cultivator.worldId === "earth";
     if (isEarth && cultivator.age < action.minAgeEarth) return NextResponse.json({ error: `年龄不足` }, { status: 400 });
 
-    const expGained = calculateActionExp(actionId, cultivator.spiritualRoot, body.attributes);
+    const safeAttrs = sanitizeAttributes(body.attributes) || {};
+    const expGained = calculateActionExp(actionId, cultivator.spiritualRoot, safeAttrs);
     let newRealm = cultivator.realm, newRealmLevel = cultivator.realmLevel;
     let newExp = cultivator.cultivationExp + expGained, newTotalExp = cultivator.totalExp + expGained;
     let awakenEvent: { title: string; narrative: string } | null = null;
@@ -41,13 +43,13 @@ export async function POST(request: NextRequest) {
     });
 
     const [updatedCultivator] = await prisma.$transaction([
-      prisma.cultivator.update({ where: { id: cultivator.id }, data: { stamina: { decrement: action.actionPointCost }, cultivationExp: newExp, totalExp: newTotalExp, realm: newRealm, realmLevel: newRealmLevel } as Prisma.CultivatorUpdateInput }),
+      prisma.cultivator.update({ where: { id: cultivator.id }, data: { stamina: { decrement: action.actionPointCost }, cultivationExp: newExp, totalExp: newTotalExp, realm: newRealm, realmLevel: newRealmLevel } }),
       prisma.gameEvent.create({ data: { cultivatorId: cultivator.id, type: "ACTION", title: narrativeResult.title, narrative: narrativeResult.narrative, reward: JSON.stringify({ expGained, actionName: action.name, mood: narrativeResult.mood }) } }),
     ]);
 
     const canBreak = canBreakthrough(newRealm, newRealmLevel, newExp, cultivator.spiritualRoot);
 
-    const capped = { ...updatedCultivator, stamina: Math.min(updatedCultivator.stamina, calculateMaxStamina(updatedCultivator.age, body.attributes)) };
+    const capped = { ...updatedCultivator, stamina: Math.min(updatedCultivator.stamina, calculateMaxStamina(updatedCultivator.age, safeAttrs)) };
     return NextResponse.json({ narrative: narrativeResult, cultivator: capped, expGained, canBreakthrough: canBreak, awakenEvent });
   } catch (error) {
     console.error("行动执行失败:", error);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { syncProviderConfig } from "@/lib/narrative";
 
 // GET — 读取所有配置
 export async function GET() {
@@ -31,6 +32,9 @@ export async function POST(request: NextRequest) {
       })
     );
     await prisma.$transaction(operations);
+
+    // 刷新运行时配置（服务端）
+    await syncProviderConfig();
 
     return NextResponse.json({ success: true });
   } catch (error) {
