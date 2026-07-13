@@ -142,7 +142,14 @@ export async function POST(request: NextRequest) {
           storySummary: currentSummary || undefined,
         });
 
-        // 更新修炼者 + 保存事件
+        // 追加概要，超长则压缩
+        const newSummary = appendToSummary(currentSummary, { title: narrative.title, narrative: narrative.narrative });
+        let finalSummary = newSummary;
+        if (shouldCompress(newSummary)) {
+          finalSummary = await compressStorySummary(newSummary, cultivator.name);
+        }
+
+        // 更新修炼者 + 保存事件 + 更新概要（原子操作）
         const [updatedCultivator, event] = await prisma.$transaction([
           prisma.cultivator.update({
             where: { id: cultivator.id },
@@ -151,6 +158,8 @@ export async function POST(request: NextRequest) {
               realmLevel: result.newLevel,
               cultivationExp: result.newExp,
               breakthroughCount: { increment: 1 },
+              storySummary: finalSummary,
+              storySummaryUpdatedAt: new Date(),
             },
           }),
           prisma.gameEvent.create({
@@ -167,18 +176,6 @@ export async function POST(request: NextRequest) {
             },
           }),
         ]);
-
-        // 追加概要，超长则压缩
-        const newSummary = appendToSummary(currentSummary, { title: narrative.title, narrative: narrative.narrative });
-        let finalSummary = newSummary;
-        if (shouldCompress(newSummary)) {
-          finalSummary = await compressStorySummary(newSummary, cultivator.name);
-        }
-        // 单独更新概要（因为上面的 transaction 已处理其他字段）
-        await prisma.cultivator.update({
-          where: { id: cultivator.id },
-          data: { storySummary: finalSummary, storySummaryUpdatedAt: new Date() },
-        });
 
         return NextResponse.json({
           event,
@@ -255,11 +252,15 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        // 追加概要
+        // 追加概要，超长则压缩
         const newSummary = appendToSummary(currentSummary, { title: narrative.title, narrative: narrative.narrative });
+        let finalSummary = newSummary;
+        if (shouldCompress(newSummary)) {
+          finalSummary = await compressStorySummary(newSummary, cultivator.name);
+        }
         await prisma.cultivator.update({
           where: { id: cultivator.id },
-          data: { storySummary: newSummary, storySummaryUpdatedAt: new Date() },
+          data: { storySummary: finalSummary, storySummaryUpdatedAt: new Date() },
         });
 
         return NextResponse.json({ event, narrative });

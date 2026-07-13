@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { generateYearAdvanceNarrative } from "@/lib/narrative";
+import { generateYearAdvanceNarrative, appendToSummary, shouldCompress, compressStorySummary } from "@/lib/narrative";
 import { Prisma } from "@/generated/prisma/client";
 import { sanitizeAttributes } from "@/lib/utils";
 import { getSchoolStage, getSchoolGrade, calculateSchoolRank, getSchoolName, getDefaultOccupation, parseOccupationFromNarrative, calculateYearlyAttributeGrowth, calculateMaxStamina, type SchoolRank } from "@/lib";
@@ -37,13 +37,22 @@ export async function POST(request: NextRequest) {
     const schoolContext = schoolStage ? `${newAge}岁，${schoolStage.name}${getSchoolGrade(newAge, schoolStage)}年级` : `${newAge}岁`;
     const examContext = examResult ? `\n【升学考试】${examResult.description}` : "";
 
+    const currentSummary = cultivator.storySummary;
     const narrativeResult = await generateYearAdvanceNarrative({
       cultivatorName: cultivator.name, spiritualRoot: cultivator.spiritualRoot,
       realm: cultivator.realm, realmLevel: cultivator.realmLevel,
       oldAge, newAge, totalExp: cultivator.totalExp,
       worldId: cultivator.worldId || worldId,
       extraContext: `${schoolContext}${examContext}\n职业：${occupation}`,
+      storySummary: currentSummary || undefined,
     });
+
+    // 追加概要，超长则压缩
+    const newSummary = appendToSummary(currentSummary, { title: narrativeResult.title, narrative: narrativeResult.narrative });
+    let finalSummary = newSummary;
+    if (shouldCompress(newSummary)) {
+      finalSummary = await compressStorySummary(newSummary, cultivator.name);
+    }
 
     let awakenEvent: { title: string; narrative: string; bonuses?: Record<string, string> } | null = null;
     let newRealm = cultivator.realm, newRealmLevel = cultivator.realmLevel;
@@ -68,7 +77,7 @@ export async function POST(request: NextRequest) {
     const narrativeOcc = parseOccupationFromNarrative(narrativeResult.narrative, occupation);
     if (narrativeOcc) occupation = narrativeOcc;
 
-    const updateData: Prisma.CultivatorUpdateInput = { age: newAge, stamina: calculateMaxStamina(newAge, newAttributes) };
+    const updateData: Prisma.CultivatorUpdateInput = { age: newAge, stamina: calculateMaxStamina(newAge, newAttributes), storySummary: finalSummary, storySummaryUpdatedAt: new Date() };
     if (newRealm !== cultivator.realm) { updateData.realm = newRealm; updateData.realmLevel = newRealmLevel; }
 
     const [updatedCultivator] = await prisma.$transaction([

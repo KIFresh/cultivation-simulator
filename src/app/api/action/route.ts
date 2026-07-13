@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActionById, calculateActionExp, canBreakthrough, MORTAL_REALM, isAwakened, calculateMaxStamina } from "@/lib";
-import { generateActionNarrative } from "@/lib/narrative";
+import { generateActionNarrative, appendToSummary, shouldCompress, compressStorySummary } from "@/lib/narrative";
 import { sanitizeAttributes } from "@/lib/utils";
 
 
@@ -34,16 +34,25 @@ export async function POST(request: NextRequest) {
       awakenEvent = { title: "灵气觉醒", narrative: `${cultivator.name}终于感知到了天地间的灵气！` };
     }
 
+    const currentSummary = cultivator.storySummary;
     const narrativeResult = await generateActionNarrative({
       cultivatorName: cultivator.name, spiritualRoot: cultivator.spiritualRoot,
       realm: newRealm, realmLevel: newRealmLevel, age: cultivator.age,
       worldId: cultivator.worldId || worldId, actionName: action.name,
       actionDescription: action.description, freeInput, expGained,
       isAwakened: isAwakened(newRealm), awakenEvent: !!awakenEvent,
+      storySummary: currentSummary || undefined,
     });
 
+    // 追加概要，超长则压缩
+    const newSummary = appendToSummary(currentSummary, { title: narrativeResult.title, narrative: narrativeResult.narrative });
+    let finalSummary = newSummary;
+    if (shouldCompress(newSummary)) {
+      finalSummary = await compressStorySummary(newSummary, cultivator.name);
+    }
+
     const [updatedCultivator] = await prisma.$transaction([
-      prisma.cultivator.update({ where: { id: cultivator.id }, data: { stamina: { decrement: action.actionPointCost }, cultivationExp: newExp, totalExp: newTotalExp, realm: newRealm, realmLevel: newRealmLevel } }),
+      prisma.cultivator.update({ where: { id: cultivator.id }, data: { stamina: { decrement: action.actionPointCost }, cultivationExp: newExp, totalExp: newTotalExp, realm: newRealm, realmLevel: newRealmLevel, storySummary: finalSummary, storySummaryUpdatedAt: new Date() } }),
       prisma.gameEvent.create({ data: { cultivatorId: cultivator.id, type: "ACTION", title: narrativeResult.title, narrative: narrativeResult.narrative, reward: JSON.stringify({ expGained, actionName: action.name, mood: narrativeResult.mood }) } }),
     ]);
 
