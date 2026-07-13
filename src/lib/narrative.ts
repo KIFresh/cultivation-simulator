@@ -157,9 +157,10 @@ export interface NarrativeResult {
 /** 生成日常修炼叙事 */
 export async function generateDailyCultivationNarrative(params: {
   cultivatorName: string; spiritualRoot: SpiritualRoot; realm: string; realmLevel: number; taskType: string; taskDescription?: string; cultivationExp: number;
+  storySummary?: string;
 }): Promise<NarrativeResult> {
   const taskNames: Record<string, string> = { STUDY: "悟道", EXERCISE: "锻体", SLEEP: "静修", MEDITATE: "打坐", CUSTOM: "历练" };
-  const prompt = `生成一段修仙小说的日常修炼叙事。
+  let prompt = `生成一段修仙小说的日常修炼叙事。
 
 【修炼者信息】道号：${params.cultivatorName}，灵根：${params.spiritualRoot}，境界：${params.realm} ${formatRealmLevel(params.realm, params.realmLevel)}，修炼值：${params.cultivationExp}
 【今日修炼】方式：${taskNames[params.taskType] || "修炼"}${params.taskDescription ? `，描述：${params.taskDescription}` : ""}
@@ -167,6 +168,11 @@ export async function generateDailyCultivationNarrative(params: {
 要求：150-250字，体现灵根和境界特点
 
 返回JSON：{"title":"标题","narrative":"正文","mood":"静/悟/燃","hint":"提示"}`;
+
+  if (params.storySummary) {
+    prompt += `\n\n【已发生的剧情】\n${params.storySummary}\n\n请基于以上已发生的剧情，继续写接下来的故事。`;
+  }
+
   try {
     const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 500, temperature: 0.8 });
     return extractJson(text, { title: "日常修炼", narrative: `${params.cultivatorName}盘膝而坐，默默运转功法……`, mood: "静", hint: "持之以恒" });
@@ -176,16 +182,22 @@ export async function generateDailyCultivationNarrative(params: {
 /** 生成境界突破叙事 */
 export async function generateBreakthroughNarrative(params: {
   cultivatorName: string; spiritualRoot: SpiritualRoot; fromRealm: string; fromLevel: number; toRealm: string; toLevel: number; totalExp: number; breakthroughCount: number;
+  storySummary?: string;
 }): Promise<NarrativeResult> {
   const isNewRealm = params.fromRealm !== params.toRealm;
   const scene = isNewRealm ? `突破大境界：从 ${params.fromRealm} 到 ${params.toRealm}！` : `${params.fromRealm} ${formatRealmLevel(params.fromRealm, params.fromLevel)} → ${formatRealmLevel(params.fromRealm, params.toLevel)}`;
-  const prompt = `生成一段修仙小说的境界突破叙事。
+  let prompt = `生成一段修仙小说的境界突破叙事。
 
 【修炼者】${params.cultivatorName}，灵根${params.spiritualRoot}，第${params.breakthroughCount + 1}次突破，累计修炼${params.totalExp}
 【突破】${scene}
 
 要求：${isNewRealm ? "300-500字，天地异象" : "200-300字，灵力增长"}
 返回JSON：{"title":"标题","narrative":"正文","mood":"燃","hint":"建议"}`;
+
+  if (params.storySummary) {
+    prompt += `\n\n【已发生的剧情】\n${params.storySummary}\n\n请基于以上已发生的剧情，继续写接下来的故事。`;
+  }
+
   try {
     const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 500, temperature: 0.9 });
     return extractJson(text, { title: `${params.toRealm}突破！`, narrative: `天地灵气涌入${params.cultivatorName}体内！成功踏入${params.toRealm}！`, mood: "燃", hint: "恭喜突破" });
@@ -195,13 +207,19 @@ export async function generateBreakthroughNarrative(params: {
 /** 生成随机奇遇叙事 */
 export async function generateEncounterNarrative(params: {
   cultivatorName: string; spiritualRoot: SpiritualRoot; realm: string; realmLevel: number;
+  storySummary?: string;
 }): Promise<{ title: string; narrative: string; choices: { text: string; risk: "low" | "medium" | "high"; hint: string }[]; mood: string }> {
-  const prompt = `生成一段修仙世界的奇遇事件。
+  let prompt = `生成一段修仙世界的奇遇事件。
 
 【修炼者】${params.cultivatorName}，灵根${params.spiritualRoot}，境界${params.realm} ${formatRealmLevel(params.realm, params.realmLevel)}
 
 要求：200-300字，给出3个选项（低/中/高风险）
 返回JSON：{"title":"标题","narrative":"场景","choices":[{"text":"选项","risk":"low/medium/high","hint":"提示"}],"mood":"奇/险"}`;
+
+  if (params.storySummary) {
+    prompt += `\n\n【已发生的剧情】\n${params.storySummary}\n\n请基于以上已发生的剧情，继续写接下来的故事。`;
+  }
+
   try {
     const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 500, temperature: 0.9 });
     return extractJson(text, { title: "意外发现", narrative: `${params.cultivatorName}在修炼途中发现了一处洞府遗迹……`, choices: [{ text: "小心探查", risk: "low", hint: "稳扎稳打" }, { text: "深入探索", risk: "medium", hint: "风险与机遇并存" }, { text: "全力闯入", risk: "high", hint: "富贵险中求" }], mood: "奇" });
@@ -211,14 +229,20 @@ export async function generateEncounterNarrative(params: {
 /** 生成 NPC 对话 */
 export async function generateNPCDialogue(params: {
   npcName: string; npcPersonality: string; npcRealm: string; cultivatorName: string; cultivatorRealm: string; historySummary?: string;
+  storySummary?: string;
 }): Promise<{ dialogue: string; npcMood: string; reward?: { type: string; description: string } }> {
-  const prompt = `生成一段修仙世界NPC对话。
+  let prompt = `生成一段修仙世界NPC对话。
 
 【NPC】${params.npcName}，性格${params.npcPersonality}，境界${params.npcRealm}
 【玩家】${params.cultivatorName}，境界${params.cultivatorRealm}${params.historySummary ? `，过往：${params.historySummary}` : ""}
 
 要求：200-300字，对话贴合NPC性格，可能给指点/礼物/任务
 返回JSON：{"dialogue":"对话","npcMood":"友善/冷淡/严厉","reward":{...}或null}`;
+
+  if (params.storySummary) {
+    prompt += `\n\n【已发生的剧情】\n${params.storySummary}\n\n请基于以上已发生的剧情，继续写接下来的故事。`;
+  }
+
   try {
     const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 500, temperature: 0.8 });
     return extractJson(text, { dialogue: `${params.npcName}看了${params.cultivatorName}一眼，微微点头。`, npcMood: "友善" });
@@ -230,10 +254,11 @@ export async function generateActionNarrative(params: {
   cultivatorName: string; spiritualRoot: string; realm: string; realmLevel: number;
   age: number; worldId?: string; actionName: string; actionDescription: string;
   freeInput?: string; expGained: number; isAwakened: boolean; awakenEvent: boolean;
+  storySummary?: string;
 }): Promise<NarrativeResult> {
   const realmStr = params.realm === "凡人" ? "凡人" : `${params.realm} ${formatRealmLevel(params.realm, params.realmLevel)}`;
   const ageContext = params.age <= 3 ? "幼儿" : params.age <= 6 ? "孩童" : params.age <= 12 ? "少年" : params.age <= 15 ? "即将成年的少年" : "修炼者";
-  const prompt = `写一段修仙小说的行动叙事。
+  let prompt = `写一段修仙小说的行动叙事。
 
 【角色】${params.cultivatorName}，${params.age}岁${ageContext}，灵根${params.spiritualRoot}，境界${realmStr}
 ${params.isAwakened ? "" : "- 尚未觉醒，仍为凡人"}
@@ -244,6 +269,11 @@ ${params.freeInput ? `玩家描述：${params.freeInput}` : ""}
 
 要求：150-300字，符合年龄认知，未觉醒角色不能出现超凡元素
 返回JSON：{"title":"标题","narrative":"正文","mood":"静/悟/燃/险/奇","hint":"修炼提示"}`;
+
+  if (params.storySummary) {
+    prompt += `\n\n【已发生的剧情】\n${params.storySummary}\n\n请基于以上已发生的剧情，继续写接下来的故事。`;
+  }
+
   try {
     const text = await callAI({ systemPrompt: buildSystemPrompt(params.worldId), userPrompt: prompt, maxTokens: 500, temperature: 0.8 });
     return extractJson(text, { title: params.actionName, narrative: `${params.cultivatorName}${params.actionName}。修炼值+${params.expGained}。`, mood: "静", hint: "" });
@@ -254,15 +284,21 @@ ${params.freeInput ? `玩家描述：${params.freeInput}` : ""}
 export async function generateYearAdvanceNarrative(params: {
   cultivatorName: string; spiritualRoot: string; realm: string; realmLevel: number;
   oldAge: number; newAge: number; totalExp: number; worldId?: string; extraContext?: string;
+  storySummary?: string;
 }): Promise<NarrativeResult> {
   const realmStr = params.realm === "凡人" ? "凡人" : `${params.realm} ${formatRealmLevel(params.realm, params.realmLevel)}`;
-  const prompt = `写一段修仙小说的时间推进叙事。
+  let prompt = `写一段修仙小说的时间推进叙事。
 
 【角色】${params.cultivatorName}，${params.oldAge}岁→${params.newAge}岁，灵根${params.spiritualRoot}，境界${realmStr}，累计修炼${params.totalExp}
 ${params.extraContext ? `\n【背景】${params.extraContext}` : ""}
 
 要求：100-200字，总结一年成长，未觉醒角色不能出现超凡元素
 返回JSON：{"title":"标题","narrative":"正文","mood":"静/悟/燃/奇","hint":"展望"}`;
+
+  if (params.storySummary) {
+    prompt += `\n\n【已发生的剧情】\n${params.storySummary}\n\n请基于以上已发生的剧情，继续写接下来的故事。`;
+  }
+
   try {
     const text = await callAI({ systemPrompt: buildSystemPrompt(params.worldId), userPrompt: prompt, maxTokens: 500, temperature: 0.8 });
     return extractJson(text, { title: `${params.cultivatorName}的第${params.newAge}年`, narrative: `时光荏苒，${params.cultivatorName}又长大了一岁。`, mood: "静", hint: "岁月不居" });
@@ -275,9 +311,10 @@ export async function generateFamilyDialogue(params: {
   intimacy: number; cultivatorName: string; cultivatorAge: number; cultivatorRealm: string; cultivatorRealmLevel: number;
   playerMessage: string; dialogueHistory: { role: "player" | "npc"; content: string }[];
   worldId?: string;
+  storySummary?: string;
 }): Promise<{ npcDialogue: string; intimacyDelta: number; npcMood: string; actionHint?: string }> {
   const recentHistory = params.dialogueHistory.slice(-5).map((d) => `${d.role === "player" ? "主角" : params.familyMemberRelation}：${d.content}`).join("\n");
-  const prompt = `生成一段家庭日常对话。
+  let prompt = `生成一段家庭日常对话。
 
 【NPC】${params.familyMemberName}（${params.familyMemberRelation}），${params.familyMemberAge}岁，亲密度${params.intimacy}/100
 【主角】${params.cultivatorName}，${params.cultivatorAge}岁，境界${params.cultivatorRealm}
@@ -286,6 +323,11 @@ ${recentHistory ? `【最近对话】\n${recentHistory}` : ""}
 
 要求：50-120字，口语化，亲密度高时亲切低时冷淡
 返回JSON：{"npcDialogue":"对话","intimacyDelta":-5~5,"npcMood":"开心/生气/平淡/担忧","actionHint":"NPC可能行动"}`;
+
+  if (params.storySummary) {
+    prompt += `\n\n【已发生的剧情】\n${params.storySummary}\n\n请基于以上已发生的剧情，继续写接下来的故事。`;
+  }
+
   try {
     const text = await callAI({ systemPrompt: buildSystemPrompt(params.worldId), userPrompt: prompt, maxTokens: 500, temperature: 0.85 });
     return extractJson(text, { npcDialogue: `${params.familyMemberRelation}看了你一眼，点了点头。`, intimacyDelta: 0, npcMood: "平淡" });
@@ -296,11 +338,12 @@ ${recentHistory ? `【最近对话】\n${recentHistory}` : ""}
 export async function generateBirthNarrative(params: {
   cultivatorName: string; spiritualRoot: string; worldName?: string; identityName?: string;
   age?: number; worldId?: string; family?: { relation: string; name: string; age: number; alive: boolean }[];
+  storySummary?: string;
 }): Promise<NarrativeResult> {
   const familyStr = params.family && params.family.length > 0
     ? `\n\n【家庭成员】\n${params.family.map((m) => `- ${m.relation}：${m.name}，${m.age}岁，${m.alive ? "健在" : "已故"}`).join("\n")}`
     : "";
-  const prompt = `写一段修仙小说风格的出生叙事，自然地描写主角的诞生。
+  let prompt = `写一段修仙小说风格的出生叙事，自然地描写主角的诞生。
 
 ${params.cultivatorName}，${params.age || 1}岁，${params.spiritualRoot}，${params.identityName || "未知"}，${params.worldName || "修仙世界"}${familyStr}
 
@@ -308,6 +351,11 @@ ${params.cultivatorName}，${params.age || 1}岁，${params.spiritualRoot}，${p
 
 输出JSON格式：
 {"title":"标题(10字内)","narrative":"叙事正文(200-350字)","mood":"悟/奇/静/燃","hint":"寄语(10-20字)"}`;
+
+  if (params.storySummary) {
+    prompt += `\n\n【已发生的剧情】\n${params.storySummary}\n\n请基于以上已发生的剧情，继续写接下来的故事。`;
+  }
+
   try {
     const text = await callAI({ systemPrompt: buildSystemPrompt(params.worldId), userPrompt: prompt, maxTokens: 500, temperature: 0.85 });
     return extractJson(text, { title: `${params.cultivatorName}出世`, narrative: `${params.cultivatorName}来到了这个世界。`, mood: "奇", hint: "仙途漫漫" });
