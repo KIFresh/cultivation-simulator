@@ -161,7 +161,9 @@ export default function SettingsDialog({ open, onOpenChange, onDevModeChange }: 
                   onValueChange={(v) => updateProvider(i, "type", v ?? "")}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="选择供应方" />
+                    <SelectValue placeholder="选择供应方">
+                      {(v: string) => PROVIDER_TYPES.find(t => t.value === v)?.label || v}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {PROVIDER_TYPES.map((t) => (
