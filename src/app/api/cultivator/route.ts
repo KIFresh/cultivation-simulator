@@ -124,6 +124,42 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// PATCH — 更新位置（旅行消耗）
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { userId, location, stamina, gold } = body;
+
+    if (!userId) {
+      return NextResponse.json({ error: "缺少 userId" }, { status: 400 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { cultivator: true },
+    });
+    if (!user?.cultivator) {
+      return NextResponse.json({ error: "请先创建修炼者" }, { status: 400 });
+    }
+
+    const c = user.cultivator;
+    const updateData: Record<string, unknown> = {};
+    if (location) updateData.location = location;
+    if (typeof stamina === "number") updateData.stamina = stamina;
+    if (typeof gold === "number") updateData.gold = gold;
+
+    const updated = await prisma.cultivator.update({
+      where: { id: c.id },
+      data: updateData,
+    });
+
+    return NextResponse.json({ cultivator: updated });
+  } catch (error) {
+    console.error("更新位置失败:", error);
+    return NextResponse.json({ error: "更新失败" }, { status: 500 });
+  }
+}
+
 // GET — 获取修炼者信息
 export async function GET(request: NextRequest) {
   try {
