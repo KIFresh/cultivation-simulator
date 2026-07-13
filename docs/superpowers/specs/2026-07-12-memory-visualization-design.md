@@ -116,7 +116,8 @@ export async function compressStorySummary(
     });
     return text.slice(0, 500);
   } catch {
-    return buildSummaryFromEntries(entries); // 压缩失败则用原文本
+    // 压缩失败时只拼接 normalEntries（不含 important），避免返回全文
+    return normalEntries.map(e => `【${e.title}】${e.summary}`).join('\n');
   }
 }
 ```
@@ -304,6 +305,6 @@ if (user.cultivator?.storyEntries) {
 ## 7. 兼容性
 
 - 已有 cultivator 的 `storyEntries` 为 null，显示「尚无记忆」
-- 原 `storySummary` 字段不删除但不再使用（可后续迁移脚本合并）
+- `storySummary` 字段从 schema 中删除（已有数据全为 null，无影响）
 - 所有编辑操作离线友好，不依赖 AI
 - 压缩失败不丢数据（entries 在压缩前已保存）
