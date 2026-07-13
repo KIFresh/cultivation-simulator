@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -53,6 +53,7 @@ export default function SettingsDialog({ open, onOpenChange, onDevModeChange }: 
   const [dirty, setDirty] = useState(false);
   const [availableModels, setAvailableModels] = useState<(string[] | null)[]>([null, null, null]);
   const [fetchingModels, setFetchingModels] = useState<boolean[]>([false, false, false]);
+  const abortControllers = useRef<(AbortController | null)[]>([null, null, null]);
 
   // 加载配置
   useEffect(() => {
@@ -129,20 +130,34 @@ export default function SettingsDialog({ open, onOpenChange, onDevModeChange }: 
     }
   };
 
-  const fetchModels = async (index: number) => {
+    const fetchModels = async (index: number) => {
     const p = providers[index];
-    if (!p.type || !p.baseUrl) {
-      toast.error(p.type === "ollama" ? "请先填写接口地址" : "请先填写接口地址和 API Key");
+    if (!p.type) {
+      toast.error("请先选择供应方类型");
       return;
     }
-    if (p.type !== "ollama" && !p.apiKey) {
-      toast.error("请先填写 API Key");
+    if (p.type === "ollama" && !p.baseUrl) {
+      toast.error("Ollama 需要填写接口地址");
       return;
     }
+    if (p.type !== "ollama") {
+      if (!p.baseUrl) { toast.error("请填写接口地址"); return; }
+      if (!p.apiKey) { toast.error("请填写 API Key"); return; }
+    }
+
+    // 取消上一次未完成的请求
+    if (abortControllers.current[index]) {
+      abortControllers.current[index]!.abort();
+    }
+    const controller = new AbortController();
+    abortControllers.current[index] = controller;
+    setTimeout(() => controller.abort(), 15000);
+
     setFetchingModels((prev) => { const n = [...prev]; n[index] = true; return n; });
     try {
       const res = await fetch("/api/settings/list-models", {
         method: "POST", headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({ baseUrl: p.baseUrl, apiKey: p.apiKey, type: p.type }),
       });
       const data = await res.json();
@@ -152,21 +167,31 @@ export default function SettingsDialog({ open, onOpenChange, onDevModeChange }: 
       }
       if (data.models && data.models.length > 0) {
         setAvailableModels((prev) => { const n = [...prev]; n[index] = data.models; return n; });
-        if (!p.model) {
-          updateProvider(index, "model", data.models[0]);
-        }
+        // 使用 setProviders 函数式更新读取最新模型值，避免闭包陈旧
+        setProviders((prev) => {
+          if (!prev[index].model) {
+            const next = [...prev];
+            next[index] = { ...next[index], model: data.models[0] };
+            return next;
+          }
+          return prev;
+        });
         if (data.warning) toast.warning(data.warning);
       } else {
         toast.warning("该接口未返回模型列表");
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       toast.error("网络错误，请检查地址");
     } finally {
       setFetchingModels((prev) => { const n = [...prev]; n[index] = false; return n; });
+      if (abortControllers.current[index] === controller) {
+        abortControllers.current[index] = null;
+      }
     }
   };
 
-  const toggleDevMode = () => {
+const toggleDevMode = () => {
     const next = !devMode;
     setDevMode(next);
     localStorage.setItem("devMode", next ? "true" : "false");

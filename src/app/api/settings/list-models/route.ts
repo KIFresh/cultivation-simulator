@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
     const url = baseUrl.replace(/\/+$/, "") + "/v1/models";
     const resp = await fetch(url, {
       method: "GET",
+      signal: AbortSignal.timeout(15000),
       headers: { Authorization: `Bearer ${apiKey}` },
     });
 
