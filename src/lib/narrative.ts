@@ -94,6 +94,26 @@ function extractJson<T>(text: string, fallback: T): T {
   return fallback;
 }
 
+/**
+ * 将一条事件追加到剧情概要中。
+ * 追加格式：【标题】叙事前60字…
+ * 纯字符串操作，无 AI 调用。
+ */
+function appendToSummary(currentSummary: string | null, event: { title: string; narrative: string }): string {
+  const summaryLine = `【${event.title}】${event.narrative.slice(0, 60)}…`;
+  if (!currentSummary) return summaryLine;
+  return currentSummary + '\n' + summaryLine;
+}
+
+/**
+ * 判断剧情概要是否超过压缩阈值（1000 中文字符）。
+ * 纯字符串长度判断，无 AI 调用。
+ */
+function shouldCompress(summary: string): boolean {
+  const text = summary.replace(/\n/g, '');
+  return text.length > 1000;
+}
+
 // ============================================================
 // System Prompt
 // ============================================================
@@ -292,4 +312,31 @@ ${params.cultivatorName}，${params.age || 1}岁，${params.spiritualRoot}，${p
     const text = await callAI({ systemPrompt: buildSystemPrompt(params.worldId), userPrompt: prompt, maxTokens: 500, temperature: 0.85 });
     return extractJson(text, { title: `${params.cultivatorName}出世`, narrative: `${params.cultivatorName}来到了这个世界。`, mood: "奇", hint: "仙途漫漫" });
   } catch { return { title: `${params.cultivatorName}出世`, narrative: `${params.cultivatorName}在一个平凡的冬日清晨出生了。`, mood: "奇", hint: "仙途漫漫" }; }
+}
+
+/**
+ * 调用 AI 将剧情概要压缩到 500 字以内。
+ * 压缩失败返回原概要，不阻断流程。
+ */
+export async function compressStorySummary(summary: string, cultivatorName: string): Promise<string> {
+  const prompt = `你是一个修仙小说的编辑。将以下剧情概要压缩到500字以内，保留关键事件和因果关系，保持时间顺序。
+
+【修炼者】${cultivatorName}
+
+【当前概要】
+${summary}
+
+要求：压缩后不超过500字，保留核心故事情节。直接输出压缩后的文本，不要 JSON 格式，不要多余说明。`;
+
+  try {
+    const text = await callAI({
+      systemPrompt: "你是一个熟练的文本编辑。",
+      userPrompt: prompt,
+      maxTokens: 1024,
+      temperature: 0.3,
+    });
+    return text.slice(0, 500);
+  } catch {
+    return summary; // 压缩失败，保留原概要
+  }
 }
