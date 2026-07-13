@@ -100,7 +100,9 @@ function extractJson<T>(text: string, fallback: T): T {
  * 纯字符串操作，无 AI 调用。
  */
 export function appendToSummary(currentSummary: string | null, event: { title: string; narrative: string }): string {
-  const summaryLine = `【${event.title}】${event.narrative.slice(0, 60)}…`;
+  const truncated = event.narrative.slice(0, 60);
+  const suffix = event.narrative.length > 60 ? '…' : '';
+  const summaryLine = `【${event.title}】${truncated}${suffix}`;
   if (!currentSummary) return summaryLine;
   return currentSummary + '\n' + summaryLine;
 }

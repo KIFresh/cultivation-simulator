@@ -51,15 +51,22 @@ export async function POST(request: NextRequest) {
           family: body.family || [],
           storySummary: currentSummary || undefined,
         });
-        const event = await prisma.gameEvent.create({
-          data: { cultivatorId: cultivator.id, type: "BIRTH", title: narrative.title, narrative: narrative.narrative, reward: JSON.stringify({ mood: narrative.mood }) },
-        });
-        // 追加概要
+        // 追加概要，超长则压缩
         const newSummary = appendToSummary(currentSummary, { title: narrative.title, narrative: narrative.narrative });
-        await prisma.cultivator.update({
-          where: { id: cultivator.id },
-          data: { storySummary: newSummary, storySummaryUpdatedAt: new Date() },
-        });
+        let finalSummary = newSummary;
+        if (shouldCompress(newSummary)) {
+          finalSummary = await compressStorySummary(newSummary, cultivator.name);
+        }
+        // 原子操作：保存事件 + 更新概要
+        const [event] = await prisma.$transaction([
+          prisma.gameEvent.create({
+            data: { cultivatorId: cultivator.id, type: "BIRTH", title: narrative.title, narrative: narrative.narrative, reward: JSON.stringify({ mood: narrative.mood }) },
+          }),
+          prisma.cultivator.update({
+            where: { id: cultivator.id },
+            data: { storySummary: finalSummary, storySummaryUpdatedAt: new Date() },
+          }),
+        ]);
         return NextResponse.json({ event, narrative });
       }
 
@@ -77,27 +84,29 @@ export async function POST(request: NextRequest) {
           storySummary: currentSummary || undefined,
         });
 
-        // 保存事件
-        const event = await prisma.gameEvent.create({
-          data: {
-            cultivatorId: cultivator.id,
-            type: "DAILY_CULTIVATION",
-            title: narrative.title,
-            narrative: narrative.narrative,
-            reward: JSON.stringify({ mood: narrative.mood, hint: narrative.hint }),
-          },
-        });
-
         // 追加概要，超长则压缩
         const newSummary = appendToSummary(currentSummary, { title: narrative.title, narrative: narrative.narrative });
         let finalSummary = newSummary;
         if (shouldCompress(newSummary)) {
           finalSummary = await compressStorySummary(newSummary, cultivator.name);
         }
-        await prisma.cultivator.update({
-          where: { id: cultivator.id },
-          data: { storySummary: finalSummary, storySummaryUpdatedAt: new Date() },
-        });
+
+        // 原子操作：保存事件 + 更新概要
+        const [event] = await prisma.$transaction([
+          prisma.gameEvent.create({
+            data: {
+              cultivatorId: cultivator.id,
+              type: "DAILY_CULTIVATION",
+              title: narrative.title,
+              narrative: narrative.narrative,
+              reward: JSON.stringify({ mood: narrative.mood, hint: narrative.hint }),
+            },
+          }),
+          prisma.cultivator.update({
+            where: { id: cultivator.id },
+            data: { storySummary: finalSummary, storySummaryUpdatedAt: new Date() },
+          }),
+        ]);
 
         // 检查是否可以突破
         const canBreak = canBreakthrough(
@@ -196,18 +205,28 @@ export async function POST(request: NextRequest) {
           storySummary: currentSummary || undefined,
         });
 
+        // 追加概要，超长则压缩
+        const newSummary = appendToSummary(currentSummary, { title: narrative.title, narrative: narrative.narrative });
+        let finalSummary = newSummary;
+        if (shouldCompress(newSummary)) {
+          finalSummary = await compressStorySummary(newSummary, cultivator.name);
+        }
+
         // 如果用户做了选择
         if (choiceIndex !== undefined && narrative.choices[choiceIndex]) {
           const choice = narrative.choices[choiceIndex];
           const expBonus =
             choice.risk === "high" ? 50 : choice.risk === "medium" ? 30 : 15;
 
+          // 原子操作：更新修为 + 保存事件 + 更新概要
           await prisma.$transaction([
             prisma.cultivator.update({
               where: { id: cultivator.id },
               data: {
                 cultivationExp: { increment: expBonus },
                 totalExp: { increment: expBonus },
+                storySummary: finalSummary,
+                storySummaryUpdatedAt: new Date(),
               },
             }),
             prisma.gameEvent.create({
@@ -223,17 +242,6 @@ export async function POST(request: NextRequest) {
             }),
           ]);
 
-          // 追加概要，超长则压缩
-          const newSummary = appendToSummary(currentSummary, { title: narrative.title, narrative: narrative.narrative });
-          let finalSummary = newSummary;
-          if (shouldCompress(newSummary)) {
-            finalSummary = await compressStorySummary(newSummary, cultivator.name);
-          }
-          await prisma.cultivator.update({
-            where: { id: cultivator.id },
-            data: { storySummary: finalSummary, storySummaryUpdatedAt: new Date() },
-          });
-
           return NextResponse.json({
             narrative,
             chosenOption: choiceIndex,
@@ -241,27 +249,22 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        // 保存事件（选项待选）
-        const event = await prisma.gameEvent.create({
-          data: {
-            cultivatorId: cultivator.id,
-            type: "RANDOM_ENCOUNTER",
-            title: narrative.title,
-            narrative: narrative.narrative,
-            choices: JSON.stringify(narrative.choices),
-          },
-        });
-
-        // 追加概要，超长则压缩
-        const newSummary = appendToSummary(currentSummary, { title: narrative.title, narrative: narrative.narrative });
-        let finalSummary = newSummary;
-        if (shouldCompress(newSummary)) {
-          finalSummary = await compressStorySummary(newSummary, cultivator.name);
-        }
-        await prisma.cultivator.update({
-          where: { id: cultivator.id },
-          data: { storySummary: finalSummary, storySummaryUpdatedAt: new Date() },
-        });
+        // 保存事件 + 更新概要（原子操作）
+        const [event] = await prisma.$transaction([
+          prisma.gameEvent.create({
+            data: {
+              cultivatorId: cultivator.id,
+              type: "RANDOM_ENCOUNTER",
+              title: narrative.title,
+              narrative: narrative.narrative,
+              choices: JSON.stringify(narrative.choices),
+            },
+          }),
+          prisma.cultivator.update({
+            where: { id: cultivator.id },
+            data: { storySummary: finalSummary, storySummaryUpdatedAt: new Date() },
+          }),
+        ]);
 
         return NextResponse.json({ event, narrative });
       }
