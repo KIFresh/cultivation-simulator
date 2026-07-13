@@ -40,12 +40,13 @@ model Cultivator {
 }
 ```
 
-- [ ] **Step 2: 生成 Prisma 客户端**
+- [ ] **Step 2: 生成 Prisma 客户端并同步数据库**
 
 ```bash
 npx prisma generate
+npx prisma db push
 ```
-Expected: Prisma 客户端重新生成，无错误
+Expected: 数据库同步成功，新增列添加到 cultivator 表
 
 - [ ] **Step 3: 提交**
 
@@ -68,22 +69,21 @@ git commit -m "feat: Cultivator 新增 maxAge/bonusAge/reincarnationCount/talent
 在 `getRootInfo` 函数中增加可选参数 `talents?: string[]`，当包含 `"前世记忆"` 时，修炼速度叠加加成：
 
 ```typescript
-export function getRootInfo(rootKey: string, talents?: string[]): SpiritualRootInfo {
+export function getRootInfo(rootKey: string, talents?: string[], reincarnationCount = 0): SpiritualRootInfo {
   const info = SPIRITUAL_ROOTS[rootKey] || {
     name: rootKey, description: "", rarity: 1,
     speedBonus: 1.0, color: "#8B7355", element: "未知",
   };
   // 前世记忆天赋：每世 +10% 修炼速度
-  if (talents?.includes("前世记忆")) {
-    const reincCount = /* 由调用方传入 */ 0;
-    const bonus = 1 + reincCount * 0.1;
+  if (talents?.includes("前世记忆") && reincarnationCount > 0) {
+    const bonus = 1 + reincarnationCount * 0.1;
     return { ...info, speedBonus: info.speedBonus * bonus };
   }
   return info;
 }
 ```
 
-注：实际调用时 `reincCount` 由调用方传入 `cultivator.reincarnationCount`。
+调用处示例：`getRootInfo(cultivator.spiritualRoot, JSON.parse(cultivator.talents || '[]'), cultivator.reincarnationCount)`
 
 然后添加寿元表：
 
@@ -147,12 +147,9 @@ import { calculateMaxAge } from "@/lib/cultivation-data";
 在 `const oldAge = cultivator.age, newAge = oldAge + 1;` 之后添加：
 
 ```typescript
-// 计算/更新寿元上限
+// 每次推进年份都重新计算寿元（突破后寿元会变化）
 const attrs = sanitizeAttributes(rawAttributes) || {};
-let maxAge = cultivator.maxAge;
-if (maxAge === null) {
-  maxAge = calculateMaxAge(cultivator.realm, attrs, cultivator.bonusAge || 0);
-}
+let maxAge = calculateMaxAge(cultivator.realm, attrs, cultivator.bonusAge || 0);
 
 // 检查是否超限
 if (newAge > maxAge) {
@@ -252,7 +249,7 @@ if (body.action === "reincarnate") {
       realmLevel: 0,
       cultivationExp: 0,
       totalExp: 0,
-      stamina: 20,
+      stamina: 20, // 重置体力（1岁凡人约6点，但轮回后重置到初始上限更友好）
       breakthroughCount: 0,
       age: 1,
       gold: 50,
@@ -450,7 +447,20 @@ const [maxAge, setMaxAge] = useState<number | null>(null);
 
 - [ ] **Step 2: 推进年份响应中处理道消和预警**
 
-在调用 advance-year API 之后、处理正常响应之前，检查 `daoXiao`：
+在调用 advance-year API 之后、处理正常响应之前，检查 `daoXiao`。同时在 `loadCultivator` 或 fetch 回调中初始化寿元数据：
+
+```typescript
+// 在获取 cultivator 数据后初始化寿元状态
+if (data.user?.cultivator) {
+  const c = data.user.cultivator;
+  if (c.maxAge) {
+    setMaxAge(c.maxAge);
+    setRemaining(c.maxAge - c.age);
+  }
+}
+```
+
+推进年份响应中：
 
 ```typescript
 if (data.daoXiao) {
