@@ -38,6 +38,8 @@ model Cultivator {
   npcRelations      String?
   inventory         String?
   gold              Int      @default(50)
+  storySummary          String?   // 剧情概要，追加+压缩维护，null=未初始化
+  storySummaryUpdatedAt DateTime? // 最后更新（追加或压缩）时间
   createdAt         DateTime @default(now())
   events            GameEvent[]
 }
