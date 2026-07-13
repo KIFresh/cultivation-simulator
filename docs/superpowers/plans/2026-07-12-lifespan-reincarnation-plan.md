@@ -148,8 +148,7 @@ import { calculateMaxAge } from "@/lib/cultivation-data";
 
 ```typescript
 // 每次推进年份都重新计算寿元（突破后寿元会变化）
-const attrs = sanitizeAttributes(rawAttributes) || {};
-let maxAge = calculateMaxAge(cultivator.realm, attrs, cultivator.bonusAge || 0);
+const maxAge = calculateMaxAge(cultivator.realm, currentAttrs, cultivator.bonusAge || 0);
 
 // 检查是否超限
 if (newAge > maxAge) {
@@ -168,8 +167,7 @@ if (newAge > maxAge) {
 
 // 检查是否触发预警
 const remaining = maxAge - newAge;
-const totalLife = maxAge;
-const warnEarly = remaining <= 10 || remaining < totalLife * 0.1;
+const warnEarly = remaining <= 10 || remaining < maxAge * 0.1;
 ```
 
 - [ ] **Step 3: 在更新数据时写入 maxAge 和预警标记**
@@ -352,7 +350,7 @@ export default function DaoXiaoModal({
       }
       toast.success("轮回转世，重新踏上仙途！");
       onClose();
-      router.replace("/create");
+      router.replace("/dashboard");
     } catch {
       toast.error("轮回失败");
     } finally {
@@ -361,7 +359,7 @@ export default function DaoXiaoModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+    <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="text-center text-2xl">🌑 道消身殒</DialogTitle>
