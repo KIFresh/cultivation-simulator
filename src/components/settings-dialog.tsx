@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Eye, EyeOff, Settings, Save } from "lucide-react";
+import { Eye, EyeOff, Settings, Save, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 interface ProviderConfig {
@@ -51,11 +51,14 @@ export default function SettingsDialog({ open, onOpenChange, onDevModeChange }: 
   const [showKeys, setShowKeys] = useState<boolean[]>([false, false, false]);
   const [loading, setLoading] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [availableModels, setAvailableModels] = useState<(string[] | null)[]>([null, null, null]);
+  const [fetchingModels, setFetchingModels] = useState<boolean[]>([false, false, false]);
 
   // 加载配置
   useEffect(() => {
     if (!open) return;
     setDevMode(localStorage.getItem("devMode") === "true");
+    setAvailableModels([null, null, null]);
     fetch("/api/settings")
       .then((r) => r.json())
       .then((data) => {
@@ -92,6 +95,9 @@ export default function SettingsDialog({ open, onOpenChange, onDevModeChange }: 
       return next;
     });
     setDirty(true);
+    if (field === "type" || field === "baseUrl") {
+      setAvailableModels((prev) => { const n = [...prev]; n[index] = null; return n; });
+    }
   }, []);
 
   const handleSave = async () => {
@@ -120,6 +126,43 @@ export default function SettingsDialog({ open, onOpenChange, onDevModeChange }: 
       toast.error("保存配置失败");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchModels = async (index: number) => {
+    const p = providers[index];
+    if (!p.type || !p.baseUrl) {
+      toast.error(p.type === "ollama" ? "请先填写接口地址" : "请先填写接口地址和 API Key");
+      return;
+    }
+    if (p.type !== "ollama" && !p.apiKey) {
+      toast.error("请先填写 API Key");
+      return;
+    }
+    setFetchingModels((prev) => { const n = [...prev]; n[index] = true; return n; });
+    try {
+      const res = await fetch("/api/settings/list-models", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ baseUrl: p.baseUrl, apiKey: p.apiKey, type: p.type }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        toast.error(data.error || "查询失败");
+        return;
+      }
+      if (data.models && data.models.length > 0) {
+        setAvailableModels((prev) => { const n = [...prev]; n[index] = data.models; return n; });
+        if (!p.model) {
+          updateProvider(index, "model", data.models[0]);
+        }
+        if (data.warning) toast.warning(data.warning);
+      } else {
+        toast.warning("该接口未返回模型列表");
+      }
+    } catch {
+      toast.error("网络错误，请检查地址");
+    } finally {
+      setFetchingModels((prev) => { const n = [...prev]; n[index] = false; return n; });
     }
   };
 
@@ -204,11 +247,57 @@ export default function SettingsDialog({ open, onOpenChange, onDevModeChange }: 
                 <>
                   <div className="space-y-1">
                     <label className="text-xs text-muted-foreground">模型</label>
-                    <Input
-                      value={p.model}
-                      onChange={(e) => updateProvider(i, "model", e.target.value)}
-                      placeholder={p.type === "anthropic" ? "claude-sonnet-4-20250514" : p.type === "openai" ? "gpt-4o" : "qwen2.5"}
-                    />
+                    {availableModels[i] === null ? (
+                      <div className="flex gap-1">
+                        <Input
+                          value={p.model}
+                          onChange={(e) => updateProvider(i, "model", e.target.value)}
+                          placeholder={p.type === "anthropic" ? "claude-sonnet-4-20250514" : p.type === "openai" ? "gpt-4o" : "qwen2.5"}
+                          className="flex-1"
+                          disabled={fetchingModels[i]}
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="shrink-0 h-8 text-xs gap-1 border-border"
+                          disabled={fetchingModels[i]}
+                          onClick={() => fetchModels(i)}
+                        >
+                          {fetchingModels[i] ? (
+                            <>获取中...</>
+                          ) : (
+                            <>🔍 测试并获取</>
+                          )}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-1">
+                        <Select
+                          value={p.model}
+                          onValueChange={(v) => updateProvider(i, "model", v ?? "")}
+                        >
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="选择模型" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableModels[i]!.map((model) => (
+                              <SelectItem key={model} value={model}>
+                                {model}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className="shrink-0 h-8 w-8 border-border"
+                          onClick={() => fetchModels(i)}
+                          disabled={fetchingModels[i]}
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${fetchingModels[i] ? "animate-spin" : ""}`} />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs text-muted-foreground">接口地址</label>
