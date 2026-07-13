@@ -15,7 +15,7 @@
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | ~~`storySummary`~~ | ~~`String?`~~ | **移除**，不再单独存储 |
-| `storySummaryUpdatedAt` | `DateTime?` | 保留 |
+| `storyEntriesUpdatedAt` | `DateTime?` | 保留，记录 entries 最后修改时间 |
 | `storyEntries` | `String?` | **新增**，JSON 数组存储逐条记忆 |
 
 `storySummary` 由 `storyEntries` 实时生成，不再持久化存储，消除数据同步问题。
@@ -71,16 +71,18 @@ function buildSummaryFromEntries(entries: StoryEntry[]): string {
 ### 2.2 创建新条目
 
 ```typescript
-function createEntry(title: string, summary: string): StoryEntry {
+function createEntry(title: string, summary: string, truncate = true): StoryEntry {
   return {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
     title,
-    summary: summary.slice(0, 60) + (summary.length > 60 ? '…' : ''),
+    summary: truncate ? summary.slice(0, 60) + (summary.length > 60 ? '…' : '') : summary,
     important: false,
     createdAt: new Date().toISOString(),
   };
 }
 ```
+
+`truncate` 参数默认为 `true`，普通条目截断 60 字。AI 压缩生成的「📜 记忆凝练」条目传 `false`，保留完整内容。
 
 ### 2.3 修改后的压缩函数
 
@@ -135,7 +137,8 @@ export async function compressStorySummary(
   ├─ 7. 追加到 entries 数组
   ├─ 8. 判断：条目数 > 50 或 总字数 > 1000
   │     ├─ 是 → compressStorySummary() AI 压缩
-  │     │      → 创建一条压缩摘要条目（title="📜 记忆凝练"）
+  │     │      → 创建一条压缩摘要条目: createEntry("📜 记忆凝练", compressedText, false)
+  │     │      → 标记为 important=true，不截断
   │     │      → 删除原非重要条目，仅保留重要 ⭐ 条目 + 这条凝练条目
   │     └─ 否 → 跳过
   ├─ 9. 保存 cultivator.storyEntries
@@ -186,8 +189,8 @@ export async function compressStorySummary(
 | ⭐/☆ 点击 | 切换 important 标记，星标条目压缩时优先保留 |
 | ✏️ 点击 | 该行变成输入框，可编辑 summary，回车保存 |
 | 🗑️ 点击 | 确认后删除该条目 |
-| 编辑全文概要 | textarea 编辑 `buildSummaryFromEntries()` 的完整输出，点击保存覆盖 |
-| 「压缩记忆」按钮 | 手动触发 AI 压缩，调用 `compressStorySummary()` |
+| 编辑全文概要 | textarea 编辑完整文本，点击保存 → 创建一条 `title="📝 玩家记述"` 的特殊条目，清除非重要旧条目 |
+| 「压缩记忆」按钮 | 手动触发：`POST /api/cultivator` 传 `{ action: "compressMemory", userId }`，后端调 AI 压缩 |
 | 面板折叠 | 默认展开，localStorage 记忆折叠状态 |
 
 ### 4.4 组件
@@ -223,8 +226,6 @@ POST /api/cultivator
 Body: { action: "updateMemory", userId, storyEntries: [...] }
 ```
 
-在 `POST` handler 中新增分支：
-
 ```typescript
 if (body.action === "updateMemory") {
   if (!body.userId || !body.storyEntries) {
@@ -232,11 +233,58 @@ if (body.action === "updateMemory") {
   }
   const cultivator = await prisma.cultivator.update({
     where: { userId: body.userId },
-    data: { storyEntries: JSON.stringify(body.storyEntries) },
+    data: { storyEntries: JSON.stringify(body.storyEntries), storyEntriesUpdatedAt: new Date() },
   });
   return NextResponse.json({ success: true, entries: JSON.parse(cultivator.storyEntries || '[]') });
 }
 ```
+
+### 5.3 手动压缩记忆
+
+```
+POST /api/cultivator
+Body: { action: "compressMemory", userId }
+```
+
+```typescript
+if (body.action === "compressMemory") {
+  const cultivator = await prisma.cultivator.findUnique({ where: { userId: body.userId } });
+  if (!cultivator) return NextResponse.json({ error: "不存在" }, { status: 404 });
+
+  const entries: StoryEntry[] = JSON.parse(cultivator.storyEntries || '[]');
+  const importantEntries = entries.filter(e => e.important);
+  const normalEntries = entries.filter(e => !e.important);
+
+  if (normalEntries.length === 0) {
+    return NextResponse.json({ entries, message: "无非重要条目需要压缩" });
+  }
+
+  const compressedText = await compressStorySummary(entries, cultivator.name);
+  const compressedEntry = createEntry("📜 记忆凝练", compressedText, false);
+  compressedEntry.important = true;
+
+  const newEntries = [...importantEntries, compressedEntry];
+
+  await prisma.cultivator.update({
+    where: { userId: body.userId },
+    data: { storyEntries: JSON.stringify(newEntries), storyEntriesUpdatedAt: new Date() },
+  });
+
+  return NextResponse.json({ success: true, entries: newEntries });
+}
+```
+
+### 5.4 读取时自动解析 JSON
+
+修改 `GET /api/cultivator` 的返回逻辑，在返回前解析 `storyEntries`：
+
+```typescript
+if (user.cultivator?.storyEntries) {
+  user.cultivator.storyEntries = JSON.parse(user.cultivator.storyEntries);
+}
+```
+
+前端直接使用 `data.user.cultivator.storyEntries` 作为数组，无需手动 `JSON.parse`。
 
 ---
 
@@ -247,7 +295,7 @@ if (body.action === "updateMemory") {
 | `prisma/schema.prisma` | 修改 | Cultivator 加 `storyEntries String?`，移除 `storySummary` |
 | `src/lib/narrative.ts` | 修改 | 新增 `StoryEntry` 接口、`buildSummaryFromEntries`、`createEntry`；修改 `appendToSummary` → 操作 entries；修改 `compressStorySummary` 接收 entries+importance |
 | `src/app/api/narrative/route.ts` | 修改 | 叙事后操作 entries 而非纯文本 |
-| `src/app/api/cultivator/route.ts` | 修改 | POST 新增 `action: "updateMemory"` 分支 |
+| `src/app/api/cultivator/route.ts` | 修改 | POST 新增 `action: "updateMemory"` + `action: "compressMemory"` 分支；GET 返回时自动解析 storyEntries JSON |
 | `src/components/memory-panel.tsx` | **新建** | 道心明镜面板组件 |
 | `src/app/dashboard/page.tsx` | 修改 | 引入 memory-panel，读取/传递 entries |
 
