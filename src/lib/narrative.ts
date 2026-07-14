@@ -99,9 +99,9 @@ function extractJson<T>(text: string, fallback: T): T {
   // 1. 直接解析（AI 返回纯净 JSON 时）
   try { return JSON.parse(text); } catch {}
 
-  // 2. 从 markdown 代码块中提取 ```json {...} ```
+  // 2. 从 markdown 代码块中提取 ```json {...} ```（支持无闭合的情况）
   try {
-    const m = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+    const m = text.match(/```(?:json)?\s*(\{[\s\S]*?\})(?:\s*```|$)/);
     if (m) return JSON.parse(m[1]);
   } catch {}
 
@@ -302,7 +302,7 @@ export async function generateDailyCultivationNarrative(params: {
   }
 
   try {
-    const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 500, temperature: 0.8 });
+    const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 800, temperature: 0.8 });
     return extractJson(text, { type: "DAILY_CULTIVATION", title: "日常修炼", narrative: `${params.cultivatorName}盘膝而坐，默默运转功法……`, mood: "静", hint: "持之以恒", summary: `${params.cultivatorName}潜心修炼。` });
   } catch { console.error("AI生成失败"); return { type: "DAILY_CULTIVATION", title: "日常修炼", narrative: `${params.cultivatorName}静心修炼，灵力又精纯了几分。`, mood: "静", hint: "持之以恒", summary: `${params.cultivatorName}静心修炼。` }; }
 }
@@ -327,7 +327,7 @@ export async function generateBreakthroughNarrative(params: {
   }
 
   try {
-    const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 500, temperature: 0.9 });
+    const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 1000, temperature: 0.9 });
     return extractJson(text, { type: "BREAKTHROUGH", title: `${params.toRealm}突破！`, narrative: `天地灵气涌入${params.cultivatorName}体内！成功踏入${params.toRealm}！`, mood: "燃", hint: "恭喜突破", summary: `${params.cultivatorName}成功突破至${params.toRealm}。` });
   } catch { console.error("AI生成失败"); return { type: "BREAKTHROUGH", title: `突破！${params.toRealm}`, narrative: `${params.cultivatorName}终于突破！灵力暴涨！`, mood: "燃", hint: "大道在前", summary: `${params.cultivatorName}突破${params.toRealm}。` }; }
 }
@@ -349,7 +349,7 @@ export async function generateEncounterNarrative(params: {
   }
 
   try {
-    const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 500, temperature: 0.9 });
+    const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 800, temperature: 0.9 });
     return extractJson(text, { type: "ENCOUNTER", title: "意外发现", narrative: `${params.cultivatorName}在修炼途中发现了一处洞府遗迹……`, choices: [{ text: "小心探查", risk: "low", hint: "稳扎稳打" }, { text: "深入探索", risk: "medium", hint: "风险与机遇并存" }, { text: "全力闯入", risk: "high", hint: "富贵险中求" }], mood: "奇", summary: `${params.cultivatorName}发现一处洞府遗迹。` });
   } catch { console.error("奇遇生成失败"); return { type: "ENCOUNTER", title: "意外发现", narrative: `${params.cultivatorName}发现了一处洞府遗迹……`, choices: [{ text: "小心探查", risk: "low", hint: "稳扎稳打" }, { text: "深入探索", risk: "medium", hint: "风险与机遇" }, { text: "全力闯入", risk: "high", hint: "富贵险中求" }], mood: "奇", summary: `${params.cultivatorName}发现一处洞府遗迹。` }; }
 }
@@ -367,7 +367,7 @@ export async function generateNPCDialogue(params: {
 返回JSON：{"type":"NPC_DIALOGUE","title":"与${params.npcName}的对话","narrative":"对话内容","mood":"？","npcMood":"友善/冷淡/严厉","reward":{...}或null","summary":"30字内概述"}`;
 
   try {
-    const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 500, temperature: 0.8 });
+    const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 800, temperature: 0.8 });
     return extractJson(text, { type: "NPC_DIALOGUE", title: `与${params.npcName}的对话`, narrative: `${params.npcName}看了${params.cultivatorName}一眼，微微点头。`, mood: "奇", npcMood: "友善", summary: `与${params.npcName}交谈。` });
   } catch { console.error("NPC对话失败"); return { type: "NPC_DIALOGUE", title: `与${params.npcName}的对话`, narrative: `${params.npcName}正在闭关，不便打扰。`, mood: "静", npcMood: "冷淡", summary: `${params.npcName}不便打扰。` }; }
 }
@@ -430,7 +430,7 @@ ${params.extraContext ? `\n【背景】${params.extraContext}` : ""}
   }
 
   try {
-    const text = await callAI({ systemPrompt: buildSystemPrompt(params.worldId), userPrompt: prompt, maxTokens: 500, temperature: 0.8 });
+    const text = await callAI({ systemPrompt: buildSystemPrompt(params.worldId), userPrompt: prompt, maxTokens: 600, temperature: 0.8 });
     return extractJson(text, { type: "YEAR_ADVANCE", title: `${params.cultivatorName}的第${params.newAge}年`, narrative: `时光荏苒，${params.cultivatorName}又长大了一岁。`, mood: "静", hint: "岁月不居", summary: `${params.cultivatorName}又长大了一岁。` });
   } catch { console.error("AI生成失败"); return { type: "YEAR_ADVANCE", title: `${params.cultivatorName}的第${params.newAge}年`, narrative: `时光荏苒，${params.cultivatorName}又长大了一岁。`, mood: "静", hint: "岁月不居", summary: `${params.cultivatorName}又长大了一岁。` }; }
 }
@@ -489,7 +489,7 @@ ${params.cultivatorName}，${params.age || 1}岁，${params.spiritualRoot}，${p
   }
 
   try {
-    const text = await callAI({ systemPrompt: buildSystemPrompt(params.worldId), userPrompt: prompt, maxTokens: 500, temperature: 0.85 });
+    const text = await callAI({ systemPrompt: buildSystemPrompt(params.worldId), userPrompt: prompt, maxTokens: 1000, temperature: 0.85 });
     const result: RegularNarrative = extractJson(text, { type: "BIRTH", title: `${params.cultivatorName}出世`, narrative: `${params.cultivatorName}来到了这个世界。`, mood: "奇", hint: "仙途漫漫", summary: `${params.cultivatorName}降生于世。` });
     if (!result.narrative || !result.narrative.trim()) {
       result.narrative = result.summary || `${params.cultivatorName}降生于${params.worldName || "修仙世界"}。`;
