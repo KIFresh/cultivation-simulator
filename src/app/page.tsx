@@ -57,15 +57,27 @@ export default function Home() {
     localStorage.setItem("userId", data.user.id);
     localStorage.setItem("cultivatorName", data.user.cultivator.name);
     localStorage.setItem("attributes", JSON.stringify(attr));
-    // 生成出生叙事
-    try {
-      const identityName = { orphan:"山野遗孤", scholar:"书香门第", merchant:"商贾之子", general:"将门之后", sect:"散修传人" }[identity.id];
-      await fetch("/api/narrative", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: data.user.id, type: "BIRTH", worldName: "地球", identityName, age: 1, worldId: "earth", family: family.members }),
-      });
-    } catch (e) { console.error("出生叙事生成失败:", e); }
-    window.location.href = "/dashboard";
+    // 生成出生叙事（失败时弹重试按钮，不跳转）
+    const identityName = { orphan:"山野遗孤", scholar:"书香门第", merchant:"商贾之子", general:"将门之后", sect:"散修传人" }[identity.id];
+    const genNarrative = async (): Promise<boolean> => {
+      try {
+        const r = await fetch("/api/narrative", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: data.user.id, type: "BIRTH", worldName: "地球", identityName, age: 1, worldId: "earth", family: family.members }),
+        });
+        if (!r.ok) { const ed = await r.json().catch(() => ({})); throw new Error(ed.error || "出生叙事生成失败"); }
+        return true;
+      } catch (err) {
+        console.error("出生叙事生成失败:", err);
+        return new Promise((resolve) => {
+          toast.error(`出生叙事生成失败: ${(err as Error).message}`, {
+            action: { label: "重试", onClick: () => resolve(genNarrative()) },
+            duration: 10000,
+          });
+        });
+      }
+    };
+    if (await genNarrative()) { window.location.href = "/dashboard"; }
   };
 
   const handleReset = async () => {

@@ -371,9 +371,16 @@ ${params.freeInput ? `玩家描述：${params.freeInput}` : ""}
   }
 
   try {
-    const text = await callAI({ systemPrompt: buildSystemPrompt(params.worldId), userPrompt: prompt, maxTokens: 500, temperature: 0.8 });
-    return extractJson(text, { type: "ACTION", title: params.actionName, narrative: `${params.cultivatorName}${params.actionName}。修炼值+${params.expGained}。`, mood: "静", hint: "" });
-  } catch { console.error("AI生成失败"); return { type: "ACTION", title: params.actionName, narrative: `${params.cultivatorName}${params.actionName}，有所感悟。修炼值+${params.expGained}。`, mood: "静", hint: "" }; }
+    const text = await callAI({ systemPrompt: buildSystemPrompt(params.worldId), userPrompt: prompt, maxTokens: 800, temperature: 0.85 });
+    const result: RegularNarrative = extractJson(text, { type: "BIRTH", title: `${params.cultivatorName}出世`, narrative: `${params.cultivatorName}来到了这个世界。`, mood: "奇", hint: "仙途漫漫" });
+    if (!result.narrative || !result.narrative.trim()) {
+      throw new Error("AI 返回的叙事内容为空");
+    }
+    return result;
+  } catch (e) {
+    console.error("出生叙事AI生成失败:", e);
+    throw e;
+  }
 }
 
 /** 生成年志叙事 */

@@ -116,26 +116,34 @@ export default function CreatePage() {
         localStorage.setItem("family", JSON.stringify(family));
       }
 
-      // 生成出生叙事
-      try {
-        const birthRes = await fetch("/api/narrative", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userId: data.user.id, type: "BIRTH", worldName: selectedWorld?.name,
-            identityName: selectedIdentity?.name, age: 1, worldId: selectedWorld?.id,
-            family: selectedWorld?.id === "earth" ? JSON.parse(localStorage.getItem("family") || "{}").members || [] : [],
-          }),
-        });
-        if (!birthRes.ok) {
-          const errData = await birthRes.json().catch(() => ({}));
-          console.error("出生叙事生成失败:", errData.error || birthRes.status);
-          toast.error(`出生叙事生成失败: ${errData.error || birthRes.status}`);
+      // 生成出生叙事（失败时弹重试按钮）
+      const genNarrative = async (): Promise<boolean> => {
+        try {
+          const birthRes = await fetch("/api/narrative", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId: data.user.id, type: "BIRTH", worldName: selectedWorld?.name,
+              identityName: selectedIdentity?.name, age: 1, worldId: selectedWorld?.id,
+              family: selectedWorld?.id === "earth" ? JSON.parse(localStorage.getItem("family") || "{}").members || [] : [],
+            }),
+          });
+          if (!birthRes.ok) {
+            const errData = await birthRes.json().catch(() => ({}));
+            throw new Error(errData.error || `出生叙事生成失败 (${birthRes.status})`);
+          }
+          return true;
+        } catch (err) {
+          console.error("出生叙事生成失败:", err);
+          return new Promise((resolve) => {
+            toast.error(`出生叙事生成失败: ${(err as Error).message}`, {
+              action: { label: "重试", onClick: () => resolve(genNarrative()) },
+              duration: 10000,
+            });
+          });
         }
-      } catch (err) {
-        console.error("出生叙事请求异常:", err);
-        toast.error("出生叙事生成失败，可在记录中查看");
-      }
+      };
+      await genNarrative();
 
       router.replace("/dashboard");
     } catch (err) { console.error(err); alert("创建失败"); setLoading(false); }
