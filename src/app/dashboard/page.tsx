@@ -143,8 +143,8 @@ export default function DashboardPage() {
                 return { title: ev.title, narrative: ev.narrative, mood };
               });
               setNarrativeHistory(history);
-              // 显示最新事件为主叙事
-              if (history.length > 0) {
+              // 如果尚未设置主叙事（快速生成时已设置），则取最新事件
+              if (history.length > 0 && !narrative) {
                 setNarrative(history[0]);
               }
             }

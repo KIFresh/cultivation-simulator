@@ -12,6 +12,7 @@ interface GameEvent {
 }
 
 const typeLabel = (type: string) => {
+  if (type === "BIRTH") return { text: "出生", cls: "border-green-300 text-green-700" };
   if (type === "BREAKTHROUGH") return { text: "突破", cls: "border-red-300 text-red-700" };
   if (type === "ENCOUNTER" || type === "RANDOM_ENCOUNTER") return { text: "奇遇", cls: "border-purple-300 text-purple-700" };
   return { text: "修炼", cls: "border-border text-muted-foreground" };
