@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActionById, calculateActionExp, canBreakthrough, MORTAL_REALM, isAwakened, calculateMaxStamina } from "@/lib";
-import { TECHNIQUES, calculateTechniqueBonuses } from "@/lib/technique-data";
+import { TECHNIQUES, calculateTechniqueBonuses, addProficiency, getDefaultStudyNarrative, triggerStudyEvent } from "@/lib/technique-data";
 import { generateActionNarrative, type StoryEntry, createEntry, buildSummaryFromEntries, compressStorySummary } from "@/lib/narrative";
 import { sanitizeAttributes } from "@/lib/utils";
 
@@ -71,6 +71,41 @@ export async function POST(request: NextRequest) {
       prisma.gameEvent.create({ data: { cultivatorId: cultivator.id, type: "ACTION", title: narrativeResult.title, narrative: narrativeResult.narrative, reward: JSON.stringify({ expGained, actionName: action.name, mood: narrativeResult.mood }) } }),
     ];
 
+    // 研读功法：增加熟练度 + 随机事件
+    let techniqueEvents: { techniqueName: string; icon: string; profGained: number; leveledUp: boolean; eventNarrative?: string }[] = [];
+    if (actionId === "STUDY") {
+      const insight = safeAttrs.insight ?? 0;
+      const baseProf = 5 + Math.floor(insight / 5);
+
+      for (const record of techniqueRecords) {
+        const tech = TECHNIQUES[record.techniqueId];
+        if (!tech) continue;
+
+        let profGained = baseProf;
+        let eventNarrative: string | undefined;
+
+        const triggered = triggerStudyEvent(insight, tech.name);
+        if (triggered) {
+          profGained += triggered.event.extraProf;
+          eventNarrative = triggered.narrative;
+        }
+
+        const result = addProficiency(record.level, record.proficiency, tech.upgradeProficiency, profGained);
+        techniqueEvents.push({
+          techniqueName: tech.name,
+          icon: tech.icon,
+          profGained,
+          leveledUp: result.leveledUp,
+          eventNarrative,
+        });
+
+        txOps.push(prisma.cultivatorTechnique.update({
+          where: { id: record.id },
+          data: { level: result.newLevel, proficiency: result.newProficiency },
+        }));
+      }
+    }
+
     // 如果有觉醒事件，也持久化
     if (awakenEvent) {
       txOps.push(prisma.gameEvent.create({
@@ -83,7 +118,7 @@ export async function POST(request: NextRequest) {
     const canBreak = canBreakthrough(newRealm, newRealmLevel, newExp, cultivator.spiritualRoot);
 
     const capped = { ...updatedCultivator, stamina: Math.min(updatedCultivator.stamina, calculateMaxStamina(updatedCultivator.age, safeAttrs)) };
-    return NextResponse.json({ narrative: narrativeResult, cultivator: capped, expGained, canBreakthrough: canBreak, awakenEvent });
+    return NextResponse.json({ narrative: narrativeResult, cultivator: capped, expGained, canBreakthrough: canBreak, awakenEvent, techniqueEvents });
   } catch (error) {
     console.error("行动执行失败:", error);
     return NextResponse.json({ error: "行动执行失败" }, { status: 500 });
