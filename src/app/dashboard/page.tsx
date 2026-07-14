@@ -19,6 +19,7 @@ import type { Action, InventoryItem, NPC } from "@/lib";
 import { toast } from "sonner";
 import MemoryPanel from "@/components/memory-panel";
 import DaoXiaoModal from "@/components/dao-xiao-modal";
+import TechniquePanel from "@/components/technique-panel";
 
 interface CultivatorData {
   id: string; name: string; spiritualRoot: string; realm: string;
@@ -63,6 +64,7 @@ export default function DashboardPage() {
   const [npcChatHistory, setNpcChatHistory] = useState<{ role: string; content: string }[]>([]);
   const [devMode, setDevMode] = useState(false);
   const [memoryEntries, setMemoryEntries] = useState<any[]>([]);
+  const [techniquePanelOpen, setTechniquePanelOpen] = useState(false);
   const [daoXiao, setDaoXiao] = useState<{ summary: any; name: string } | null>(null);
   const [warnEarly, setWarnEarly] = useState(false);
   const [remaining, setRemaining] = useState(0);
@@ -685,7 +687,17 @@ export default function DashboardPage() {
           entries={memoryEntries}
           onEntriesChange={setMemoryEntries}
         />
+
+        <button onClick={() => setTechniquePanelOpen(true)}
+          className="w-full flex items-center gap-2 text-xs bg-card border border-border rounded-lg px-3 py-2 hover:bg-muted transition-colors text-foreground">
+          📖 功法
+        </button>
       </div>
+      <TechniquePanel
+        cultivatorId={userId!}
+        open={techniquePanelOpen}
+        onOpenChange={setTechniquePanelOpen}
+      />
       <BottomNav />
 
       {daoXiao && (

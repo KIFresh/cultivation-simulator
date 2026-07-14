@@ -48,6 +48,7 @@ model Cultivator {
   talents             String?
   createdAt         DateTime @default(now())
   events            GameEvent[]
+  techniques        CultivatorTechnique[]
 }
 
 model GameEvent {
@@ -74,6 +75,21 @@ model ShareCard {
   bilibiliUrl   String?
   createdAt     DateTime @default(now())
 
+  @@index([cultivatorId])
+}
+
+model CultivatorTechnique {
+  id            String   @id @default(cuid())
+  cultivatorId  String
+  cultivator    Cultivator @relation(fields: [cultivatorId], references: [id])
+  techniqueId   String
+  equipSlot     Int?
+  level         Int        @default(1)
+  proficiency   Int        @default(0)
+  createdAt     DateTime   @default(now())
+
+  @@unique([cultivatorId, techniqueId])
+  @@unique([cultivatorId, equipSlot])
   @@index([cultivatorId])
 }
 

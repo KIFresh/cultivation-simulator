@@ -100,6 +100,11 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      // 轮回时清理功法
+      await prisma.cultivatorTechnique.deleteMany({
+        where: { cultivatorId: cultivator.id },
+      }).catch(() => {});
+
       return NextResponse.json({
         success: true,
         cultivator: updated,
@@ -145,6 +150,19 @@ export async function POST(request: NextRequest) {
         include: { cultivator: true },
       });
 
+      // 初始赠送吐纳术
+      if (user.cultivator) {
+        await prisma.cultivatorTechnique.create({
+          data: {
+            cultivatorId: user.cultivator.id,
+            techniqueId: "basic_breathing",
+            equipSlot: 1,
+            level: 1,
+            proficiency: 0,
+          },
+        });
+      }
+
       return NextResponse.json({ user });
     }
 
@@ -168,6 +186,19 @@ export async function POST(request: NextRequest) {
       },
       include: { cultivator: true },
     });
+
+    // 初始赠送吐纳术
+    if (user.cultivator) {
+      await prisma.cultivatorTechnique.create({
+        data: {
+          cultivatorId: user.cultivator.id,
+          techniqueId: "basic_breathing",
+          equipSlot: 1,
+          level: 1,
+          proficiency: 0,
+        },
+      });
+    }
 
     return NextResponse.json({ user });
   } catch (error) {

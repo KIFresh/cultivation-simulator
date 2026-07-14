@@ -160,13 +160,15 @@ export function getAvailableActions(worldId: string, age: number): Action[] {
   return ACTIONS.filter((a) => worldId === "earth" ? age >= a.minAgeEarth : true);
 }
 export function getActionById(actionId: string): Action | undefined { return ACTIONS.find((a) => a.id === actionId); }
-export function calculateActionExp(actionId: string, spiritualRoot: string, attributes?: Record<string, number>, talents?: string[], reincarnationCount?: number): number {
+export function calculateActionExp(actionId: string, spiritualRoot: string, attributes?: Record<string, number>, talents?: string[], reincarnationCount?: number, techniqueBonuses?: Record<string, number>): number {
   const action = ACTIONS.find((a) => a.id === actionId);
   if (!action) return 5;
   const base = action.baseExp * getRootInfo(spiritualRoot, talents, reincarnationCount).speedBonus;
   // 灵性加成：每点灵性 +5% 修炼速度
   const spiritBonus = attributes ? 1 + (attributes.spirit || 0) * 0.05 : 1;
-  return Math.floor(base * spiritBonus);
+  // 功法加成：修炼速度 +X%
+  const techniqueSpeed = techniqueBonuses?.cultivationSpeed || 0;
+  return Math.floor(base * spiritBonus * (1 + techniqueSpeed / 100));
 }
 
 // ============================================================

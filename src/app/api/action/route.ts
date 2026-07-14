@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActionById, calculateActionExp, canBreakthrough, MORTAL_REALM, isAwakened, calculateMaxStamina } from "@/lib";
+import { TECHNIQUES, calculateTechniqueBonuses } from "@/lib/technique-data";
 import { generateActionNarrative, type StoryEntry, createEntry, buildSummaryFromEntries, compressStorySummary } from "@/lib/narrative";
 import { sanitizeAttributes } from "@/lib/utils";
 
@@ -23,8 +24,16 @@ export async function POST(request: NextRequest) {
     const isEarth = cultivator.worldId === "earth";
     if (isEarth && cultivator.age < action.minAgeEarth) return NextResponse.json({ error: `年龄不足` }, { status: 400 });
 
+    // 计算功法加成
+    const techniqueRecords = await prisma.cultivatorTechnique.findMany({
+      where: { cultivatorId: cultivator.id, equipSlot: { not: null } },
+    });
+    const techniqueBonuses = calculateTechniqueBonuses(
+      techniqueRecords.map((r) => ({ technique: TECHNIQUES[r.techniqueId], level: r.level }))
+    );
+
     const safeAttrs = sanitizeAttributes(body.attributes) || {};
-    const expGained = calculateActionExp(actionId, cultivator.spiritualRoot, safeAttrs, JSON.parse(cultivator.talents || '[]'), cultivator.reincarnationCount || 0);
+    const expGained = calculateActionExp(actionId, cultivator.spiritualRoot, safeAttrs, JSON.parse(cultivator.talents || '[]'), cultivator.reincarnationCount || 0, techniqueBonuses);
     let newRealm = cultivator.realm, newRealmLevel = cultivator.realmLevel;
     let newExp = cultivator.cultivationExp + expGained, newTotalExp = cultivator.totalExp + expGained;
     let awakenEvent: { title: string; narrative: string } | null = null;
