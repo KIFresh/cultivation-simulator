@@ -454,8 +454,12 @@ ${params.cultivatorName}，${params.age || 1}岁，${params.spiritualRoot}，${p
 
   try {
     const text = await callAI({ systemPrompt: buildSystemPrompt(params.worldId), userPrompt: prompt, maxTokens: 500, temperature: 0.85 });
-    return extractJson(text, { type: "BIRTH", title: `${params.cultivatorName}出世`, narrative: `${params.cultivatorName}来到了这个世界。`, mood: "奇", hint: "仙途漫漫" });
-  } catch { console.error("AI生成失败"); return { type: "BIRTH", title: `${params.cultivatorName}出世`, narrative: `${params.cultivatorName}在一个平凡的冬日清晨出生了。`, mood: "奇", hint: "仙途漫漫" }; }
+    const result: RegularNarrative = extractJson(text, { type: "BIRTH", title: `${params.cultivatorName}出世`, narrative: `${params.cultivatorName}来到了这个世界。`, mood: "奇", hint: "仙途漫漫" });
+    if (!result.narrative || !result.narrative.trim()) {
+      result.narrative = `天光破晓，${params.cultivatorName}降生于${params.worldName || "修仙世界"}。${params.identityName || "修士"}门庭，${params.spiritualRoot}之资，引来天地异象。族人皆言此子不凡，仙途可期。`;
+    }
+    return result;
+  } catch { console.error("出生叙事AI生成失败"); return { type: "BIRTH", title: `${params.cultivatorName}降世`, narrative: `天光破晓，${params.cultivatorName}降生于${params.worldName || "修仙世界"}。${params.identityName || "修士"}门庭，${params.spiritualRoot}之资，引来天地异象。族人皆言此子不凡，仙途可期。`, mood: "奇", hint: "仙途漫漫" }; }
 }
 
 /**

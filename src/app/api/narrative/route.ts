@@ -85,6 +85,7 @@ export async function POST(request: NextRequest) {
           family: body.family || [],
           storySummary: summaryText || undefined,
         });
+        console.log("[BIRTH] AI raw result:", JSON.stringify({ title: narrative.title, narrativeLen: narrative.narrative?.length, mood: narrative.mood }));
         ensureNarrative(narrative, `${cultivator.name}来到了这个世界，一段传奇就此开始。`);
 
         let event;
