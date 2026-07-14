@@ -194,6 +194,9 @@ export default function DashboardPage() {
       if (data.cultivator) {
         setCultivator(data.cultivator);
         const c = data.cultivator;
+        if (c.storyEntries) {
+          try { const parsed = typeof c.storyEntries === "string" ? JSON.parse(c.storyEntries) : c.storyEntries; setMemoryEntries(Array.isArray(parsed) ? parsed : []); } catch {}
+        }
         if (isAwakened(c.realm)) setCanBreak(canBreakthrough(c.realm, c.realmLevel, c.cultivationExp, c.spiritualRoot));
         setAvailableActions(getAvailableActions(c.worldId || "earth", c.age));
       }
@@ -222,6 +225,9 @@ export default function DashboardPage() {
       setCultivator(data.cultivator);
       if (data.cultivator) {
         const c = data.cultivator;
+        if (c.storyEntries) {
+          try { const parsed = typeof c.storyEntries === "string" ? JSON.parse(c.storyEntries) : c.storyEntries; setMemoryEntries(Array.isArray(parsed) ? parsed : []); } catch {}
+        }
         if (isAwakened(c.realm)) setCanBreak(canBreakthrough(c.realm, c.realmLevel, c.cultivationExp, c.spiritualRoot));
         setAvailableActions(getAvailableActions(c.worldId || "earth", c.age));
       }
@@ -255,7 +261,11 @@ export default function DashboardPage() {
       const res = await fetch("/api/narrative", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, type: "BREAKTHROUGH", worldId: cultivator.worldId }) });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "突破失败"); return; }
-      if (data.cultivator) { setCultivator(data.cultivator); setCanBreak(false); }
+      if (data.cultivator) { setCultivator(data.cultivator); setCanBreak(false);
+        if (data.cultivator.storyEntries) {
+          try { const parsed = typeof data.cultivator.storyEntries === "string" ? JSON.parse(data.cultivator.storyEntries) : data.cultivator.storyEntries; setMemoryEntries(Array.isArray(parsed) ? parsed : []); } catch {}
+        }
+      }
       const bn: NarrativeDisplay = { title: data.narrative.title, narrative: data.narrative.narrative, mood: "燃" };
       setNarrative(bn); setNarrativeExpanded(false); setNarrativeHistory((prev) => [bn, ...prev].slice(0, 50));
       toast.success(`⚡ 突破成功！${data.narrative.title}`, { duration: 5000 });
