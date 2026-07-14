@@ -190,3 +190,46 @@ export function calculateTechniqueBonuses(
 export function getTechniqueById(id: string): Technique | undefined {
   return TECHNIQUES[id];
 }
+
+// ============================================================
+// 研读功法随机事件
+// ============================================================
+
+export interface StudyEvent {
+  title: string;
+  narrative: string;
+  extraProf: number;
+}
+
+const STUDY_EVENTS: StudyEvent[] = [
+  { title: "豁然开朗", narrative: "经脉中一股暖流涌动，原本晦涩难懂的功法口诀突然变得清晰明了，多年疑惑豁然开朗。", extraProf: 15 },
+  { title: "灵气共鸣", narrative: "周围的灵气仿佛受到牵引，与体内灵力产生共鸣，功法运转速度骤然加快。", extraProf: 12 },
+  { title: "神念入微", narrative: "神识沉入功法图谱之中，竟看到了之前从未注意到的细微灵纹走向，对功法的理解更深一层。", extraProf: 10 },
+  { title: "天人感应", narrative: "冥冥中一道灵光闪过脑海，仿佛有前辈高人的修炼心得在眼前浮现，对功法的感悟突飞猛进。", extraProf: 18 },
+  { title: "心随意转", narrative: "功法运转间，忽然进入了物我两忘的境地，灵力自行动转，熟练度大幅提升。", extraProf: 14 },
+  { title: "茅塞顿开", narrative: "盘坐良久，忽然脑海中一声轻响，对功法的困惑烟消云散，取而代之的是一片清明。", extraProf: 8 },
+  { title: "经脉贯通", narrative: "一股灵力冲开了平日里难以打通的细小经脉，功法运转的路线更加通畅无阻。", extraProf: 16 },
+  { title: "异象突现", narrative: "头顶三尺之处，隐约有灵光汇聚成莲花状，这是功法修炼到一定境界的外在表现。", extraProf: 20 },
+];
+
+export function getDefaultStudyNarrative(techniqueName: string): string {
+  return `闭目凝神，默默运转${techniqueName}的心法口诀。灵力在经脉中缓缓流转，虽然进度缓慢，但日积月累之下，功法的掌握程度也在稳步提升。`;
+}
+
+/**
+ * 根据悟性值触发研读随机事件。
+ * @param insight 悟性值
+ * @param techniqueName 功法名称
+ * @returns 如果触发事件返回 StudyEvent，否则返回 null
+ */
+export function triggerStudyEvent(insight: number, techniqueName: string): { event: StudyEvent; narrative: string } | null {
+  const baseChance = 0.2;
+  const insightBonus = insight * 0.02;
+  const totalChance = Math.min(baseChance + insightBonus, 0.95);
+
+  if (Math.random() > totalChance) return null;
+
+  const event = STUDY_EVENTS[Math.floor(Math.random() * STUDY_EVENTS.length)];
+  const narrative = `正在研读${techniqueName}，${event.narrative}`;
+  return { event, narrative };
+}
