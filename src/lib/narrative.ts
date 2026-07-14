@@ -226,7 +226,8 @@ export type NarrativeType =
   | "ACTION"
   | "YEAR_ADVANCE"
   | "FAMILY_DIALOGUE"
-  | "BIRTH";
+  | "BIRTH"
+  | "COMBAT";
 
 /** 所有叙事共享的基础字段 */
 export interface NarrativeBase {
@@ -535,5 +536,45 @@ export async function compressStorySummary(
     return text.slice(0, 500);
   } catch {
     return [...importantEntries.map(e => `⭐ 【${e.title}】${e.summary}`), ...normalEntries.map(e => `【${e.title}】${e.summary}`)].join('\n');
+  }
+}
+
+// ============================================================
+// 战斗叙事
+// ============================================================
+
+/** 生成战斗叙事 */
+export async function generateCombatNarrative(params: {
+  cultivatorName: string;
+  enemyName: string;
+  result: "win" | "lose";
+  style: "overwhelm" | "hard_fought" | "underdog" | "comedy" | "crushed";
+  playerRealm: string;
+  enemyRealm: string;
+}): Promise<string> {
+  const styleMap: Record<string, string> = {
+    overwhelm: `${params.cultivatorName}随手一挥，剑气纵横，${params.enemyName}当场灰飞烟灭。`,
+    hard_fought: `鏖战三百回合，${params.cultivatorName}抓住破绽一剑封喉，${params.enemyName}轰然倒地。`,
+    underdog: `绝境中${params.cultivatorName}引爆丹田潜能，一拳轰碎${params.enemyName}！`,
+    comedy: `${params.cultivatorName}被一块石头绊倒，${params.enemyName}一脸困惑地看着你。`,
+    crushed: `${params.cultivatorName}连${params.enemyName}的衣角都没碰到就被打飞出去。`,
+  };
+  const defaultText = styleMap[params.style] || `${params.cultivatorName}与${params.enemyName}展开了战斗。`;
+
+  const prompt = `写一段修仙小说的战斗叙事，不超过150字。
+
+【胜者】${params.result === "win" ? params.cultivatorName : params.enemyName}
+【败者】${params.result === "win" ? params.enemyName : params.cultivatorName}
+【风格】${params.style}
+【玩家境界】${params.playerRealm}
+【敌人境界】${params.enemyRealm}
+
+直接输出叙事文本，不要 JSON。`;
+
+  try {
+    const text = await callAI({ systemPrompt: "你是一个修仙小说的战斗描写作者。", userPrompt: prompt, maxTokens: 300, temperature: 0.8 });
+    return text.slice(0, 300) || defaultText;
+  } catch {
+    return defaultText;
   }
 }
