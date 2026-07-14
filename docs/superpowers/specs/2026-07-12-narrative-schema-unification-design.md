@@ -1,0 +1,220 @@
+# AI 叙事 JSON Schema 统一 — 设计规范
+
+## 概述
+
+当前 8 个叙事生成函数有 4 种不同的返回结构，字段名冲突（`dialogue` vs `npcDialogue`、`mood` vs `npcMood`），类型定义不统一。本文档设计一套统一的 TypeScript 类型体系，使所有叙事函数返回一致的 JSON 结构，前端渲染组件和后端存储均可统一处理。
+
+---
+
+## 1. 现状分析
+
+### 1.1 当前 8 个函数的返回类型
+
+| 函数 | 当前返回类型 | 字段 |
+|------|-------------|------|
+| `generateDailyCultivationNarrative` | `NarrativeResult` | `title`, `narrative`, `mood`, `hint?` |
+| `generateBreakthroughNarrative` | `NarrativeResult` | `title`, `narrative`, `mood`, `hint?` |
+| `generateEncounterNarrative` | 内联匿名类型 | `title`, `narrative`, `choices[]`, `mood` (string) |
+| `generateNPCDialogue` | 内联匿名类型 | `dialogue`, `npcMood`, `reward?` |
+| `generateActionNarrative` | `NarrativeResult` | `title`, `narrative`, `mood`, `hint?` |
+| `generateYearAdvanceNarrative` | `NarrativeResult` | `title`, `narrative`, `mood`, `hint?` |
+| `generateFamilyDialogue` | 内联匿名类型 | `npcDialogue`, `intimacyDelta`, `npcMood`, `actionHint?` |
+| `generateBirthNarrative` | `NarrativeResult` | `title`, `narrative`, `mood`, `hint?` |
+
+### 1.2 具体问题
+
+| # | 问题 | 示例 |
+|---|------|------|
+| 1 | 同一含义字段名不同 | `dialogue`(NPC) vs `npcDialogue`(家庭) |
+| 2 | 同一含义类型不同 | `mood` 在 NarrativeResult 是字面量联合，在 encounter 是 `string` |
+| 3 | 缺乏叙事类型标识 | 消费方无法区分叙事类型，需通过 API 路由的 `type` 参数推断 |
+| 4 | 内联匿名类型散落 | `generateEncounterNarrative` 等 3 个函数未使用命名接口 |
+| 5 | `extractJson` 无法校验 | 没有统一 schema，无法做输出结构校验 |
+
+---
+
+## 2. 统一类型体系
+
+### 2.1 基础类型
+
+```typescript
+/** 心境类型 */
+export type MoodType = "燃" | "静" | "险" | "悟" | "奇";
+
+/** 叙事类型标识 */
+export type NarrativeType =
+  | "DAILY_CULTIVATION"
+  | "BREAKTHROUGH"
+  | "ENCOUNTER"
+  | "NPC_DIALOGUE"
+  | "ACTION"
+  | "YEAR_ADVANCE"
+  | "FAMILY_DIALOGUE"
+  | "BIRTH";
+
+/** 所有叙事共享的基础字段 */
+export interface NarrativeBase {
+  type: NarrativeType;
+  title: string;
+  narrative: string;
+  mood: MoodType;
+  hint?: string;
+}
+```
+
+### 2.2 选项类型（用于奇遇）
+
+```typescript
+export interface EncounterChoice {
+  text: string;
+  risk: "low" | "medium" | "high";
+  hint: string;
+}
+```
+
+### 2.3 子类型
+
+```typescript
+/** 奇遇叙事 — 包含多选项 */
+export interface EncounterNarrative extends NarrativeBase {
+  type: "ENCOUNTER";
+  choices: [EncounterChoice, EncounterChoice, EncounterChoice];
+}
+
+/** NPC 对话叙事 */
+export interface NPCDialogueNarrative extends NarrativeBase {
+  type: "NPC_DIALOGUE";
+  npcMood: string;
+  reward?: { type: string; description: string };
+}
+
+/** 家庭对话叙事 */
+export interface FamilyDialogueNarrative extends NarrativeBase {
+  type: "FAMILY_DIALOGUE";
+  intimacyDelta: number;
+  npcMood: string;
+  actionHint?: string;
+}
+
+/** 通用叙事（日常/突破/行动/年志/出生） */
+export interface RegularNarrative extends NarrativeBase {
+  type: Exclude<NarrativeType, "ENCOUNTER" | "NPC_DIALOGUE" | "FAMILY_DIALOGUE">;
+}
+```
+
+### 2.4 联合类型
+
+```typescript
+/** 统一的叙事结果类型 */
+export type UnifiedNarrative =
+  | RegularNarrative
+  | EncounterNarrative
+  | NPCDialogueNarrative
+  | FamilyDialogueNarrative;
+```
+
+### 2.5 校验函数
+
+```typescript
+/** 校验返回数据是否符合 UnifiedNarrative 结构 */
+export function parseNarrative(data: Record<string, unknown>): UnifiedNarrative | null {
+  if (!data || typeof data.title !== "string" || typeof data.narrative !== "string") {
+    return null;
+  }
+  const type = data.type as string;
+  const base = {
+    type: type as NarrativeType,
+    title: data.title as string,
+    narrative: data.narrative as string,
+    mood: data.mood as MoodType || "静",
+    hint: data.hint as string | undefined,
+  };
+
+  if (type === "ENCOUNTER" && Array.isArray(data.choices)) {
+    return { ...base, type: "ENCOUNTER", choices: data.choices as any } as EncounterNarrative;
+  }
+  if (type === "NPC_DIALOGUE") {
+    return { ...base, type: "NPC_DIALOGUE", npcMood: (data.npcMood as string) || "友善", reward: data.reward as any } as NPCDialogueNarrative;
+  }
+  if (type === "FAMILY_DIALOGUE") {
+    return { ...base, type: "FAMILY_DIALOGUE", intimacyDelta: (data.intimacyDelta as number) || 0, npcMood: (data.npcMood as string) || "平淡", actionHint: data.actionHint as string | undefined } as FamilyDialogueNarrative;
+  }
+  return base as RegularNarrative;
+}
+```
+
+---
+
+## 3. Prompt 模板统一
+
+每个叙事函数的 prompt 末尾统一追加 JSON 格式要求：
+
+```
+返回JSON：{"type":"{叙事类型}","title":"标题","narrative":"正文","mood":"静/悟/燃/险/奇","hint":"提示"}
+```
+
+特殊类型补充字段：
+
+| 类型 | 补充字段 |
+|------|---------|
+| `ENCOUNTER` | `"choices":[{"text":"选项","risk":"low/medium/high","hint":"提示"}]` |
+| `NPC_DIALOGUE` | `"npcMood":"友善/冷淡/严厉","reward":{...}或null` |
+| `FAMILY_DIALOGUE` | `"intimacyDelta":-5~5,"npcMood":"开心/生气/平淡/担忧","actionHint":"NPC可能行动"` |
+
+---
+
+## 4. 迁移方案
+
+### 4.1 步骤一：定义新类型
+
+在 `src/lib/narrative.ts` 中新增上述类型定义，保留旧 `NarrativeResult` 接口作为别名以保证中间兼容：
+
+```typescript
+/** @deprecated 使用 UnifiedNarrative 替代 */
+export type NarrativeResult = RegularNarrative;
+```
+
+### 4.2 步骤二：逐个迁移函数
+
+| 函数 | 新返回类型 | 变更 |
+|------|-----------|------|
+| `generateDailyCultivationNarrative` | `RegularNarrative` | prompt 末尾加 `type` |
+| `generateBreakthroughNarrative` | `RegularNarrative` | prompt 末尾加 `type` |
+| `generateEncounterNarrative` | `EncounterNarrative` | 加 `type`，mood 改为字面量 |
+| `generateNPCDialogue` | `NPCDialogueNarrative` | `dialogue` → `narrative`，`npcMood` 保留 |
+| `generateActionNarrative` | `RegularNarrative` | prompt 末尾加 `type` |
+| `generateYearAdvanceNarrative` | `RegularNarrative` | prompt 末尾加 `type` |
+| `generateFamilyDialogue` | `FamilyDialogueNarrative` | `npcDialogue` → `narrative`，其余保留 |
+| `generateBirthNarrative` | `RegularNarrative` | prompt 末尾加 `type` |
+
+### 4.3 步骤三：消费方适配
+
+| 文件 | 变更 |
+|------|------|
+| `src/app/api/narrative/route.ts` | 返回 `UnifiedNarrative` 而非内联对象 |
+| `src/app/dashboard/page.tsx` | 根据 `type` 分支渲染不同字段 |
+| `src/components/narrative-display.tsx` | **新建** 统一叙事展示组件，根据 type 渲染 |
+
+### 4.4 步骤四：淘汰旧类型
+
+移除 `NarrativeResult` 别名，所有消费方迁移完成。
+
+---
+
+## 5. 涉及文件
+
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `src/lib/narrative.ts` | 修改 | 新增类型定义，修改 8 个函数返回类型和 prompt |
+| `src/app/api/narrative/route.ts` | 修改 | 返回 `UnifiedNarrative` |
+| `src/app/dashboard/page.tsx` | 修改 | 根据 `type` 分支渲染 |
+| `src/components/narrative-display.tsx` | **新建** | 统一叙事展示组件 |
+
+---
+
+## 6. 向后兼容
+
+- 旧 `NarrativeResult` 保留为 `RegularNarrative` 的别名，标记 `@deprecated`
+- 前端已有代码使用 `narrative.title`、`narrative.narrative`、`narrative.mood`、`narrative.hint` — 这些字段在 `NarrativeBase` 中全部保留，不破坏现有渲染
+- encounter 的 `narrative.choices`、NPC 的 `narrative.dialogue` → `narrative.narrative` 需在消费方适配
+- `extractJson` 函数保留，但迁移后可逐步替换为 `parseNarrative`
