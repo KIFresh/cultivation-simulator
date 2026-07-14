@@ -130,6 +130,20 @@ export default function DashboardPage() {
         if (isAwakened(capped.realm)) {
           setCanBreak(canBreakthrough(capped.realm, capped.realmLevel, capped.cultivationExp, capped.spiritualRoot));
         }
+        // 从 API 拉取历史记录
+        fetch(`/api/events?userId=${userId}&limit=50`)
+          .then((r) => r.json())
+          .then((evData) => {
+            if (evData.events && evData.events.length > 0) {
+              const history: NarrativeDisplay[] = evData.events.map((ev: any) => {
+                let mood = "静";
+                try { const r = JSON.parse(ev.reward || "{}"); if (r.mood) mood = r.mood; } catch {}
+                return { title: ev.title, narrative: ev.narrative, mood };
+              });
+              setNarrativeHistory(history);
+            }
+          })
+          .catch(() => {});
       }
     } catch (err) {
       console.error("加载角色失败:", err);
@@ -334,6 +348,13 @@ export default function DashboardPage() {
     localStorage.setItem("userId", data.user.id);
     localStorage.setItem("cultivatorName", data.user.cultivator.name);
     localStorage.setItem("attributes", JSON.stringify({}));
+    // 生成出生叙事
+    try {
+      await fetch("/api/narrative", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: data.user.id, type: "BIRTH", worldName: "地球", identityName: "未知", age: 1, worldId: "earth", family: [] }),
+      });
+    } catch (e) { console.error("出生叙事生成失败:", e); }
     window.location.reload();
   };
   // 开发者模式：重置数据
