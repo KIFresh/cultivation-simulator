@@ -65,6 +65,14 @@ export async function POST(request: NextRequest) {
       });
     };
 
+    // 确保 narrative.narrative 不为空，AI 返回可能缺失
+    const ensureNarrative = (n: { narrative?: string; title?: string }, fallback: string) => {
+      if (!n.narrative || !n.narrative.trim()) {
+        n.narrative = fallback;
+      }
+      return n;
+    };
+
     switch (type) {
       case "BIRTH": {
         const narrative = await generateBirthNarrative({
@@ -77,6 +85,7 @@ export async function POST(request: NextRequest) {
           family: body.family || [],
           storySummary: summaryText || undefined,
         });
+        ensureNarrative(narrative, `${cultivator.name}来到了这个世界，一段传奇就此开始。`);
 
         let event;
         try {
@@ -110,6 +119,7 @@ export async function POST(request: NextRequest) {
           cultivationExp: cultivator.cultivationExp,
           storySummary: summaryText || undefined,
         });
+        ensureNarrative(narrative, `${cultivator.name}静心修炼，灵力又精纯了几分。`);
 
         const event = await prisma.gameEvent.create({
           data: {
@@ -159,6 +169,7 @@ export async function POST(request: NextRequest) {
           breakthroughCount: cultivator.breakthroughCount,
           storySummary: summaryText || undefined,
         });
+        ensureNarrative(narrative, `${cultivator.name}终于突破！灵力暴涨！`);
 
         const [updatedCultivator, event] = await prisma.$transaction([
           prisma.cultivator.update({
@@ -204,6 +215,7 @@ export async function POST(request: NextRequest) {
           realmLevel: cultivator.realmLevel,
           storySummary: summaryText || undefined,
         });
+        ensureNarrative(narrative, `${cultivator.name}发现了一处洞府遗迹……`);
 
         // 追加概要，超长则压缩
         const newEntry = createEntry(narrative.title, narrative.narrative);
