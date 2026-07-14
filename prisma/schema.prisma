@@ -42,6 +42,10 @@ model Cultivator {
   storySummaryUpdatedAt DateTime? // 最后更新（追加或压缩）时间
   storyEntries          String?   // JSON 数组，逐条记忆
   storyEntriesUpdatedAt DateTime? // 最后修改时间
+  maxAge              Int?
+  bonusAge            Int      @default(0)
+  reincarnationCount  Int      @default(0)
+  talents             String?
   createdAt         DateTime @default(now())
   events            GameEvent[]
 }
