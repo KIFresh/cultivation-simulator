@@ -397,6 +397,17 @@ export default function DashboardPage() {
               </div>
               <span className="text-muted-foreground text-xs">{cultivator.stamina}/{maxStamina}</span>
             </div>
+            {maxAge !== null && maxAge > 0 && (
+              <div className="text-xs text-muted-foreground">
+                <span>寿元：{cultivator.age} / {maxAge >= 999999 ? "∞" : maxAge} 岁</span>
+                <div className="w-full h-1.5 bg-muted rounded-full mt-1 overflow-hidden">
+                  <div className={`h-full rounded-full transition-all ${
+                    remaining <= 5 ? "bg-red-500" : remaining < maxAge * 0.1 ? "bg-yellow-500" : "bg-green-500"
+                  }`} style={{ width: `${Math.max(0, (remaining / maxAge) * 100)}%` }} />
+                </div>
+                <span className="text-[10px]">剩余 {Math.max(0, remaining)} 年</span>
+              </div>
+            )}
             <div className="flex items-center gap-2 text-xs">
               <span className="text-muted-foreground">💰 金币</span>
               <span className="text-foreground font-medium">{cultivator.gold ?? 50}</span>
