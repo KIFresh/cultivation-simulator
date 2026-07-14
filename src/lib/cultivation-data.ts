@@ -42,8 +42,14 @@ export const SPIRITUAL_ROOTS: Record<string, SpiritualRootInfo> = new Proxy({} a
   },
 });
 
-export function getRootInfo(rootKey: string): SpiritualRootInfo {
-  return SPIRITUAL_ROOTS[rootKey] || { name: rootKey, description: "", rarity: 1, speedBonus: 1.0, color: "#8B7355", element: "未知" };
+export function getRootInfo(rootKey: string, talents?: string[], reincarnationCount = 0): SpiritualRootInfo {
+  const info = SPIRITUAL_ROOTS[rootKey] || { name: rootKey, description: "", rarity: 1, speedBonus: 1.0, color: "#8B7355", element: "未知" };
+  // 前世记忆天赋：每世 +10% 修炼速度
+  if (talents?.includes("前世记忆") && reincarnationCount > 0) {
+    const bonus = 1 + reincarnationCount * 0.1;
+    return { ...info, speedBonus: info.speedBonus * bonus };
+  }
+  return info;
 }
 
 // ============================================================
@@ -65,6 +71,32 @@ export const REALMS: Realm[] = [
   { name: "大乘期", levels: 3, expRequired: 90000, expIncrement: 40000, lifespan: "数万岁", description: "大道初成，万法归一" },
   { name: "渡劫期", levels: 1, expRequired: 500000, expIncrement: 0, lifespan: "与天地同寿", description: "渡过天劫，飞升仙界" },
 ];
+
+/** 各境界基础寿元（年） */
+const BASE_LIFESPAN: Record<string, number> = {
+  "凡人": 80,
+  "炼气期": 100,
+  "筑基期": 200,
+  "结丹期": 500,
+  "元婴期": 1000,
+  "化神期": 2000,
+  "炼虚期": 5000,
+  "合体期": 10000,
+  "大乘期": 50000,
+  "渡劫期": 999999,
+};
+
+/** 计算修炼者的最大寿元 */
+export function calculateMaxAge(
+  realm: string,
+  attributes: Record<string, number>,
+  bonusAge = 0
+): number {
+  const base = BASE_LIFESPAN[realm] ?? 80;
+  const rootBonus = (attributes.root ?? 0) * 2;
+  const mindBonus = (attributes.mind ?? 0) * 1;
+  return base + rootBonus + mindBonus + bonusAge;
+}
 
 const LEVEL_LABELS: Record<number, string> = { 1: "初期", 2: "中期", 3: "后期" };
 const LIANQI_LABELS: Record<number, string> = { 1:"第一层",2:"第二层",3:"第三层",4:"第四层",5:"第五层",6:"第六层",7:"第七层",8:"第八层",9:"第九层",10:"第十层",11:"第十一层",12:"第十二层",13:"第十三层" };
