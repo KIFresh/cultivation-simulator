@@ -59,6 +59,13 @@ export default function DevPage() {
     localStorage.setItem("cultivatorName", data.user.cultivator?.name ?? data.user.name);
     localStorage.setItem("attributes", JSON.stringify({}));
     toast.success(`已生成角色：${data.user.cultivator?.name ?? data.user.name}`);
+    // 生成出生叙事
+    try {
+      await fetch("/api/narrative", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: data.user.id, type: "BIRTH", worldName: "地球", identityName: "未知", age: 1, worldId: "earth", family: [] }),
+      });
+    } catch (e) { console.error("出生叙事生成失败:", e); }
     window.location.href = "/dashboard";
   };
 
