@@ -7,7 +7,17 @@ import {
   resolveHighRiskOutcome,
   applyRewardEffects,
 } from "@/lib/encounter-data";
-import { REALMS } from "@/lib/cultivation-data";
+import { REALMS, getItemById } from "@/lib/cultivation-data";
+
+// 奇遇特殊物品 → 实际道具 ID 映射
+const ENCOUNTER_ITEM_MAP: Record<string, string> = {
+  "获得「青云心法·残卷」": "ancient_tome",
+  "获得「青冥剑·下品法宝」": "spirit_sword",
+  "获得「灵狐之泪·炼丹圣品」": "demon_core",
+  "获得「五尾灵狐」认你为主！": "spirit_beads",
+  "缴获「骷髅杖·下品法器」": "iron_sword",
+  "夺得「黑煞炼魂旗·中品法宝」": "spirit_robe",
+};
 
 // ============================================================
 // GET — 尝试触发奇遇（在完成任务后调用 或 手动探索）
@@ -201,6 +211,24 @@ export async function POST(request: NextRequest) {
       stamina: cultivator.stamina,
     });
 
+    // 处理特殊物品 → 加入背包
+    let inventory: { itemId: string; quantity: number; equipped: boolean }[] = [];
+    try {
+      inventory = JSON.parse(cultivator.inventory || '[]');
+    } catch {}
+
+    for (const itemLabel of result.specialItems) {
+      const itemId = ENCOUNTER_ITEM_MAP[itemLabel];
+      if (itemId) {
+        const existing = inventory.find((s) => s.itemId === itemId);
+        if (existing) {
+          existing.quantity += 1;
+        } else {
+          inventory.push({ itemId, quantity: 1, equipped: false });
+        }
+      }
+    }
+
     // 更新修炼者状态
     const [updatedCultivator, updatedEvent] = await prisma.$transaction([
       prisma.cultivator.update({
@@ -209,6 +237,7 @@ export async function POST(request: NextRequest) {
           cultivationExp: result.cultivationExp,
           totalExp: result.totalExp,
           stamina: result.stamina,
+          inventory: JSON.stringify(inventory),
         },
       }),
       prisma.gameEvent.update({
