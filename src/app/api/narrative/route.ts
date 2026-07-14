@@ -216,10 +216,13 @@ export async function POST(request: NextRequest) {
         const newEntry = createEntry(narrative.title, narrative.narrative);
         await saveEntries([...currentEntries, newEntry]);
 
+        // 重新读取以获取最新的 storyEntries
+        const freshCultivator = await prisma.cultivator.findUnique({ where: { id: cultivator.id } });
+
         return NextResponse.json({
           event,
           narrative,
-          cultivator: updatedCultivator,
+          cultivator: freshCultivator,
           isNewRealm: result.newRealm !== cultivator.realm,
         });
       }

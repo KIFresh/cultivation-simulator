@@ -47,12 +47,11 @@ export default function MemoryPanel({ cultivatorId, entries, onEntriesChange }: 
     }
   };
 
-  const toggleImportant = (id: string) => {
+  const toggleImportant = async (id: string) => {
     const next = entries.map(e =>
       e.id === id ? { ...e, important: !e.important } : e
     );
-    onEntriesChange(next);
-    saveEntries(next);
+    await saveEntries(next);
   };
 
   const startEdit = (entry: StoryEntry) => {
@@ -68,14 +67,13 @@ export default function MemoryPanel({ cultivatorId, entries, onEntriesChange }: 
     setEditingId(null);
   };
 
-  const deleteEntry = (id: string) => {
+  const deleteEntry = async (id: string) => {
     if (!window.confirm("确定删除这条记忆吗？")) return;
     const next = entries.filter(e => e.id !== id);
-    onEntriesChange(next);
-    saveEntries(next);
+    await saveEntries(next);
   };
 
-  const saveFullEdit = () => {
+  const saveFullEdit = async () => {
     const newEntry: StoryEntry = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
       title: "📝 玩家记述",
@@ -83,7 +81,7 @@ export default function MemoryPanel({ cultivatorId, entries, onEntriesChange }: 
       important: false,
       createdAt: new Date().toISOString(),
     };
-    saveEntries([...entries, newEntry]);
+    await saveEntries([...entries, newEntry]);
     setShowFullEdit(false);
   };
 
@@ -95,6 +93,7 @@ export default function MemoryPanel({ cultivatorId, entries, onEntriesChange }: 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "compressMemory", userId: cultivatorId }),
       });
+      if (!res.ok) { const ed = await res.json().catch(() => ({})); throw new Error(ed.error || "压缩失败"); }
       const data = await res.json();
       if (data.entries) {
         onEntriesChange(data.entries);

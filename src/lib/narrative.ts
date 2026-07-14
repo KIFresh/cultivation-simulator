@@ -507,6 +507,6 @@ export async function compressStorySummary(
     });
     return text.slice(0, 500);
   } catch {
-    return normalEntries.map(e => `【${e.title}】${e.summary}`).join('\n');
+    return [...importantEntries.map(e => `⭐ 【${e.title}】${e.summary}`), ...normalEntries.map(e => `【${e.title}】${e.summary}`)].join('\n');
   }
 }
