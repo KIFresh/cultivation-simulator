@@ -9,7 +9,7 @@ default_model = "deepseek-flash"
 
 [agent]
 cold_resume_prune = true
-plan_mode_read_only_commands = ["curl -s", "netstat -ano", "python3 -c", "npx tsc --noEmit", "mkdir -p", "git branch -a"]
+plan_mode_read_only_commands = ["curl -s", "netstat -ano", "python3 -c", "npx tsc --noEmit", "mkdir -p", "git branch -a", "git branch --show-current"]
 
 [tools]
 bash_timeout_seconds = 120
