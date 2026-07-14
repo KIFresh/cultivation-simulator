@@ -73,6 +73,7 @@ export async function POST(request: NextRequest) {
           spiritualRoot: cultivator.spiritualRoot,
           worldName: body.worldName || "修仙世界",
           identityName: body.identityName || "修士",
+          birthTier: body.birthTier,
           age: body.age || 1,
           worldId: body.worldId,
           family: body.family || [],

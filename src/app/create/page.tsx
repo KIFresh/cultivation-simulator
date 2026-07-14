@@ -125,6 +125,7 @@ export default function CreatePage() {
             body: JSON.stringify({
               userId: data.user.id, type: "BIRTH", worldName: selectedWorld?.name,
               identityName: selectedIdentity?.name, age: 1, worldId: selectedWorld?.id,
+              birthTier: selectedBirth?.name,
               family: selectedWorld?.id === "earth" ? JSON.parse(localStorage.getItem("family") || "{}").members || [] : [],
             }),
           });

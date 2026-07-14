@@ -442,6 +442,7 @@ export async function generateBirthNarrative(params: {
   cultivatorName: string; spiritualRoot: string; worldName?: string; identityName?: string;
   age?: number; worldId?: string; family?: { relation: string; name: string; age: number; alive: boolean }[];
   storySummary?: string;
+  birthTier?: string;
 }): Promise<NarrativeResult> {
   const familyStr = params.family && params.family.length > 0
     ? `\n\n【家庭成员】\n${params.family.map((m) => `- ${m.relation}：${m.name}，${m.age}岁，${m.alive ? "健在" : "已故"}`).join("\n")}`
@@ -449,6 +450,7 @@ export async function generateBirthNarrative(params: {
   let prompt = `写一段修仙小说风格的出生叙事，自然地描写主角的诞生。
 
 ${params.cultivatorName}，${params.age || 1}岁，${params.spiritualRoot}，${params.identityName || "未知"}，${params.worldName || "修仙世界"}${familyStr}
+先天资质：${params.birthTier || "普通"}
 
 注意：家庭成员姓名已列出，叙事时直接称呼即可。不要复述或解释世界设定，直接讲故事。
 
