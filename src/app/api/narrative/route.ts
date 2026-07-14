@@ -11,6 +11,7 @@ import {
 } from "@/lib/narrative";
 import { prisma } from "@/lib/prisma";
 import { canBreakthrough, performBreakthrough } from "@/lib";
+import { TECHNIQUES, addProficiency } from "@/lib/technique-data";
 
 // POST — 生成叙事 + 处理突破
 export async function POST(request: NextRequest) {
@@ -65,14 +66,6 @@ export async function POST(request: NextRequest) {
       });
     };
 
-    // 确保 narrative.narrative 不为空，AI 返回可能缺失
-    const ensureNarrative = (n: { narrative?: string; title?: string }, fallback: string) => {
-      if (!n.narrative || !n.narrative.trim()) {
-        n.narrative = fallback;
-      }
-      return n;
-    };
-
     switch (type) {
       case "BIRTH": {
         const narrative = await generateBirthNarrative({
@@ -85,8 +78,6 @@ export async function POST(request: NextRequest) {
           family: body.family || [],
           storySummary: summaryText || undefined,
         });
-        console.log("[BIRTH] AI raw result:", JSON.stringify({ title: narrative.title, narrativeLen: narrative.narrative?.length, mood: narrative.mood }));
-        ensureNarrative(narrative, `${cultivator.name}来到了这个世界，一段传奇就此开始。`);
 
         let event;
         try {
@@ -120,7 +111,6 @@ export async function POST(request: NextRequest) {
           cultivationExp: cultivator.cultivationExp,
           storySummary: summaryText || undefined,
         });
-        ensureNarrative(narrative, `${cultivator.name}静心修炼，灵力又精纯了几分。`);
 
         const event = await prisma.gameEvent.create({
           data: {
@@ -135,6 +125,32 @@ export async function POST(request: NextRequest) {
         const newEntry = createEntry(narrative.title, narrative.narrative);
         await saveEntries([...currentEntries, newEntry]);
 
+        // 增加功法熟练度
+        const techniqueRecords = await prisma.cultivatorTechnique.findMany({
+          where: { cultivatorId: cultivator.id, equipSlot: { not: null } },
+        });
+        let levelUpMessages: string[] = [];
+        const techniqueUpdates: any[] = [];
+        for (const r of techniqueRecords) {
+          const t = TECHNIQUES[r.techniqueId];
+          if (!t) continue;
+          const result = addProficiency(r.level, r.proficiency, t.upgradeProficiency, Math.floor(Math.random() * 6) + 5);
+          if (result.leveledUp) {
+            levelUpMessages.push(`${t.name} 升级至 Lv.${result.newLevel}！`);
+          }
+          techniqueUpdates.push(prisma.cultivatorTechnique.update({
+            where: { id: r.id },
+            data: { level: result.newLevel, proficiency: result.newProficiency },
+          }));
+        }
+        if (techniqueUpdates.length > 0) {
+          await prisma.$transaction(techniqueUpdates);
+        }
+        const finalHint = narrative.hint || "";
+        const narrativeHint = levelUpMessages.length > 0
+          ? finalHint + (finalHint ? " " : "") + levelUpMessages.join(" ")
+          : finalHint;
+
         const canBreak = canBreakthrough(
           cultivator.realm,
           cultivator.realmLevel,
@@ -142,7 +158,7 @@ export async function POST(request: NextRequest) {
           cultivator.spiritualRoot as import("@/lib").SpiritualRoot
         );
 
-        return NextResponse.json({ event, narrative, canBreakthrough: canBreak });
+        return NextResponse.json({ event, narrative: { ...narrative, hint: narrativeHint }, canBreakthrough: canBreak });
       }
 
       case "BREAKTHROUGH": {
@@ -170,7 +186,6 @@ export async function POST(request: NextRequest) {
           breakthroughCount: cultivator.breakthroughCount,
           storySummary: summaryText || undefined,
         });
-        ensureNarrative(narrative, `${cultivator.name}终于突破！灵力暴涨！`);
 
         const [updatedCultivator, event] = await prisma.$transaction([
           prisma.cultivator.update({
@@ -216,7 +231,6 @@ export async function POST(request: NextRequest) {
           realmLevel: cultivator.realmLevel,
           storySummary: summaryText || undefined,
         });
-        ensureNarrative(narrative, `${cultivator.name}发现了一处洞府遗迹……`);
 
         // 追加概要，超长则压缩
         const newEntry = createEntry(narrative.title, narrative.narrative);

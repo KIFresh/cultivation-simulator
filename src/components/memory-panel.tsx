@@ -51,6 +51,7 @@ export default function MemoryPanel({ cultivatorId, entries, onEntriesChange }: 
     const next = entries.map(e =>
       e.id === id ? { ...e, important: !e.important } : e
     );
+    onEntriesChange(next);
     saveEntries(next);
   };
 
@@ -61,7 +62,7 @@ export default function MemoryPanel({ cultivatorId, entries, onEntriesChange }: 
 
   const saveEdit = (id: string) => {
     const next = entries.map(e =>
-      e.id === id ? { ...e, summary: editText.slice(0, 60) + (editText.length > 60 ? "…" : "") } : e
+      e.id === id ? { ...e, summary: editText } : e
     );
     saveEntries(next);
     setEditingId(null);
@@ -70,11 +71,11 @@ export default function MemoryPanel({ cultivatorId, entries, onEntriesChange }: 
   const deleteEntry = (id: string) => {
     if (!window.confirm("确定删除这条记忆吗？")) return;
     const next = entries.filter(e => e.id !== id);
+    onEntriesChange(next);
     saveEntries(next);
   };
 
   const saveFullEdit = () => {
-    const importantEntries = entries.filter(e => e.important);
     const newEntry: StoryEntry = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
       title: "📝 玩家记述",
@@ -82,7 +83,7 @@ export default function MemoryPanel({ cultivatorId, entries, onEntriesChange }: 
       important: false,
       createdAt: new Date().toISOString(),
     };
-    saveEntries([...importantEntries, newEntry]);
+    saveEntries([...entries, newEntry]);
     setShowFullEdit(false);
   };
 
@@ -106,7 +107,12 @@ export default function MemoryPanel({ cultivatorId, entries, onEntriesChange }: 
     }
   };
 
-  if (!entries || entries.length === 0) return null;
+  if (!entries || entries.length === 0) return (
+    <div className="border border-border bg-card rounded-lg shadow-sm p-3">
+      <p className="text-xs text-muted-foreground text-center">📖 道心明镜 · 暂无记忆</p>
+      <p className="text-[10px] text-muted-foreground text-center mt-1">推进年份或执行行动后，AI 将自动记录故事</p>
+    </div>
+  );
 
   return (
     <div className="border border-border bg-card rounded-lg shadow-sm">
