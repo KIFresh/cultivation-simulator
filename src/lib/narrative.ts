@@ -149,6 +149,39 @@ ${worldPrompt}`;
 // 叙事生成函数
 // ============================================================
 
+export interface StoryEntry {
+  id: string;
+  title: string;
+  summary: string;
+  important: boolean;
+  createdAt: string;
+}
+
+/**
+ * 从条目数组生成组合文本，用于注入 AI prompt。
+ * 纯字符串操作，无 AI 调用。
+ */
+export function buildSummaryFromEntries(entries: StoryEntry[]): string {
+  if (entries.length === 0) return '';
+  return entries.map(e =>
+    `${e.important ? '⭐ ' : ''}【${e.title}】${e.summary}`
+  ).join('\n');
+}
+
+/**
+ * 创建一条新的记忆条目。
+ * @param truncate - 默认 true，截断 summary 到 60 字；压缩条目传 false
+ */
+export function createEntry(title: string, summary: string, truncate = true): StoryEntry {
+  return {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+    title,
+    summary: truncate ? summary.slice(0, 60) + (summary.length > 60 ? '…' : '') : summary,
+    important: false,
+    createdAt: new Date().toISOString(),
+  };
+}
+
 export interface NarrativeResult {
   title: string;
   narrative: string;
@@ -361,17 +394,30 @@ ${params.cultivatorName}，${params.age || 1}岁，${params.spiritualRoot}，${p
 
 /**
  * 调用 AI 将剧情概要压缩到 500 字以内。
- * 压缩失败返回原概要，不阻断流程。
+ * 接收 StoryEntry[]，区分重要/普通条目。
+ * 压缩失败返回普通条目的文本拼接。
  */
-export async function compressStorySummary(summary: string, cultivatorName: string): Promise<string> {
-  const prompt = `你是一个修仙小说的编辑。将以下剧情概要压缩到500字以内，保留关键事件和因果关系，保持时间顺序。
+export async function compressStorySummary(
+  entries: StoryEntry[],
+  cultivatorName: string
+): Promise<string> {
+  const importantEntries = entries.filter(e => e.important);
+  const normalEntries = entries.filter(e => !e.important);
+
+  let prompt = `你是一个修仙小说的编辑。将以下剧情概要压缩到500字以内。
 
 【修炼者】${cultivatorName}
 
-【当前概要】
-${summary}
+`;
 
-要求：压缩后不超过500字，保留核心故事情节。直接输出压缩后的文本，不要 JSON 格式，不要多余说明。`;
+  if (importantEntries.length > 0) {
+    prompt += `重要事件（必须保留）：\n${importantEntries.map(e => `⭐ 【${e.title}】${e.summary}`).join('\n')}\n\n`;
+  }
+  if (normalEntries.length > 0) {
+    prompt += `其他事件（可精简合并）：\n${normalEntries.map(e => `【${e.title}】${e.summary}`).join('\n')}\n\n`;
+  }
+
+  prompt += `要求：重要事件必须完整保留，其他事件可合并或精简。直接输出压缩后的纯文本，不要 JSON 格式。`;
 
   try {
     const text = await callAI({
@@ -382,6 +428,6 @@ ${summary}
     });
     return text.slice(0, 500);
   } catch {
-    return summary; // 压缩失败，保留原概要
+    return normalEntries.map(e => `【${e.title}】${e.summary}`).join('\n');
   }
 }

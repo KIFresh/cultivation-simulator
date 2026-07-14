@@ -1,0 +1,223 @@
+# 寿命系统 + 轮回转世 — 设计规范
+
+## 概述
+
+为修仙模拟器增加寿命系统与轮回转世机制：每个境界有对应的寿元上限，属性可延长寿命，后天丹药可额外增寿；年龄超过寿元上限时触发道消事件；玩家可选择轮回转世，从 1 岁重新开始，获得「前世记忆」天赋加成。
+
+---
+
+## 1. 数据模型
+
+### 1.1 Cultivator 模型变更
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `maxAge` | `Int?` | 寿命上限，由 `calculateMaxAge()` 计算得出并持久化 |
+| `bonusAge` | `Int` | **新增**，后天寿元加成（丹药、禁术等），默认 0，公式中累加 |
+| `reincarnationCount` | `Int` | **新增**，轮回次数，默认 0 |
+| `talents` | `String?` | **新增**，JSON 数组存储天赋列表，轮回后写入 `["前世记忆"]` |
+
+```prisma
+model Cultivator {
+  // ...现有字段不变...
+  maxAge              Int?
+  bonusAge            Int      @default(0)
+  reincarnationCount  Int      @default(0)
+  talents             String?  // JSON 数组，如 ["前世记忆"]
+  events            GameEvent[]
+}
+```
+
+### 1.2 存储示例
+
+```json
+// talents 字段
+["前世记忆"]
+
+// 轮回后的 cultivator 状态
+{
+  "realm": "凡人", "realmLevel": 0, "age": 1,
+  "reincarnationCount": 1, "talents": "[\"前世记忆\"]",
+  "maxAge": null, "bonusAge": 0,
+  "cultivationExp": 0, "totalExp": 0, "stamina": 20,
+  "breakthroughCount": 0, "gold": 50,
+  "location": null, "inventory": null, "npcRelations": null,
+  "title": null, "storyEntries": "[]"
+}
+```
+
+---
+
+## 2. 寿命计算
+
+### 2.1 基础寿元表
+
+```typescript
+const BASE_LIFESPAN: Record<string, number> = {
+  "凡人": 80, "炼气期": 100, "筑基期": 200,
+  "结丹期": 500, "元婴期": 1000, "化神期": 2000,
+  "炼虚期": 5000, "合体期": 10000, "大乘期": 50000,
+  "渡劫期": 999999, // 数据库 Int 无法存 Infinity，用 999999 代替
+};
+```
+
+### 2.2 完整计算公式
+
+```typescript
+function calculateMaxAge(
+  realm: string,
+  attributes: Record<string, number>,
+  bonusAge = 0
+): number {
+  const base = BASE_LIFESPAN[realm] ?? 80;
+  const rootBonus = (attributes.root ?? 0) * 2;  // 根骨延寿
+  const mindBonus = (attributes.mind ?? 0) * 1;   // 心性延寿
+  return base + rootBonus + mindBonus + bonusAge;
+}
+```
+
+### 2.3 渡劫期特殊处理
+
+- 数据库存 `999999` 作为寿元上限
+- 前端渲染时判断 `maxAge >= 999999` 显示为「与天地同寿」
+- 渡劫期修士不会老死，道消事件永远不会触发
+
+---
+
+## 3. 大限预警
+
+### 3.1 触发条件
+
+推进年份后，满足以下任一条件即弹出预警：
+
+```
+剩余寿命 ≤ 10 年
+或
+剩余寿命 < 总寿命 × 10%
+```
+
+### 3.2 预警弹窗
+
+```
+┌──────────────────────────────────────┐
+│  ⚠️ 大限将至                        │
+│                                      │
+│  你已感到天人五衰的征兆。             │
+│  剩余寿命：{remaining} 年             │
+│  当前境界：{realm}                    │
+│  {nextRealm} 可延寿至 {nextMaxAge} 岁 │
+│                                      │
+│  [ 感应天道（继续） ]                │
+└──────────────────────────────────────┘
+```
+
+---
+
+## 4. 道消事件
+
+### 4.1 触发时机
+
+推进年份时，后端检查 `age > maxAge`，若超限则返回道消事件而非正常叙事。
+
+### 4.2 响应结构
+
+```typescript
+{
+  daoXiao: true,
+  summary: { age, realm, realmLevel, breakthroughCount, reincarnationCount, totalExp }
+}
+```
+
+### 4.3 道消弹窗
+
+```
+┌──────────────────────────────────────┐
+│  🌑 道消身殒                        │
+│                                      │
+│  {name}道友，寿元耗尽，              │
+│  于 {age} 岁坐化于洞府之中。          │
+│                                      │
+│  修炼一生回顾：                       │
+│  · 最终境界：{realm}                  │
+│  · 突破次数：{breakthroughCount}      │
+│  · 累计修炼：{totalExp}               │
+│  · 轮回次数：{reincarnationCount}     │
+│                                      │
+│  ┌──────────────────────────────────┐│
+│  │ 🔄 轮回转世                      ││
+│  └──────────────────────────────────┘│
+└──────────────────────────────────────┘
+```
+
+---
+
+## 5. 轮回转世
+
+### 5.1 后端处理
+
+`POST /api/cultivator` — 新增 `action: "reincarnate"` 分支。
+
+重置清单：
+
+| 项目 | 重置值 |
+|------|--------|
+| 境界 | 凡人 |
+| 境界层数 | 0 |
+| 修炼经验 / 总经验 | 0 |
+| 体力 | 20 |
+| 突破次数 | 0 |
+| 年龄 | **1** |
+| 金币 | 50 |
+| 位置 / 背包 / NPC关系 / 称号 | null |
+| 记忆条目 | [] |
+| 轮回次数 | +1 |
+| 天赋 | `["前世记忆"]` |
+
+### 5.2 「前世记忆」天赋效果
+
+| 效果 | 说明 |
+|------|------|
+| 修炼速度 +10% | 叠加到 `getRootInfo().speedBonus` |
+| 初始天资点 +3 | 叠加到创建角色出生点数 |
+| 每世叠加 | 轮回 2 次 → +20%，3 次 → +30% |
+
+---
+
+## 6. UI — 寿命显示
+
+### 6.1 Dashboard 角色信息区
+
+```
+寿元：{age} / {maxAge >= 999999 ? "∞" : maxAge} 岁
+[████████░░] 剩余 {remaining} 年
+```
+
+颜色规则：绿色（正常）→ 黄色（< 10%）→ 红色（≤ 5 年）
+
+### 6.2 状态流转
+
+```
+正常修炼 → 年份推进 → 预警 → 道消 → 轮回(1岁) → 重修
+```
+
+---
+
+## 7. 涉及文件
+
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `prisma/schema.prisma` | 修改 | 加 4 个字段 |
+| `src/lib/cultivation-data.ts` | 修改 | 新增 `calculateMaxAge()` |
+| `src/app/api/advance-year/route.ts` | 修改 | 检查超限，返回道消 |
+| `src/app/api/cultivator/route.ts` | 修改 | 新增 reincarnate 分支 |
+| `src/components/dao-xiao-modal.tsx` | **新建** | 道消弹窗 |
+| `src/app/dashboard/page.tsx` | 修改 | 寿元条 + 预警 + 集成 |
+
+---
+
+## 8. 兼容性
+
+- 已有 cultivator 的 maxAge 为 null，下次推进年份时自动计算
+- bonusAge 默认 0，不影响现有角色
+- talents 为 null 表示无天赋
+- 渡劫期 999999 不会溢出 Int

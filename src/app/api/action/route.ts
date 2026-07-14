@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActionById, calculateActionExp, canBreakthrough, MORTAL_REALM, isAwakened, calculateMaxStamina } from "@/lib";
-import { generateActionNarrative, appendToSummary, shouldCompress, compressStorySummary } from "@/lib/narrative";
+import { generateActionNarrative, type StoryEntry, createEntry, buildSummaryFromEntries, compressStorySummary } from "@/lib/narrative";
 import { sanitizeAttributes } from "@/lib/utils";
 
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { userId, actionId, freeInput, worldId, family } = body;
+    const { userId, actionId, freeInput, worldId } = body;
     if (!userId || !actionId) return NextResponse.json({ error: "缺少必填参数" }, { status: 400 });
 
     const action = getActionById(actionId);
@@ -34,26 +34,31 @@ export async function POST(request: NextRequest) {
       awakenEvent = { title: "灵气觉醒", narrative: `${cultivator.name}终于感知到了天地间的灵气！` };
     }
 
-    const currentSummary = cultivator.storySummary;
+    const currentEntries: StoryEntry[] = JSON.parse(cultivator.storyEntries || '[]');
+    const summaryText = buildSummaryFromEntries(currentEntries);
+
     const narrativeResult = await generateActionNarrative({
       cultivatorName: cultivator.name, spiritualRoot: cultivator.spiritualRoot,
       realm: newRealm, realmLevel: newRealmLevel, age: cultivator.age,
       worldId: cultivator.worldId || worldId, actionName: action.name,
       actionDescription: action.description, freeInput, expGained,
       isAwakened: isAwakened(newRealm), awakenEvent: !!awakenEvent,
-      storySummary: currentSummary || undefined,
+      storySummary: summaryText || undefined,
     });
 
-    // 追加概要，超长则压缩
-    const newSummary = appendToSummary(currentSummary, { title: narrativeResult.title, narrative: narrativeResult.narrative });
-    let finalSummary = newSummary;
-    if (shouldCompress(newSummary)) {
-      finalSummary = await compressStorySummary(newSummary, cultivator.name);
+    // 创建新条目 + 追加 + 压缩
+    const newEntry = createEntry(narrativeResult.title, narrativeResult.narrative);
+    let updatedEntries = [...currentEntries, newEntry];
+    const newSummary = buildSummaryFromEntries(updatedEntries);
+    if (updatedEntries.length > 50 || newSummary.length > 1000) {
+      const compressed = await compressStorySummary(updatedEntries, cultivator.name);
+      const ce = createEntry("📜 记忆凝练", compressed, false);
+      updatedEntries = [...updatedEntries.filter(e => e.important), ce];
     }
 
     // 构建事务操作
     const txOps: any[] = [
-      prisma.cultivator.update({ where: { id: cultivator.id }, data: { stamina: { decrement: action.actionPointCost }, cultivationExp: newExp, totalExp: newTotalExp, realm: newRealm, realmLevel: newRealmLevel, storySummary: finalSummary, storySummaryUpdatedAt: new Date() } }),
+      prisma.cultivator.update({ where: { id: cultivator.id }, data: { stamina: { decrement: action.actionPointCost }, cultivationExp: newExp, totalExp: newTotalExp, realm: newRealm, realmLevel: newRealmLevel, storyEntries: JSON.stringify(updatedEntries), storyEntriesUpdatedAt: new Date() } }),
       prisma.gameEvent.create({ data: { cultivatorId: cultivator.id, type: "ACTION", title: narrativeResult.title, narrative: narrativeResult.narrative, reward: JSON.stringify({ expGained, actionName: action.name, mood: narrativeResult.mood }) } }),
     ];
 

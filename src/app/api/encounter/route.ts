@@ -4,7 +4,6 @@ import {
   shouldTriggerEncounter,
   pickRandomEncounter,
   serializeEncounter,
-  getEncounterById,
   resolveHighRiskOutcome,
   applyRewardEffects,
 } from "@/lib/encounter-data";
@@ -153,16 +152,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "修炼者不存在" }, { status: 404 });
     }
 
-    // 找到对应的奇遇数据
-    let encounter = getEncounterById(gameEvent.title);
-    if (!encounter) {
-      // 兼容：通过 title 查找
-      // 如果 title 匹配不上 id，尝试遍历池
-      const { ENCOUNTER_POOL } = await import("@/lib/encounter-data");
-      encounter = ENCOUNTER_POOL.find(
-        (e) => e.title === gameEvent.title
-      );
-    }
+    // 找到对应的奇遇数据（通过标题匹配）
+    const { ENCOUNTER_POOL } = await import("@/lib/encounter-data");
+    const encounter = ENCOUNTER_POOL.find(
+      (e) => e.title === gameEvent.title
+    );
     if (!encounter) {
       return NextResponse.json({ error: "奇遇数据异常" }, { status: 500 });
     }

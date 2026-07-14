@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Eye, EyeOff, Settings, Save } from "lucide-react";
+import { Eye, EyeOff, Settings, Save, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 interface ProviderConfig {
@@ -51,11 +51,15 @@ export default function SettingsDialog({ open, onOpenChange, onDevModeChange }: 
   const [showKeys, setShowKeys] = useState<boolean[]>([false, false, false]);
   const [loading, setLoading] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [availableModels, setAvailableModels] = useState<(string[] | null)[]>([null, null, null]);
+  const [fetchingModels, setFetchingModels] = useState<boolean[]>([false, false, false]);
+  const abortControllers = useRef<(AbortController | null)[]>([null, null, null]);
 
   // 加载配置
   useEffect(() => {
     if (!open) return;
     setDevMode(localStorage.getItem("devMode") === "true");
+    setAvailableModels([null, null, null]);
     fetch("/api/settings")
       .then((r) => r.json())
       .then((data) => {
@@ -92,6 +96,9 @@ export default function SettingsDialog({ open, onOpenChange, onDevModeChange }: 
       return next;
     });
     setDirty(true);
+    if (field === "type" || field === "baseUrl") {
+      setAvailableModels((prev) => { const n = [...prev]; n[index] = null; return n; });
+    }
   }, []);
 
   const handleSave = async () => {
@@ -123,7 +130,68 @@ export default function SettingsDialog({ open, onOpenChange, onDevModeChange }: 
     }
   };
 
-  const toggleDevMode = () => {
+    const fetchModels = async (index: number) => {
+    const p = providers[index];
+    if (!p.type) {
+      toast.error("请先选择供应方类型");
+      return;
+    }
+    if (p.type === "ollama" && !p.baseUrl) {
+      toast.error("Ollama 需要填写接口地址");
+      return;
+    }
+    if (p.type !== "ollama") {
+      if (!p.baseUrl) { toast.error("请填写接口地址"); return; }
+      if (!p.apiKey) { toast.error("请填写 API Key"); return; }
+    }
+
+    // 取消上一次未完成的请求
+    if (abortControllers.current[index]) {
+      abortControllers.current[index]!.abort();
+    }
+    const controller = new AbortController();
+    abortControllers.current[index] = controller;
+    setTimeout(() => controller.abort(), 15000);
+
+    setFetchingModels((prev) => { const n = [...prev]; n[index] = true; return n; });
+    try {
+      const res = await fetch("/api/settings/list-models", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({ baseUrl: p.baseUrl, apiKey: p.apiKey, type: p.type }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        toast.error(data.error || "查询失败");
+        return;
+      }
+      if (data.models && data.models.length > 0) {
+        setAvailableModels((prev) => { const n = [...prev]; n[index] = data.models; return n; });
+        // 使用 setProviders 函数式更新读取最新模型值，避免闭包陈旧
+        setProviders((prev) => {
+          if (!prev[index].model) {
+            const next = [...prev];
+            next[index] = { ...next[index], model: data.models[0] };
+            return next;
+          }
+          return prev;
+        });
+        if (data.warning) toast.warning(data.warning);
+      } else {
+        toast.warning("该接口未返回模型列表");
+      }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      toast.error("网络错误，请检查地址");
+    } finally {
+      setFetchingModels((prev) => { const n = [...prev]; n[index] = false; return n; });
+      if (abortControllers.current[index] === controller) {
+        abortControllers.current[index] = null;
+      }
+    }
+  };
+
+const toggleDevMode = () => {
     const next = !devMode;
     setDevMode(next);
     localStorage.setItem("devMode", next ? "true" : "false");
@@ -161,7 +229,9 @@ export default function SettingsDialog({ open, onOpenChange, onDevModeChange }: 
                   onValueChange={(v) => updateProvider(i, "type", v ?? "")}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="选择供应方" />
+                    <SelectValue placeholder="选择供应方">
+                      {(v: string) => PROVIDER_TYPES.find(t => t.value === v)?.label || v}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {PROVIDER_TYPES.map((t) => (
@@ -202,11 +272,57 @@ export default function SettingsDialog({ open, onOpenChange, onDevModeChange }: 
                 <>
                   <div className="space-y-1">
                     <label className="text-xs text-muted-foreground">模型</label>
-                    <Input
-                      value={p.model}
-                      onChange={(e) => updateProvider(i, "model", e.target.value)}
-                      placeholder={p.type === "anthropic" ? "claude-sonnet-4-20250514" : p.type === "openai" ? "gpt-4o" : "qwen2.5"}
-                    />
+                    {availableModels[i] === null ? (
+                      <div className="flex gap-1">
+                        <Input
+                          value={p.model}
+                          onChange={(e) => updateProvider(i, "model", e.target.value)}
+                          placeholder={p.type === "anthropic" ? "claude-sonnet-4-20250514" : p.type === "openai" ? "gpt-4o" : "qwen2.5"}
+                          className="flex-1"
+                          disabled={fetchingModels[i]}
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="shrink-0 h-8 text-xs gap-1 border-border"
+                          disabled={fetchingModels[i]}
+                          onClick={() => fetchModels(i)}
+                        >
+                          {fetchingModels[i] ? (
+                            <>获取中...</>
+                          ) : (
+                            <>🔍 测试并获取</>
+                          )}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-1">
+                        <Select
+                          value={p.model}
+                          onValueChange={(v) => updateProvider(i, "model", v ?? "")}
+                        >
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="选择模型" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableModels[i]!.map((model) => (
+                              <SelectItem key={model} value={model}>
+                                {model}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className="shrink-0 h-8 w-8 border-border"
+                          onClick={() => fetchModels(i)}
+                          disabled={fetchingModels[i]}
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${fetchingModels[i] ? "animate-spin" : ""}`} />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs text-muted-foreground">接口地址</label>

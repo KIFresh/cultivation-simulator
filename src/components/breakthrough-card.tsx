@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toPng, toBlob } from "html-to-image";
 import { toast } from "sonner";
@@ -56,9 +56,13 @@ export default function BreakthroughCard({
   // data 为 null 时不渲染；AnimatePresence 负责进出动画
   const cfg = data ? REALM_CARD[data.realm] : undefined;
 
-  const days = data
-    ? Math.max(1, Math.floor((Date.now() - new Date(data.createdAt).getTime()) / 86400000))
-    : 1;
+  const [days, setDays] = useState(1);
+
+  useEffect(() => {
+    if (data) {
+      setDays(Math.max(1, Math.floor((Date.now() - new Date(data.createdAt).getTime()) / 86400000)));
+    }
+  }, [data]);
   const dao = data ? (data.name.length > 8 ? data.name.slice(0, 8) + "…" : data.name) : "";
   const fromShort = data ? data.fromRealm.replace("期", "") : "";
   const toShort = data ? data.realm.replace("期", "") : "";
