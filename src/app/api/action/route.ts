@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getActionById, calculateActionExp, canBreakthrough, MORTAL_REALM, isAwakened, calculateMaxStamina } from "@/lib";
+import { getActionById, calculateActionExp, canBreakthrough, MORTAL_REALM, isAwakened, calculateMaxStamina, getLocationActionBonus } from "@/lib";
 import { TECHNIQUES, calculateTechniqueBonuses, addProficiency, getDefaultStudyNarrative, triggerStudyEvent } from "@/lib/technique-data";
 import { generateActionNarrative, type StoryEntry, createEntry, buildSummaryFromEntries, compressStorySummary } from "@/lib/narrative";
 import { sanitizeAttributes } from "@/lib/utils";
@@ -33,7 +33,9 @@ export async function POST(request: NextRequest) {
     );
 
     const safeAttrs = sanitizeAttributes(body.attributes) || {};
-    const expGained = calculateActionExp(actionId, cultivator.spiritualRoot, safeAttrs, JSON.parse(cultivator.talents || '[]'), cultivator.reincarnationCount || 0, techniqueBonuses);
+    const locationId = cultivator.location || body.worldId || "home";
+    const locationBonus = getLocationActionBonus(locationId, actionId);
+    const expGained = calculateActionExp(actionId, cultivator.spiritualRoot, safeAttrs, JSON.parse(cultivator.talents || '[]'), cultivator.reincarnationCount || 0, techniqueBonuses, locationBonus);
     let newRealm = cultivator.realm, newRealmLevel = cultivator.realmLevel;
     let newExp = cultivator.cultivationExp + expGained, newTotalExp = cultivator.totalExp + expGained;
     let awakenEvent: { title: string; narrative: string } | null = null;

@@ -158,11 +158,21 @@ export const ACTIONS: Action[] = [
   { id: "FREE", name: "自由探索", icon: "✨", description: "随心所欲，自由行动", actionPointCost: 2, baseExp: 10, category: "free", minAgeEarth: 1, narrativeTag: "free" },
 ];
 
-export function getAvailableActions(worldId: string, age: number): Action[] {
+export function getAvailableActions(worldId: string, age: number, locationId?: string): Action[] {
   return ACTIONS.filter((a) => worldId === "earth" ? age >= a.minAgeEarth : true);
 }
 export function getActionById(actionId: string): Action | undefined { return ACTIONS.find((a) => a.id === actionId); }
-export function calculateActionExp(actionId: string, spiritualRoot: string, attributes?: Record<string, number>, talents?: string[], reincarnationCount?: number, techniqueBonuses?: Record<string, number>): number {
+
+/** 获取地点对某类行动的加成倍数 */
+export function getLocationActionBonus(locationId: string, actionId: string): number {
+  const loc = LOCATIONS.find((l) => l.id === locationId);
+  if (!loc?.actionBonuses) return 1;
+  const action = ACTIONS.find((a) => a.id === actionId);
+  if (!action) return 1;
+  return loc.actionBonuses[actionId] || loc.actionBonuses[action.category] || 1;
+}
+
+export function calculateActionExp(actionId: string, spiritualRoot: string, attributes?: Record<string, number>, talents?: string[], reincarnationCount?: number, techniqueBonuses?: Record<string, number>, locationBonus = 1): number {
   const action = ACTIONS.find((a) => a.id === actionId);
   if (!action) return 5;
   const base = action.baseExp * getRootInfo(spiritualRoot, talents, reincarnationCount).speedBonus;
@@ -170,7 +180,7 @@ export function calculateActionExp(actionId: string, spiritualRoot: string, attr
   const spiritBonus = attributes ? 1 + (attributes.spirit || 0) * 0.05 : 1;
   // 功法加成：修炼速度 +X%
   const techniqueSpeed = techniqueBonuses?.cultivationSpeed || 0;
-  return Math.floor(base * spiritBonus * (1 + techniqueSpeed / 100));
+  return Math.floor(base * spiritBonus * (1 + techniqueSpeed / 100) * locationBonus);
 }
 
 // ============================================================
@@ -318,15 +328,15 @@ export function getSchoolName(stage: SchoolStage, rank: SchoolRank): string {
 // ============================================================
 // 地点系统
 // ============================================================
-export interface Location { id: string; name: string; icon: string; description: string; unlockAge: number; requireAwakened?: boolean; distanceFromHome: number; }
+export interface Location { id: string; name: string; icon: string; description: string; unlockAge: number; requireAwakened?: boolean; distanceFromHome: number; actionBonuses?: Record<string, number>; staminaRecovery?: number; shopItems?: string[]; encounterPool?: string[]; localNPCs?: string[]; }
 export const LOCATIONS: Location[] = [
-  { id: "home", name: "家", icon: "🏠", description: "温馨的家", unlockAge: 0, distanceFromHome: 0 },
-  { id: "kindergarten", name: "幼儿园", icon: "🧸", description: "启蒙教育的地方", unlockAge: 3, distanceFromHome: 1 },
-  { id: "school", name: "学校", icon: "🏫", description: "学习知识的地方", unlockAge: 6, distanceFromHome: 2 },
-  { id: "downtown", name: "市区", icon: "🏙️", description: "繁华的城市中心", unlockAge: 12, distanceFromHome: 4 },
-  { id: "wild", name: "野外", icon: "🌲", description: "灵气充盈的野外", unlockAge: 16, distanceFromHome: 8, requireAwakened: true },
-  { id: "cave", name: "洞府", icon: "🏔️", description: "闭关修炼的洞府", unlockAge: 16, distanceFromHome: 6, requireAwakened: true },
-  { id: "market", name: "坊市", icon: "🏪", description: "修仙者交易市场", unlockAge: 16, distanceFromHome: 5, requireAwakened: true },
+  { id: "home", name: "家", icon: "🏠", description: "温馨的家", unlockAge: 0, distanceFromHome: 0, staminaRecovery: 3, shopItems: [], localNPCs: [] },
+  { id: "kindergarten", name: "幼儿园", icon: "🧸", description: "启蒙教育的地方", unlockAge: 3, distanceFromHome: 1, localNPCs: ["teacher"] },
+  { id: "school", name: "学校", icon: "🏫", description: "学习知识的地方", unlockAge: 6, distanceFromHome: 2, actionBonuses: { "STUDY": 1.2 }, localNPCs: ["classmate"] },
+  { id: "downtown", name: "市区", icon: "🏙️", description: "繁华的城市中心", unlockAge: 12, distanceFromHome: 4, shopItems: ["phone", "talisman_shield"], localNPCs: ["street_vendor"] },
+  { id: "wild", name: "野外", icon: "🌲", description: "灵气充盈的野外", unlockAge: 16, distanceFromHome: 8, requireAwakened: true, actionBonuses: { "EXPLORE": 1.3, "MEDITATE": 1.2 }, encounterPool: ["ancient_cave", "treasure_hunt"] },
+  { id: "cave", name: "洞府", icon: "🏔️", description: "闭关修炼的洞府", unlockAge: 16, distanceFromHome: 6, requireAwakened: true, actionBonuses: { "SECLUSION": 1.5, "MEDITATE": 1.3 }, staminaRecovery: 5 },
+  { id: "market", name: "坊市", icon: "🏪", description: "修仙者交易市场", unlockAge: 16, distanceFromHome: 5, requireAwakened: true, shopItems: ["spirit_sword", "breakthrough_pill", "spirit_beads"], localNPCs: ["merchant", "alchemist"] },
 ];
 export function getUnlockedLocations(age: number, isAwakened: boolean, narrativeUnlocks: string[] = []): Location[] {
   return LOCATIONS.filter((loc) => narrativeUnlocks.includes(loc.id) || (loc.requireAwakened ? isAwakened && age >= loc.unlockAge : age >= loc.unlockAge));

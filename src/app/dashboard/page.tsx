@@ -198,7 +198,7 @@ export default function DashboardPage() {
           try { const parsed = typeof c.storyEntries === "string" ? JSON.parse(c.storyEntries) : c.storyEntries; setMemoryEntries(Array.isArray(parsed) ? parsed : []); } catch {}
         }
         if (isAwakened(c.realm)) setCanBreak(canBreakthrough(c.realm, c.realmLevel, c.cultivationExp, c.spiritualRoot));
-        setAvailableActions(getAvailableActions(c.worldId || "earth", c.age));
+        setAvailableActions(getAvailableActions(c.worldId || "earth", c.age, currentLoc));
       }
       if (data.awakenEvent) { setAwakenEvent(data.awakenEvent); toast.success("🎉 灵气觉醒！", { duration: 5000 }); }
       if (data.expGained) toast.success(`修炼值 +${data.expGained}`, { duration: 2000 });
@@ -236,7 +236,7 @@ export default function DashboardPage() {
           try { const parsed = typeof c.storyEntries === "string" ? JSON.parse(c.storyEntries) : c.storyEntries; setMemoryEntries(Array.isArray(parsed) ? parsed : []); } catch {}
         }
         if (isAwakened(c.realm)) setCanBreak(canBreakthrough(c.realm, c.realmLevel, c.cultivationExp, c.spiritualRoot));
-        setAvailableActions(getAvailableActions(c.worldId || "earth", c.age));
+        setAvailableActions(getAvailableActions(c.worldId || "earth", c.age, currentLoc));
       }
       if (data.warnEarly) {
         setWarnEarly(true);
