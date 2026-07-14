@@ -96,7 +96,25 @@ async function callAI(params: { systemPrompt: string; userPrompt: string; maxTok
 }
 
 function extractJson<T>(text: string, fallback: T): T {
-  try { const m = text.match(/\{[\s\S]*\}/); if (m) return JSON.parse(m[0]); } catch {}
+  // 1. 直接解析（AI 返回纯净 JSON 时）
+  try { return JSON.parse(text); } catch {}
+
+  // 2. 从 markdown 代码块中提取 ```json {...} ```
+  try {
+    const m = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+    if (m) return JSON.parse(m[1]);
+  } catch {}
+
+  // 3. 括号计数法：提取第一个完整 JSON 对象（支持嵌套）
+  try {
+    let depth = 0;
+    let start = -1;
+    for (let i = 0; i < text.length; i++) {
+      if (text[i] === '{') { if (depth === 0) start = i; depth++; }
+      else if (text[i] === '}') { depth--; if (depth === 0 && start >= 0) return JSON.parse(text.slice(start, i + 1)); }
+    }
+  } catch {}
+
   return fallback;
 }
 

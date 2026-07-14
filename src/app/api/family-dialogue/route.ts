@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateFamilyDialogue } from "@/lib/narrative";
+import { buildSummaryFromEntries } from "@/lib/narrative";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(request: NextRequest) {
@@ -11,14 +12,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "缺少必填参数" }, { status: 400 });
     }
 
-    // 从数据库加载 storySummary
+    // 从数据库加载剧情上下文（storyEntries → 构建摘要）
     let storySummary: string | undefined;
     if (userId) {
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        include: { cultivator: { select: { storySummary: true } } },
+        include: { cultivator: { select: { storyEntries: true } } },
       });
-      storySummary = user?.cultivator?.storySummary || undefined;
+      if (user?.cultivator?.storyEntries) {
+        try {
+          const entries = JSON.parse(user.cultivator.storyEntries);
+          storySummary = buildSummaryFromEntries(Array.isArray(entries) ? entries : []);
+        } catch {}
+      }
     }
 
     const result = await generateFamilyDialogue({

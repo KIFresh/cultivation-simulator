@@ -257,7 +257,7 @@ export async function POST(request: NextRequest) {
           const expBonus =
             choice.risk === "high" ? 50 : choice.risk === "medium" ? 30 : 15;
 
-          const [event] = await prisma.$transaction([
+          const [, event] = await prisma.$transaction([
             prisma.cultivator.update({
               where: { id: cultivator.id },
               data: {
