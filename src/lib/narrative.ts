@@ -470,10 +470,10 @@ ${params.cultivatorName}，${params.age || 1}岁，${params.spiritualRoot}，${p
     const text = await callAI({ systemPrompt: buildSystemPrompt(params.worldId), userPrompt: prompt, maxTokens: 500, temperature: 0.85 });
     const result: RegularNarrative = extractJson(text, { type: "BIRTH", title: `${params.cultivatorName}出世`, narrative: `${params.cultivatorName}来到了这个世界。`, mood: "奇", hint: "仙途漫漫", summary: `${params.cultivatorName}降生于世。` });
     if (!result.narrative || !result.narrative.trim()) {
-      result.narrative = `天光破晓，${params.cultivatorName}降生于${params.worldName || "修仙世界"}。${params.identityName || "修士"}门庭，${params.spiritualRoot}之资，引来天地异象。族人皆言此子不凡，仙途可期。`;
+      result.narrative = result.summary || `${params.cultivatorName}降生于${params.worldName || "修仙世界"}。`;
     }
     return result;
-  } catch { console.error("出生叙事AI生成失败"); return { type: "BIRTH", title: `${params.cultivatorName}降世`, narrative: `天光破晓，${params.cultivatorName}降生于${params.worldName || "修仙世界"}。${params.identityName || "修士"}门庭，${params.spiritualRoot}之资，引来天地异象。族人皆言此子不凡，仙途可期。`, mood: "奇", hint: "仙途漫漫", summary: `${params.cultivatorName}降生${params.worldName || "修仙世界"}。` }; }
+  } catch { console.error("出生叙事AI生成失败"); return { type: "BIRTH", title: `${params.cultivatorName}降世`, narrative: `${params.cultivatorName}降生于${params.worldName || "修仙世界"}。`, mood: "奇", hint: "仙途漫漫", summary: `${params.cultivatorName}降生${params.worldName || "修仙世界"}。` }; }
 }
 
 /**
