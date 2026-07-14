@@ -18,6 +18,7 @@ import {
 import type { Action, InventoryItem, NPC } from "@/lib";
 import { toast } from "sonner";
 import MemoryPanel from "@/components/memory-panel";
+import DaoXiaoModal from "@/components/dao-xiao-modal";
 
 interface CultivatorData {
   id: string; name: string; spiritualRoot: string; realm: string;
@@ -25,6 +26,10 @@ interface CultivatorData {
   stamina: number; age: number; worldId: string | null;
   title: string | null; breakthroughCount: number; location: string | null;
   gold: number;
+  maxAge: number | null;
+  bonusAge: number;
+  reincarnationCount: number;
+  talents: string | null;
 }
 
 interface NarrativeDisplay {
@@ -58,6 +63,10 @@ export default function DashboardPage() {
   const [npcChatHistory, setNpcChatHistory] = useState<{ role: string; content: string }[]>([]);
   const [devMode, setDevMode] = useState(false);
   const [memoryEntries, setMemoryEntries] = useState<any[]>([]);
+  const [daoXiao, setDaoXiao] = useState<{ summary: any; name: string } | null>(null);
+  const [warnEarly, setWarnEarly] = useState(false);
+  const [remaining, setRemaining] = useState(0);
+  const [maxAge, setMaxAge] = useState<number | null>(null);
   const currentNPCs = cultivator ? getNPCsAtLocation(currentLoc) : [];
   const attributesRef = useRef(attributes);
   attributesRef.current = attributes;
@@ -96,6 +105,11 @@ export default function DashboardPage() {
           try {
             setMemoryEntries(Array.isArray(capped.storyEntries) ? capped.storyEntries : []);
           } catch {}
+        }
+        // 初始化寿元
+        if (capped.maxAge) {
+          setMaxAge(capped.maxAge);
+          setRemaining(capped.maxAge - capped.age);
         }
         // 从后端同步背包数据（始终以服务端为唯一数据源）
         if (capped.inventory) {
@@ -185,11 +199,20 @@ export default function DashboardPage() {
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "时间推进失败"); return; }
+      if (data.daoXiao) {
+        setDaoXiao({ summary: data.summary, name: cultivator.name });
+        return;
+      }
       setCultivator(data.cultivator);
       if (data.cultivator) {
         const c = data.cultivator;
         if (isAwakened(c.realm)) setCanBreak(canBreakthrough(c.realm, c.realmLevel, c.cultivationExp, c.spiritualRoot));
         setAvailableActions(getAvailableActions(c.worldId || "earth", c.age));
+      }
+      if (data.warnEarly) {
+        setWarnEarly(true);
+        setRemaining(data.remaining);
+        setMaxAge(data.maxAge);
       }
       if (data.updatedFamily) localStorage.setItem("family", JSON.stringify(data.updatedFamily));
       if (data.intimacyChanges) {
@@ -374,6 +397,17 @@ export default function DashboardPage() {
               </div>
               <span className="text-muted-foreground text-xs">{cultivator.stamina}/{maxStamina}</span>
             </div>
+            {maxAge !== null && maxAge > 0 && (
+              <div className="text-xs text-muted-foreground">
+                <span>寿元：{cultivator.age} / {maxAge >= 999999 ? "∞" : maxAge} 岁</span>
+                <div className="w-full h-1.5 bg-muted rounded-full mt-1 overflow-hidden">
+                  <div className={`h-full rounded-full transition-all ${
+                    remaining <= 5 ? "bg-red-500" : remaining < maxAge * 0.1 ? "bg-yellow-500" : "bg-green-500"
+                  }`} style={{ width: `${Math.max(0, (remaining / maxAge) * 100)}%` }} />
+                </div>
+                <span className="text-[10px]">剩余 {Math.max(0, remaining)} 年</span>
+              </div>
+            )}
             <div className="flex items-center gap-2 text-xs">
               <span className="text-muted-foreground">💰 金币</span>
               <span className="text-foreground font-medium">{cultivator.gold ?? 50}</span>
@@ -606,6 +640,33 @@ export default function DashboardPage() {
         />
       </div>
       <BottomNav />
+
+      {daoXiao && (
+        <DaoXiaoModal
+          open={true}
+          cultivatorName={daoXiao.name}
+          userId={userId || ""}
+          summary={daoXiao.summary}
+          onClose={() => setDaoXiao(null)}
+        />
+      )}
+
+      {warnEarly && (
+        <div className="fixed bottom-20 left-4 right-4 max-w-lg mx-auto z-50">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 shadow-lg">
+            <p className="text-red-700 text-sm font-medium">⚠️ 大限将至</p>
+            <p className="text-red-600 text-xs mt-1">
+              仅剩 {remaining} 年寿元。突破境界可延年益寿。
+            </p>
+            <button
+              onClick={() => setWarnEarly(false)}
+              className="text-red-500 text-xs underline mt-1"
+            >
+              知晓了
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

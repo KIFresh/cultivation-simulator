@@ -4,6 +4,7 @@ import { generateYearAdvanceNarrative, type StoryEntry, createEntry, buildSummar
 import { Prisma } from "@/generated/prisma/client";
 import { sanitizeAttributes } from "@/lib/utils";
 import { getSchoolStage, getSchoolGrade, calculateSchoolRank, getSchoolName, getDefaultOccupation, parseOccupationFromNarrative, calculateYearlyAttributeGrowth, calculateMaxStamina, type SchoolRank } from "@/lib";
+import { calculateMaxAge } from "@/lib/cultivation-data";
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,6 +19,25 @@ export async function POST(request: NextRequest) {
     const oldAge = cultivator.age, newAge = oldAge + 1;
 
     const currentAttrs: Record<string, number> = sanitizeAttributes(rawAttributes) || {};
+
+    // 计算寿元并检查是否超限
+    const maxAge = calculateMaxAge(cultivator.realm, currentAttrs, cultivator.bonusAge || 0);
+    if (newAge > maxAge) {
+      return NextResponse.json({
+        daoXiao: true,
+        summary: {
+          age: cultivator.age,
+          realm: cultivator.realm,
+          realmLevel: cultivator.realmLevel,
+          breakthroughCount: cultivator.breakthroughCount,
+          reincarnationCount: cultivator.reincarnationCount || 0,
+          totalExp: cultivator.totalExp,
+        },
+      });
+    }
+
+    const remaining = maxAge - newAge;
+    const warnEarly = remaining <= 10 || remaining < maxAge * 0.1;
     const currentRankVal = currentRank || "普通";
     const newAttributes = calculateYearlyAttributeGrowth(oldAge, newAge, currentAttrs, currentRankVal as SchoolRank);
 
@@ -81,7 +101,7 @@ export async function POST(request: NextRequest) {
     const narrativeOcc = parseOccupationFromNarrative(narrativeResult.narrative, occupation);
     if (narrativeOcc) occupation = narrativeOcc;
 
-    const updateData: Prisma.CultivatorUpdateInput = { age: newAge, stamina: calculateMaxStamina(newAge, newAttributes), storyEntries: JSON.stringify(updatedEntries), storyEntriesUpdatedAt: new Date() };
+    const updateData: Prisma.CultivatorUpdateInput = { age: newAge, stamina: calculateMaxStamina(newAge, newAttributes), storyEntries: JSON.stringify(updatedEntries), storyEntriesUpdatedAt: new Date(), maxAge };
     if (newRealm !== cultivator.realm) { updateData.realm = newRealm; updateData.realmLevel = newRealmLevel; }
 
     const [updatedCultivator] = await prisma.$transaction([
@@ -89,7 +109,7 @@ export async function POST(request: NextRequest) {
       prisma.gameEvent.create({ data: { cultivatorId: cultivator.id, type: "YEAR_ADVANCE", title: awakenEvent ? awakenEvent.title : narrativeResult.title, narrative: awakenEvent ? awakenEvent.narrative : narrativeResult.narrative, reward: JSON.stringify({ oldAge, newAge, mood: narrativeResult.mood, schoolRank, occupation }) } }),
     ]);
 
-    return NextResponse.json({ narrative: narrativeResult, cultivator: updatedCultivator, awakenEvent, oldAge, newAge, newAttributes, schoolRank, schoolStage: schoolStage ? { name: schoolStage.name, grade: getSchoolGrade(newAge, schoolStage) } : null, occupation, examResult });
+    return NextResponse.json({ narrative: narrativeResult, cultivator: updatedCultivator, awakenEvent, oldAge, newAge, newAttributes, schoolRank, schoolStage: schoolStage ? { name: schoolStage.name, grade: getSchoolGrade(newAge, schoolStage) } : null, occupation, examResult, warnEarly, remaining, maxAge });
   } catch (error) {
     console.error("时间推进失败:", error);
     return NextResponse.json({ error: "时间推进失败" }, { status: 500 });

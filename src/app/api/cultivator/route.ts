@@ -61,6 +61,52 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, entries: newEntries });
     }
 
+    // 轮回转世
+    if (action === "reincarnate") {
+      if (!rest.userId) {
+        return NextResponse.json({ error: "缺少 userId" }, { status: 400 });
+      }
+
+      const cultivator = await prisma.cultivator.findUnique({
+        where: { userId: rest.userId },
+      });
+      if (!cultivator) {
+        return NextResponse.json({ error: "修炼者不存在" }, { status: 404 });
+      }
+
+      const newCount = (cultivator.reincarnationCount || 0) + 1;
+
+      const updated = await prisma.cultivator.update({
+        where: { userId: rest.userId },
+        data: {
+          realm: "凡人",
+          realmLevel: 0,
+          cultivationExp: 0,
+          totalExp: 0,
+          stamina: 20,
+          breakthroughCount: 0,
+          age: 1,
+          gold: 50,
+          location: null,
+          inventory: null,
+          npcRelations: null,
+          title: null,
+          maxAge: null,
+          bonusAge: 0,
+          storyEntries: "[]",
+          storyEntriesUpdatedAt: new Date(),
+          reincarnationCount: newCount,
+          talents: JSON.stringify(["前世记忆"]),
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        cultivator: updated,
+        reincarnationCount: newCount,
+      });
+    }
+
     const { userName, cultivatorName, spiritualRoot, password, worldId } = body;
 
     if (!userName || !cultivatorName || !spiritualRoot) {

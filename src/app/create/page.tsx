@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Sparkles, ArrowLeft, Check } from "lucide-react";
 import { generateEarthFamily } from "@/lib/family";
+import { toast } from "sonner";
 
 // 数据定义
 const WORLDS = [
@@ -117,7 +118,7 @@ export default function CreatePage() {
 
       // 生成出生叙事
       try {
-        await fetch("/api/narrative", {
+        const birthRes = await fetch("/api/narrative", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -126,7 +127,15 @@ export default function CreatePage() {
             family: selectedWorld?.id === "earth" ? JSON.parse(localStorage.getItem("family") || "{}").members || [] : [],
           }),
         });
-      } catch {}
+        if (!birthRes.ok) {
+          const errData = await birthRes.json().catch(() => ({}));
+          console.error("出生叙事生成失败:", errData.error || birthRes.status);
+          toast.error(`出生叙事生成失败: ${errData.error || birthRes.status}`);
+        }
+      } catch (err) {
+        console.error("出生叙事请求异常:", err);
+        toast.error("出生叙事生成失败，可在记录中查看");
+      }
 
       router.replace("/dashboard");
     } catch (err) { console.error(err); alert("创建失败"); setLoading(false); }
