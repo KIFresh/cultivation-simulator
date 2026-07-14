@@ -172,15 +172,15 @@ export function getLocationActionBonus(locationId: string, actionId: string): nu
   return loc.actionBonuses[actionId] || loc.actionBonuses[action.category] || 1;
 }
 
-export function calculateActionExp(actionId: string, spiritualRoot: string, attributes?: Record<string, number>, talents?: string[], reincarnationCount?: number, techniqueBonuses?: Record<string, number>, locationBonus = 1): number {
+export function calculateActionExp(actionId: string, spiritualRoot: string, attributes?: Record<string, number>, talents?: string[], reincarnationCount?: number, techniqueBonuses?: Record<string, number>, locationBonus = 1, injuryDebuff = 0): number {
   const action = ACTIONS.find((a) => a.id === actionId);
   if (!action) return 5;
   const base = action.baseExp * getRootInfo(spiritualRoot, talents, reincarnationCount).speedBonus;
-  // 灵性加成：每点灵性 +5% 修炼速度
   const spiritBonus = attributes ? 1 + (attributes.spirit || 0) * 0.05 : 1;
-  // 功法加成：修炼速度 +X%
   const techniqueSpeed = techniqueBonuses?.cultivationSpeed || 0;
-  return Math.floor(base * spiritBonus * (1 + techniqueSpeed / 100) * locationBonus);
+  let result = Math.floor(base * spiritBonus * (1 + techniqueSpeed / 100) * locationBonus);
+  if (injuryDebuff > 0) result = Math.floor(result * 0.5);
+  return result;
 }
 
 // ============================================================
@@ -195,18 +195,18 @@ export interface ItemEffect {
   targetAttr?: string;
 }
 
-export interface Item { id: string; name: string; icon: string; category: ItemCategory; description: string; effect?: string; useEffect?: ItemEffect; useLabel?: string; }
+export interface Item { id: string; name: string; icon: string; category: ItemCategory; description: string; effect?: string; combatValue?: number; useEffect?: ItemEffect; useLabel?: string; }
 export interface InventoryItem { itemId: string; quantity: number; equipped: boolean; }
 
 export const ITEMS: Record<string, Item> = {
-  wooden_sword: { id: "wooden_sword", name: "木剑", icon: "🗡️", category: "weapon", description: "一柄普通的桃木剑", effect: "攻击+2" },
-  iron_sword: { id: "iron_sword", name: "铁剑", icon: "⚔️", category: "weapon", description: "精铁打造的利剑", effect: "攻击+5" },
-  spirit_sword: { id: "spirit_sword", name: "灵剑", icon: "🔮", category: "weapon", description: "刻有灵纹的法剑", effect: "攻击+10" },
-  cloth_armor: { id: "cloth_armor", name: "布衣", icon: "👘", category: "armor", description: "粗布外衣", effect: "防御+1" },
-  leather_armor: { id: "leather_armor", name: "皮甲", icon: "🛡️", category: "armor", description: "兽皮轻甲", effect: "防御+3" },
-  spirit_robe: { id: "spirit_robe", name: "法袍", icon: "🧙", category: "armor", description: "刻有灵纹的道袍", effect: "防御+6" },
-  jade_pendant: { id: "jade_pendant", name: "玉佩", icon: "💚", category: "accessory", description: "温润的古玉", effect: "灵性+2" },
-  spirit_beads: { id: "spirit_beads", name: "灵珠手串", icon: "📿", category: "accessory", description: "十二颗聚灵珠", effect: "修炼速度+10%" },
+  wooden_sword: { id: "wooden_sword", name: "木剑", icon: "🗡️", category: "weapon", description: "一柄普通的桃木剑", effect: "攻击+2", combatValue: 5 },
+  iron_sword: { id: "iron_sword", name: "铁剑", icon: "⚔️", category: "weapon", description: "精铁打造的利剑", effect: "攻击+5", combatValue: 8 },
+  spirit_sword: { id: "spirit_sword", name: "灵剑", icon: "🔮", category: "weapon", description: "刻有灵纹的法剑", effect: "攻击+10", combatValue: 15 },
+  cloth_armor: { id: "cloth_armor", name: "布衣", icon: "👘", category: "armor", description: "粗布外衣", effect: "防御+1", combatValue: 3 },
+  leather_armor: { id: "leather_armor", name: "皮甲", icon: "🛡️", category: "armor", description: "兽皮轻甲", effect: "防御+3", combatValue: 5 },
+  spirit_robe: { id: "spirit_robe", name: "法袍", icon: "🧙", category: "armor", description: "刻有灵纹的道袍", effect: "防御+6", combatValue: 8 },
+  jade_pendant: { id: "jade_pendant", name: "玉佩", icon: "💚", category: "accessory", description: "温润的古玉", effect: "灵性+2", combatValue: 3 },
+  spirit_beads: { id: "spirit_beads", name: "灵珠手串", icon: "📿", category: "accessory", description: "十二颗聚灵珠", effect: "修炼速度+10%", combatValue: 5 },
   storage_ring: { id: "storage_ring", name: "储物戒", icon: "💍", category: "accessory", description: "内含空间的戒指", effect: "背包+20格" },
   qi_pill: { id: "qi_pill", name: "益气丹", icon: "💊", category: "pill", description: "补充灵气的基础丹药", effect: "修炼值+20", useEffect: { type: "addExp", value: 20, duration: "instant" }, useLabel: "服用" },
   bone_pill: { id: "bone_pill", name: "锻骨丹", icon: "🧪", category: "pill", description: "淬炼筋骨的上品丹药", effect: "根骨+1", useEffect: { type: "boostAttr", value: 1, duration: "permanent", targetAttr: "root" }, useLabel: "服用" },
