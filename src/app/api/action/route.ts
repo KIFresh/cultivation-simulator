@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     const safeAttrs = sanitizeAttributes(body.attributes) || {};
     const locationId = cultivator.location || "home";
     const locationBonus = getLocationActionBonus(locationId, actionId);
-    const expGained = calculateActionExp(actionId, cultivator.spiritualRoot, safeAttrs, JSON.parse(cultivator.talents || '[]'), cultivator.reincarnationCount || 0, techniqueBonuses, locationBonus);
+    const expGained = calculateActionExp(actionId, cultivator.spiritualRoot, safeAttrs, JSON.parse(cultivator.talents || '[]'), cultivator.reincarnationCount || 0, techniqueBonuses, locationBonus, cultivator.injuryDebuff || 0);
     let newRealm = cultivator.realm, newRealmLevel = cultivator.realmLevel;
     let newExp = cultivator.cultivationExp + expGained, newTotalExp = cultivator.totalExp + expGained;
     let awakenEvent: { title: string; narrative: string } | null = null;
@@ -68,10 +68,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 构建事务操作
-    const txOps: any[] = [
-      prisma.cultivator.update({ where: { id: cultivator.id }, data: { stamina: { decrement: action.actionPointCost }, cultivationExp: newExp, totalExp: newTotalExp, realm: newRealm, realmLevel: newRealmLevel, storyEntries: JSON.stringify(updatedEntries), storyEntriesUpdatedAt: new Date() } }),
-      prisma.gameEvent.create({ data: { cultivatorId: cultivator.id, type: "ACTION", title: narrativeResult.title, narrative: narrativeResult.narrative, reward: JSON.stringify({ expGained, actionName: action.name, mood: narrativeResult.mood }) } }),
-    ];
+    const txOps: any[] = [];
+    const updateData: Record<string, any> = { stamina: { decrement: action.actionPointCost }, cultivationExp: newExp, totalExp: newTotalExp, realm: newRealm, realmLevel: newRealmLevel, storyEntries: JSON.stringify(updatedEntries), storyEntriesUpdatedAt: new Date() };
+    if ((cultivator.injuryDebuff || 0) > 0) updateData.injuryDebuff = Math.max(0, (cultivator.injuryDebuff || 0) - 1);
+    txOps.push(prisma.cultivator.update({ where: { id: cultivator.id }, data: updateData }));
+    txOps.push(prisma.gameEvent.create({ data: { cultivatorId: cultivator.id, type: "ACTION", title: narrativeResult.title, narrative: narrativeResult.narrative, reward: JSON.stringify({ expGained, actionName: action.name, mood: narrativeResult.mood }) } }));
 
     // 研读功法：增加熟练度 + 随机事件
     let techniqueEvents: { techniqueName: string; icon: string; profGained: number; leveledUp: boolean; eventNarrative?: string }[] = [];
