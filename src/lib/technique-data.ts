@@ -6,7 +6,7 @@
 export type TechniqueGrade = "凡" | "黄" | "玄" | "地" | "天";
 
 /** 可装备的最低境界 */
-export type TechniqueRealm = "凡人" | "炼气期" | "筑基期" | "金丹期" | "元婴期" | "化神期" | "炼虚期" | "合体期" | "大乘期" | "渡劫期";
+export type TechniqueRealm = "凡人" | "炼气期" | "筑基期" | "结丹期" | "元婴期" | "化神期" | "炼虚期" | "合体期" | "大乘期" | "渡劫期";
 
 /** 效果类型 */
 export type EffectType = "cultivationSpeed" | "breakthroughRate" | "combat" | "daily";
@@ -98,7 +98,7 @@ export const TECHNIQUES: Record<string, Technique> = {
     icon: "⭐",
     description: "引北斗七星之力，剑势凌厉",
     grade: "地",
-    realm: "金丹期",
+    realm: "结丹期",
     maxLevel: 3,
     upgradeProficiency: [400, 1000],
     effects: [

@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     );
 
     const safeAttrs = sanitizeAttributes(body.attributes) || {};
-    const locationId = cultivator.location || body.worldId || "home";
+    const locationId = cultivator.location || "home";
     const locationBonus = getLocationActionBonus(locationId, actionId);
     const expGained = calculateActionExp(actionId, cultivator.spiritualRoot, safeAttrs, JSON.parse(cultivator.talents || '[]'), cultivator.reincarnationCount || 0, techniqueBonuses, locationBonus);
     let newRealm = cultivator.realm, newRealmLevel = cultivator.realmLevel;

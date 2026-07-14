@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
             return { ...r, value: -Math.abs(r.value), label: r.label.replace("+", "-") };
           }
           if (r.type === "specialItem") {
-            return { ...r, label: "未能" + r.label.replace("获得", "获得") + "……" };
+            return { ...r, label: r.label.replace("获得", "夺得") + "失败……" };
           }
           return r;
         });

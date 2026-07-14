@@ -11,7 +11,7 @@ import {
 } from "@/lib/narrative";
 import { prisma } from "@/lib/prisma";
 import { canBreakthrough, performBreakthrough } from "@/lib";
-import { TECHNIQUES, addProficiency } from "@/lib/technique-data";
+import { TECHNIQUES, addProficiency, calculateTechniqueBonuses } from "@/lib/technique-data";
 
 // POST — 生成叙事 + 处理突破
 export async function POST(request: NextRequest) {
@@ -163,6 +163,17 @@ export async function POST(request: NextRequest) {
       }
 
       case "BREAKTHROUGH": {
+        // 计算功法突破加成
+        const techRecords = await prisma.cultivatorTechnique.findMany({
+          where: { cultivatorId: cultivator.id, equipSlot: { not: null } },
+        });
+        const techBonuses = calculateTechniqueBonuses(
+          techRecords.map((r) => ({ technique: TECHNIQUES[r.techniqueId], level: r.level }))
+        );
+        const breakthroughRateBonus = techBonuses.breakthroughRate || 0;
+        // 加上破境丹 buff
+        const totalBuff = Math.min(100, breakthroughRateBonus + (cultivator.breakthroughBuff || 0));
+
         const result = performBreakthrough(
           cultivator.realm,
           cultivator.realmLevel,
