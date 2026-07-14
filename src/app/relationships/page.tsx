@@ -130,7 +130,7 @@ export default function RelationshipsPage() {
 
       const data = await res.json();
 
-      if (data.npcDialogue) {
+      if (data.narrative) {
         const finalMembers = family.map(m => {
           if (m.id === talkingTo) {
             const newIntimacy = Math.max(0, Math.min(100, m.intimacy + (data.intimacyDelta || 0)));
@@ -140,7 +140,7 @@ export default function RelationshipsPage() {
               dialogueHistory: [
                 ...m.dialogueHistory,
                 { role: "player" as const, content: playerMsg, timestamp: Date.now() - 1 },
-                { role: "npc" as const, content: data.npcDialogue, timestamp: Date.now() },
+                { role: "npc" as const, content: data.narrative, timestamp: Date.now() },
               ],
             };
           }

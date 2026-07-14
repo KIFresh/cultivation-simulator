@@ -107,9 +107,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const { userName, cultivatorName, spiritualRoot, password, worldId } = body;
+    const { cultivatorName, spiritualRoot, password, worldId } = body;
+    const userName = body.userName;
 
-    if (!userName || !cultivatorName || !spiritualRoot) {
+    if (!cultivatorName || !spiritualRoot) {
       return NextResponse.json({ error: "缺少必填信息" }, { status: 400 });
     }
 
@@ -117,7 +118,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "无效的灵根类型" }, { status: 400 });
     }
 
-    // 新场景：已有 user，只创建 cultivator
+    // 新场景：已有 user，只创建 cultivator（有 userId 时不需要 userName）
     if (body.userId) {
       const existingUser = await prisma.user.findUnique({
         where: { id: body.userId },
@@ -145,6 +146,11 @@ export async function POST(request: NextRequest) {
       });
 
       return NextResponse.json({ user });
+    }
+
+    // 新建用户路径：必须有 userName
+    if (!userName) {
+      return NextResponse.json({ error: "缺少必填信息" }, { status: 400 });
     }
 
     const existing = await prisma.user.findUnique({ where: { name: userName } });
