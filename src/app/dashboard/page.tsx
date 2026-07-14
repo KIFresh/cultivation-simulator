@@ -143,6 +143,10 @@ export default function DashboardPage() {
                 return { title: ev.title, narrative: ev.narrative, mood };
               });
               setNarrativeHistory(history);
+              // 显示最新事件为主叙事
+              if (history.length > 0) {
+                setNarrative(history[0]);
+              }
             }
           })
           .catch(() => {});
