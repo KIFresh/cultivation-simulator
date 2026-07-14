@@ -202,6 +202,13 @@ export default function DashboardPage() {
       }
       if (data.awakenEvent) { setAwakenEvent(data.awakenEvent); toast.success("🎉 灵气觉醒！", { duration: 5000 }); }
       if (data.expGained) toast.success(`修炼值 +${data.expGained}`, { duration: 2000 });
+      if (data.techniqueEvents && data.techniqueEvents.length > 0) {
+        data.techniqueEvents.forEach((te: any) => {
+          const profMsg = te.eventNarrative ? te.eventNarrative : `${te.icon} ${te.techniqueName} 熟练度 +${te.profGained}`;
+          toast(profMsg, { duration: 3000 });
+          if (te.leveledUp) toast.success(`⚡ ${te.icon} ${te.techniqueName} 升级！`, { duration: 4000 });
+        });
+      }
     } catch (err) { console.error("行动失败:", err); toast.error("行动失败，请重试"); }
     finally { setActionLoading(false); }
   };
