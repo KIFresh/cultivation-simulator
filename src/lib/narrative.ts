@@ -372,14 +372,14 @@ ${params.freeInput ? `玩家描述：${params.freeInput}` : ""}
 
   try {
     const text = await callAI({ systemPrompt: buildSystemPrompt(params.worldId), userPrompt: prompt, maxTokens: 800, temperature: 0.85 });
-    const result: RegularNarrative = extractJson(text, { type: "BIRTH", title: `${params.cultivatorName}出世`, narrative: `${params.cultivatorName}来到了这个世界。`, mood: "奇", hint: "仙途漫漫" });
+    const result: RegularNarrative = extractJson(text, { type: "ACTION", title: params.actionName, narrative: `${params.cultivatorName}${params.actionName}。${params.actionDescription}`, mood: "悟", hint: "继续修炼" });
     if (!result.narrative || !result.narrative.trim()) {
-      throw new Error("AI 返回的叙事内容为空");
+      result.narrative = `${params.cultivatorName}${params.actionName}，有所感悟。`;
     }
     return result;
   } catch (e) {
-    console.error("出生叙事AI生成失败:", e);
-    throw e;
+    console.error("行动叙事AI生成失败:", e);
+    return { type: "ACTION", title: params.actionName, narrative: `${params.cultivatorName}${params.actionName}，有所感悟。`, mood: "静", hint: "道法自然" };
   }
 }
 
