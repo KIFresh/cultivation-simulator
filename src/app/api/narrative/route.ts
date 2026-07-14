@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
         }
 
         try {
-          const newEntry = createEntry(narrative.title, narrative.narrative, false);
+          const newEntry = createEntry(narrative.title, narrative.narrative, true, narrative.summary);
           await saveEntries([...currentEntries, newEntry]);
         } catch (e) {
           console.error("BIRTH: storyEntries 更新失败", e);

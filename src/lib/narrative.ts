@@ -460,7 +460,7 @@ ${params.cultivatorName}，${params.age || 1}岁，${params.spiritualRoot}，${p
 注意：家庭成员姓名已列出，叙事时直接称呼即可。不要复述或解释世界设定，直接讲故事。
 
 输出JSON格式：
-{"type":"BIRTH","title":"标题(10字内)","narrative":"叙事正文(200-500字)","mood":"悟/奇/静/燃","hint":"寄语(10-20字)","summary":"30字内概述"}`;
+{"type":"BIRTH","title":"标题(10字内)","narrative":"叙事正文(200-350字)","mood":"悟/奇/静/燃","hint":"寄语(10-20字)","summary":"30字内概述"}`;
 
   if (params.storySummary) {
     prompt += `\n\n【已发生的剧情】\n${params.storySummary}\n\n请基于以上已发生的剧情，继续写接下来的故事。`;
