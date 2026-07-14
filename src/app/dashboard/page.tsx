@@ -340,19 +340,45 @@ export default function DashboardPage() {
 
   // 开发者模式：快速生成角色
   const handleQuickCreate = async () => {
+    // 随机出生资质
+    const births = [{id:"waste",p:5},{id:"mortal",p:8},{id:"elite",p:11},{id:"prodigy",p:14},{id:"monster",p:17},{id:"reborn",p:21},{id:"chosen",p:25}];
+    const birth = births[Math.floor(Math.random() * births.length)];
+    // 随机身份背景
+    const identities = [{id:"orphan",c:0},{id:"scholar",c:2},{id:"merchant",c:3},{id:"general",c:4},{id:"sect",c:5}];
+    const identity = identities[Math.floor(Math.random() * identities.length)];
+    // 随机灵根
     const els = ["金","木","水","火","土"]; const qs = ["上品","中品","下品"];
     const root = Math.random() > 0.1 ? `${els[Math.floor(Math.random()*5)]}_${qs[Math.floor(Math.random()*3)]}` : "chaos";
+    // 随机天赋（在剩余预算内选取）
+    const talents = [{id:"protagonist",c:5},{id:"sword",c:4},{id:"pill",c:3},{id:"array",c:3},{id:"forge",c:3},{id:"treasure",c:4},{id:"body",c:2},{id:"mind",c:2}];
+    let budget = birth.p - identity.c - 2;
+    const selectedTalentIds: string[] = [];
+    for (const t of talents.sort(() => Math.random() - 0.5)) {
+      if (t.c <= budget) { selectedTalentIds.push(t.id); budget -= t.c; }
+    }
+    // 平均分配剩余属性点
+    const attrKeys = ["root","spirit","insight","luck","charm","mind"];
+    const attr: Record<string, number> = {};
+    const base = Math.floor(budget / 6);
+    const rem = budget % 6;
+    attrKeys.forEach((k, i) => { attr[k] = base + (i < rem ? 1 : 0); });
+    // 生成家庭
+    const { generateEarthFamily } = await import("@/lib/family");
+    const family = generateEarthFamily(1, identity.id);
+    localStorage.setItem("family", JSON.stringify(family));
+    // 创建角色
     const res = await fetch("/api/cultivator", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userName: `dev_${Date.now()}`, cultivatorName: `测试_${Date.now()}`, spiritualRoot: root, worldId: "earth" }) });
     const data = await res.json();
     if (!data.user) { toast.error("生成失败"); return; }
     localStorage.setItem("userId", data.user.id);
     localStorage.setItem("cultivatorName", data.user.cultivator.name);
-    localStorage.setItem("attributes", JSON.stringify({}));
+    localStorage.setItem("attributes", JSON.stringify(attr));
     // 生成出生叙事
     try {
+      const identityName = { orphan:"山野遗孤", scholar:"书香门第", merchant:"商贾之子", general:"将门之后", sect:"散修传人" }[identity.id];
       await fetch("/api/narrative", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: data.user.id, type: "BIRTH", worldName: "地球", identityName: "未知", age: 1, worldId: "earth", family: [] }),
+        body: JSON.stringify({ userId: data.user.id, type: "BIRTH", worldName: "地球", identityName, age: 1, worldId: "earth", family: family.members }),
       });
     } catch (e) { console.error("出生叙事生成失败:", e); }
     window.location.reload();
