@@ -47,6 +47,7 @@ model Cultivator {
   breakthroughBuff    Int      @default(0) // 破境丹 buff：突破概率加成（0-100）
   reincarnationCount  Int      @default(0)
   talents             String?
+  injuryDebuff        Int      @default(0)  // 重伤 debuff：剩余行动次数，>0 时修炼效果减半
   createdAt         DateTime @default(now())
   events            GameEvent[]
   techniques        CultivatorTechnique[]

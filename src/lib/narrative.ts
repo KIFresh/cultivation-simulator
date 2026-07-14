@@ -105,13 +105,17 @@ function extractJson<T>(text: string, fallback: T): T {
     if (m) return JSON.parse(m[1]);
   } catch {}
 
-  // 3. 括号计数法：提取第一个完整 JSON 对象（支持嵌套）
+  // 3. 括号计数法：提取第一个完整 JSON 对象（跳过字符串内的 {}）
   try {
     let depth = 0;
     let start = -1;
+    let inString = false;
     for (let i = 0; i < text.length; i++) {
-      if (text[i] === '{') { if (depth === 0) start = i; depth++; }
-      else if (text[i] === '}') { depth--; if (depth === 0 && start >= 0) return JSON.parse(text.slice(start, i + 1)); }
+      const ch = text[i];
+      if (ch === '"' && (i === 0 || text[i - 1] !== '\\')) { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === '{') { if (depth === 0) start = i; depth++; }
+      else if (ch === '}') { depth--; if (depth === 0 && start >= 0) return JSON.parse(text.slice(start, i + 1)); }
     }
   } catch {}
 
