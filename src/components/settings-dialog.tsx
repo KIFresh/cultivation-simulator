@@ -329,7 +329,7 @@ const toggleDevMode = () => {
                     <Input
                       value={p.baseUrl}
                       onChange={(e) => updateProvider(i, "baseUrl", e.target.value)}
-                      placeholder={p.type === "ollama" ? "http://localhost:11434" : "https://api.openai.com"}
+                      placeholder={p.type === "ollama" ? "http://localhost:11434" : "https://api.deepseek.com/v1"}
                     />
                   </div>
                 </>

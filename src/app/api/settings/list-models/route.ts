@@ -39,7 +39,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Anthropic 原生 API 不支持模型列表查询，请手动输入模型 ID" }, { status: 400 });
     }
 
-    const url = baseUrl.replace(/\/+$/, "") + "/v1/models";
+    // 智能拼接 /v1/models：baseUrl 可能已含 /v1
+    let url = baseUrl.replace(/\/+$/, "");
+    if (!url.endsWith("/v1")) url += "/v1";
+    url += "/models";
     const resp = await fetch(url, {
       method: "GET",
       signal: AbortSignal.timeout(15000),
@@ -48,8 +51,14 @@ export async function POST(request: NextRequest) {
 
     if (!resp.ok) {
       const text = await resp.text().catch(() => "");
+      const status = resp.status;
+      let hint = "";
+      if (status === 401) hint = "（API Key 无效或未授权）";
+      else if (status === 403) hint = "（无权限访问）";
+      else if (status === 404) hint = "（接口地址不正确，请检查 baseUrl）";
+      else if (status === 429) hint = "（请求过于频繁，请稍后重试）";
       return NextResponse.json({
-        error: `查询模型列表失败 (${resp.status})${text ? ": " + text.slice(0, 200) : ""}`,
+        error: `查询模型列表失败 (${status})${hint}${text ? ": " + text.slice(0, 200) : ""}`,
       }, { status: 502 });
     }
 
