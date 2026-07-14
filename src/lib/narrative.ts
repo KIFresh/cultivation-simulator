@@ -178,7 +178,7 @@ export function buildSummaryFromEntries(entries: StoryEntry[]): string {
  * 创建一条新的记忆条目。
  * @param truncate - 默认 true，截断 summary 到 60 字；压缩条目传 false
  */
-export function createEntry(title: string, summary: string, truncate = true): StoryEntry {
+export function createEntry(title: string, summary: string, truncate = true, aiSummary?: string): StoryEntry {
   return {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
     title,
@@ -209,6 +209,7 @@ export interface NarrativeBase {
   narrative: string;
   mood: MoodType;
   hint?: string;
+  summary: string;
 }
 
 /** 奇遇选项 */
@@ -315,7 +316,7 @@ export async function generateEncounterNarrative(params: {
 【修炼者】${params.cultivatorName}，灵根${params.spiritualRoot}，境界${params.realm} ${formatRealmLevel(params.realm, params.realmLevel)}
 
 要求：200-300字，给出3个选项（低/中/高风险）
-返回JSON：{"type":"ENCOUNTER","title":"标题","narrative":"场景","choices":[{"text":"选项","risk":"low/medium/high","hint":"提示"}],"mood":"奇/险"}`;
+返回JSON：{"type":"ENCOUNTER","title":"标题","narrative":"场景","choices":[{"text":"选项","risk":"low/medium/high","hint":"提示"}],"mood":"奇/险","summary":"30字内概述"}`;
 
   if (params.storySummary) {
     prompt += `\n\n【已发生的剧情】\n${params.storySummary}\n\n请基于以上已发生的剧情，继续写接下来的故事。`;
@@ -337,7 +338,7 @@ export async function generateNPCDialogue(params: {
 【玩家】${params.cultivatorName}，境界${params.cultivatorRealm}${params.historySummary ? `，过往：${params.historySummary}` : ""}
 
 要求：200-300字，对话贴合NPC性格，可能给指点/礼物/任务
-返回JSON：{"type":"NPC_DIALOGUE","title":"与${params.npcName}的对话","narrative":"对话内容","mood":"？","npcMood":"友善/冷淡/严厉","reward":{...}或null}`;
+返回JSON：{"type":"NPC_DIALOGUE","title":"与${params.npcName}的对话","narrative":"对话内容","mood":"？","npcMood":"友善/冷淡/严厉","reward":{...}或null","summary":"30字内概述"}`;
 
   try {
     const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 500, temperature: 0.8 });
@@ -425,7 +426,7 @@ export async function generateFamilyDialogue(params: {
 ${recentHistory ? `【最近对话】\n${recentHistory}` : ""}
 
 要求：50-120字，口语化，亲密度高时亲切低时冷淡
-返回JSON：{"type":"FAMILY_DIALOGUE","title":"家庭对话","narrative":"对话内容","mood":"静","intimacyDelta":-5~5,"npcMood":"开心/生气/平淡/担忧","actionHint":"NPC可能行动"}`;
+返回JSON：{"type":"FAMILY_DIALOGUE","title":"家庭对话","narrative":"对话内容","mood":"静","intimacyDelta":-5~5,"npcMood":"开心/生气/平淡/担忧","actionHint":"NPC可能行动","summary":"30字内概述"}`;
 
   if (params.storySummary) {
     prompt += `\n\n【已发生的剧情】\n${params.storySummary}\n\n请基于以上已发生的剧情，继续写接下来的故事。`;
@@ -455,7 +456,7 @@ ${params.cultivatorName}，${params.age || 1}岁，${params.spiritualRoot}，${p
 注意：家庭成员姓名已列出，叙事时直接称呼即可。不要复述或解释世界设定，直接讲故事。
 
 输出JSON格式：
-{"type":"BIRTH","title":"标题(10字内)","narrative":"叙事正文(200-350字)","mood":"悟/奇/静/燃","hint":"寄语(10-20字)"}`;
+{"type":"BIRTH","title":"标题(10字内)","narrative":"叙事正文(200-350字)","mood":"悟/奇/静/燃","hint":"寄语(10-20字)","summary":"30字内概述"}`;
 
   if (params.storySummary) {
     prompt += `\n\n【已发生的剧情】\n${params.storySummary}\n\n请基于以上已发生的剧情，继续写接下来的故事。`;

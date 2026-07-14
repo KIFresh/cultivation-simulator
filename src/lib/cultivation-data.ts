@@ -117,16 +117,18 @@ export function getRequiredExp(realmName: string, realmLevel: number): number {
   const realm = getCurrentRealm(realmName);
   return realm ? realm.expRequired + (realmLevel - 1) * realm.expIncrement : 100;
 }
-export function canBreakthrough(realmName: string, realmLevel: number, cultivationExp: number, _spiritualRoot: string): boolean {
+export function canBreakthrough(realmName: string, realmLevel: number, cultivationExp: number, _spiritualRoot: string, breakthroughBuff = 0): boolean {
   if (realmName === MORTAL_REALM) return false;
   const realm = getCurrentRealm(realmName);
   if (!realm) return false;
+  const required = getRequiredExp(realmName, realmLevel);
+  const threshold = Math.max(1, required - Math.floor(required * breakthroughBuff / 100));
   if (realmLevel >= realm.levels) {
     const nextRealm = getNextRealm(realmName);
     if (!nextRealm) return false;
-    return cultivationExp >= getRequiredExp(realmName, realmLevel);
+    return cultivationExp >= threshold;
   }
-  return cultivationExp >= getRequiredExp(realmName, realmLevel);
+  return cultivationExp >= threshold;
 }
 export function performBreakthrough(realmName: string, realmLevel: number, cultivationExp: number): { newRealm: string; newLevel: number; newExp: number } | null {
   if (realmName === MORTAL_REALM) return null;
@@ -174,8 +176,16 @@ export function calculateActionExp(actionId: string, spiritualRoot: string, attr
 // ============================================================
 // 物品系统
 // ============================================================
-export type ItemCategory = "weapon" | "armor" | "accessory" | "pill" | "material" | "talisman" | "treasure";
-export interface Item { id: string; name: string; icon: string; category: ItemCategory; description: string; effect?: string; }
+export type ItemCategory = "weapon" | "armor" | "accessory" | "pill" | "material" | "talisman" | "treasure" | "technique_jade";
+
+export interface ItemEffect {
+  type: "recoverStamina" | "addExp" | "boostAttr" | "tempBuff" | "learnTechnique";
+  value: number;
+  duration?: "instant" | "permanent";
+  targetAttr?: string;
+}
+
+export interface Item { id: string; name: string; icon: string; category: ItemCategory; description: string; effect?: string; useEffect?: ItemEffect; useLabel?: string; }
 export interface InventoryItem { itemId: string; quantity: number; equipped: boolean; }
 
 export const ITEMS: Record<string, Item> = {
@@ -188,14 +198,14 @@ export const ITEMS: Record<string, Item> = {
   jade_pendant: { id: "jade_pendant", name: "玉佩", icon: "💚", category: "accessory", description: "温润的古玉", effect: "灵性+2" },
   spirit_beads: { id: "spirit_beads", name: "灵珠手串", icon: "📿", category: "accessory", description: "十二颗聚灵珠", effect: "修炼速度+10%" },
   storage_ring: { id: "storage_ring", name: "储物戒", icon: "💍", category: "accessory", description: "内含空间的戒指", effect: "背包+20格" },
-  qi_pill: { id: "qi_pill", name: "益气丹", icon: "💊", category: "pill", description: "补充灵气的基础丹药", effect: "修炼值+20" },
-  bone_pill: { id: "bone_pill", name: "锻骨丹", icon: "🧪", category: "pill", description: "淬炼筋骨的上品丹药", effect: "根骨+1" },
-  breakthrough_pill: { id: "breakthrough_pill", name: "破境丹", icon: "💎", category: "pill", description: "辅助突破瓶颈", effect: "突破概率+15%" },
+  qi_pill: { id: "qi_pill", name: "益气丹", icon: "💊", category: "pill", description: "补充灵气的基础丹药", effect: "修炼值+20", useEffect: { type: "addExp", value: 20, duration: "instant" }, useLabel: "服用" },
+  bone_pill: { id: "bone_pill", name: "锻骨丹", icon: "🧪", category: "pill", description: "淬炼筋骨的上品丹药", effect: "根骨+1", useEffect: { type: "boostAttr", value: 1, duration: "permanent", targetAttr: "root" }, useLabel: "服用" },
+  breakthrough_pill: { id: "breakthrough_pill", name: "破境丹", icon: "💎", category: "pill", description: "辅助突破瓶颈", effect: "突破概率+15%", useEffect: { type: "tempBuff", value: 30, duration: "permanent" }, useLabel: "服用" },
   spirit_grass: { id: "spirit_grass", name: "灵草", icon: "🌿", category: "material", description: "蕴含灵气的草药", effect: "炼丹材料" },
   spirit_stone: { id: "spirit_stone", name: "灵石", icon: "🪨", category: "material", description: "修仙界通用货币", effect: "交易用" },
   spirit_wood: { id: "spirit_wood", name: "灵木", icon: "🪵", category: "material", description: "蕴含灵气的木材", effect: "炼器材料" },
   demon_core: { id: "demon_core", name: "妖丹", icon: "🔴", category: "material", description: "妖兽内丹", effect: "炼丹材料" },
-  talisman_shield: { id: "talisman_shield", name: "护身符", icon: "🪄", category: "talisman", description: "抵挡一次致命攻击", effect: "免死一次" },
+  talisman_shield: { id: "talisman_shield", name: "护身符", icon: "🪄", category: "talisman", description: "抵挡一次致命攻击", effect: "免死一次", useEffect: { type: "tempBuff", value: 50, duration: "permanent" }, useLabel: "祭炼" },
   talisman_fire: { id: "talisman_fire", name: "火符", icon: "🔥", category: "talisman", description: "释放一次火球术", effect: "攻击+20" },
   talisman_heal: { id: "talisman_heal", name: "愈灵符", icon: "💚", category: "talisman", description: "恢复伤势的灵符", effect: "回复50%状态" },
   ancient_tome: { id: "ancient_tome", name: "古功法卷", icon: "📜", category: "treasure", description: "失传功法的古卷", effect: "领悟新功法" },

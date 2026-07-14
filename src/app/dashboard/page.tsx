@@ -357,6 +357,20 @@ export default function DashboardPage() {
   const currentLocName = locs.find((l) => l.id === currentLoc)?.name || "";
   const totalItems = getEquippedItems(inventory).length + getBackpackItems(inventory).length;
 
+  const handleUseItem = async (itemId: string) => {
+    if (!userId) return;
+    try {
+      const res = await fetch("/api/cultivator/use-item", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, itemId, quantity: 1 }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error || "使用失败"); return; }
+      if (data.cultivator) setCultivator(data.cultivator);
+      if (data.message) toast.success(data.message);
+    } catch { toast.error("使用失败"); }
+  };
+
   // 开发者模式：快速生成角色
   const handleQuickCreate = async () => {
     // 随机出生资质
@@ -600,7 +614,9 @@ export default function DashboardPage() {
                 return (
                   <Tooltip key={inv.itemId}>
                     <TooltipTrigger render={<span className="inline-flex items-center gap-1 text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded m-0.5 cursor-help" />}>{item.icon}{item.name}{inv.quantity > 1 ? `×${inv.quantity}` : ""}</TooltipTrigger>
-                    <TooltipContent side="top" className="bg-white text-foreground border border-border text-xs max-w-48 shadow-md"><p className="font-medium">{item.icon} {item.name}</p><p className="text-muted-foreground mt-0.5">{item.description}</p>{item.effect && <p className="text-amber-600 mt-0.5">✨ {item.effect}</p>}</TooltipContent>
+                    <TooltipContent side="top" className="bg-white text-foreground border border-border text-xs max-w-48 shadow-md"><p className="font-medium">{item.icon} {item.name}</p><p className="text-muted-foreground mt-0.5">{item.description}</p>{item.effect && <p className="text-amber-600 mt-0.5">✨ {item.effect}</p>}
+                    {(item as any).useEffect && <button onClick={() => handleUseItem(inv.itemId)} className="mt-1 w-full text-xs bg-primary text-white rounded px-2 py-0.5 hover:bg-primary/90">{(item as any).useLabel || "使用"}</button>}
+                    </TooltipContent>
                   </Tooltip>
                 );
               })}

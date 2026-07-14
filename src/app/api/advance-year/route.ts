@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     });
 
     // 创建新条目 + 追加 + 压缩
-    const newEntry = createEntry(narrativeResult.title, narrativeResult.narrative);
+    const newEntry = createEntry(narrativeResult.title, narrativeResult.narrative, true, narrativeResult.summary);
     let updatedEntries = [...currentEntries, newEntry];
     const newSummary = buildSummaryFromEntries(updatedEntries);
     if (updatedEntries.length > 50 || newSummary.length > 1000) {

@@ -44,6 +44,7 @@ model Cultivator {
   storyEntriesUpdatedAt DateTime? // 最后修改时间
   maxAge              Int?
   bonusAge            Int      @default(0)
+  breakthroughBuff    Int      @default(0) // 破境丹 buff：突破概率加成（0-100）
   reincarnationCount  Int      @default(0)
   talents             String?
   createdAt         DateTime @default(now())

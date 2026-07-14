@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
         }
 
         try {
-          const newEntry = createEntry(narrative.title, narrative.narrative);
+          const newEntry = createEntry(narrative.title, narrative.narrative, true, narrative.summary);
           await saveEntries([...currentEntries, newEntry]);
         } catch (e) {
           console.error("BIRTH: storyEntries 更新失败", e);
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        const newEntry = createEntry(narrative.title, narrative.narrative);
+        const newEntry = createEntry(narrative.title, narrative.narrative, true, narrative.summary);
         await saveEntries([...currentEntries, newEntry]);
 
         // 增加功法熟练度
@@ -196,6 +196,7 @@ export async function POST(request: NextRequest) {
               realmLevel: result.newLevel,
               cultivationExp: result.newExp,
               breakthroughCount: { increment: 1 },
+              breakthroughBuff: 0, // 消耗破境丹 buff
             },
           }),
           prisma.gameEvent.create({
@@ -213,7 +214,7 @@ export async function POST(request: NextRequest) {
           }),
         ]);
 
-        const newEntry = createEntry(narrative.title, narrative.narrative);
+        const newEntry = createEntry(narrative.title, narrative.narrative, true, narrative.summary);
         await saveEntries([...currentEntries, newEntry]);
 
         // 重新读取以获取最新的 storyEntries
@@ -237,7 +238,7 @@ export async function POST(request: NextRequest) {
         });
 
         // 追加概要，超长则压缩
-        const newEntry = createEntry(narrative.title, narrative.narrative);
+        const newEntry = createEntry(narrative.title, narrative.narrative, true, narrative.summary);
 
         // 如果用户做了选择
         if (choiceIndex !== undefined && narrative.choices[choiceIndex]) {
