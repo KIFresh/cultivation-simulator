@@ -77,12 +77,24 @@ export async function POST(request: NextRequest) {
           family: body.family || [],
           storySummary: summaryText || undefined,
         });
-        const event = await prisma.gameEvent.create({
-          data: { cultivatorId: cultivator.id, type: "BIRTH", title: narrative.title, narrative: narrative.narrative, reward: JSON.stringify({ mood: narrative.mood }) },
-        });
 
-        const newEntry = createEntry(narrative.title, narrative.narrative);
-        await saveEntries([...currentEntries, newEntry]);
+        let event;
+        try {
+          event = await prisma.gameEvent.create({
+            data: { cultivatorId: cultivator.id, type: "BIRTH", title: narrative.title, narrative: narrative.narrative, reward: JSON.stringify({ mood: narrative.mood }) },
+          });
+        } catch (e) {
+          console.error("BIRTH: GameEvent 写入失败", e);
+          return NextResponse.json({ error: `GameEvent写入失败: ${(e as Error).message}` }, { status: 500 });
+        }
+
+        try {
+          const newEntry = createEntry(narrative.title, narrative.narrative);
+          await saveEntries([...currentEntries, newEntry]);
+        } catch (e) {
+          console.error("BIRTH: storyEntries 更新失败", e);
+          return NextResponse.json({ error: `storyEntries更新失败: ${(e as Error).message}` }, { status: 500 });
+        }
 
         return NextResponse.json({ event, narrative });
       }
