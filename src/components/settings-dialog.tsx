@@ -121,12 +121,6 @@ export default function SettingsDialog({ open, onOpenChange, onDevModeChange }: 
 
       if (!res.ok) throw new Error("保存失败");
 
-      // 刷新运行时配置
-      try {
-        const { syncProviderConfig } = await import("@/lib/narrative");
-        await syncProviderConfig();
-      } catch {}
-
       toast.success("配置已保存");
       setDirty(false);
     } catch {
