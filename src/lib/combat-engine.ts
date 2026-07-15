@@ -3,7 +3,7 @@
 // ============================================================
 
 import { getItemById } from "./cultivation-data";
-import { Enemy, getEnemiesForLocation, getRealmIndex, getRealmMultiplier, pickEnemy } from "./enemy-data";
+import { Enemy, getEnemiesForLocation, getRealmMultiplier, pickEnemy } from "./enemy-data";
 import { calculateTechniqueBonuses, TECHNIQUES } from "./technique-data";
 
 export interface CombatResult {

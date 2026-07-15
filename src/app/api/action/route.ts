@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
     const updateData: Record<string, any> = { stamina: { decrement: action.actionPointCost }, cultivationExp: newExp, totalExp: newTotalExp, realm: newRealm, realmLevel: newRealmLevel, storyEntries: JSON.stringify(updatedEntries), storyEntriesUpdatedAt: new Date() };
     // 探索类行动触发战斗（updateData 已就绪）
     let combatResult = null;
+    let combatExpGain = 0;
     if (action.category === "explore" && !["home", "kindergarten", "school"].includes(locationId) && cultivator.realm !== "凡人") {
       const today = new Date(); today.setHours(0, 0, 0, 0);
       const combatCount = await prisma.gameEvent.count({
@@ -95,7 +96,7 @@ export async function POST(request: NextRequest) {
           combatResult = await resolveCombat(player, undefined, locationId);
           if (combatResult?.enemy?.id && combatResult.enemy.id !== "none") {
             const combatGold = combatResult.win ? (combatResult.loot?.gold || 0) : -(combatResult.penalty?.goldLoss || 0);
-            const combatExpGain = combatResult.win ? (combatResult.loot?.exp || 0) : 0;
+            combatExpGain = combatResult.win ? (combatResult.loot?.exp || 0) : 0;
             newExp += combatExpGain;
             newTotalExp += combatExpGain;
             // Bug 10: 同步 updateData 中的经验值
@@ -123,7 +124,7 @@ export async function POST(request: NextRequest) {
     // 不按行动递减，改为按年递减（advance-year 路由中处理）
     txOps.push(prisma.cultivator.update({ where: { id: cultivator.id }, data: updateData }));
     // Bug 14: 有战斗时跳过 ACTION 事件（COMBAT 已创建）
-    if (!combatResult) {
+    if (!combatResult?.enemy?.id || combatResult.enemy.id === "none") {
       txOps.push(prisma.gameEvent.create({ data: { cultivatorId: cultivator.id, type: "ACTION", title: narrativeResult.title, narrative: narrativeResult.narrative, reward: JSON.stringify({ expGained, actionName: action.name, mood: narrativeResult.mood }) } }));
     }
 
@@ -174,7 +175,7 @@ export async function POST(request: NextRequest) {
     const canBreak = canBreakthrough(newRealm, newRealmLevel, newExp, cultivator.spiritualRoot);
 
     const capped = { ...updatedCultivator, stamina: Math.min(updatedCultivator.stamina, calculateMaxStamina(updatedCultivator.age, safeAttrs)) };
-    return NextResponse.json({ narrative: narrativeResult, cultivator: capped, expGained, canBreakthrough: canBreak, awakenEvent, techniqueEvents });
+    return NextResponse.json({ narrative: narrativeResult, cultivator: capped, expGained, combatExpGain, canBreakthrough: canBreak, awakenEvent, techniqueEvents });
   } catch (error) {
     console.error("行动执行失败:", error);
     return NextResponse.json({ error: "行动执行失败" }, { status: 500 });
