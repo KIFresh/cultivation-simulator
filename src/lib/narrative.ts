@@ -495,6 +495,13 @@ ${params.cultivatorName}，${params.age || 1}岁，${params.spiritualRoot}，${p
     if (!result.narrative || !result.narrative.trim()) {
       result.narrative = result.summary || `${params.cultivatorName}降生于${params.worldName || "修仙世界"}。`;
     }
+    // 如果叙事过短且原始 AI 响应有内容，尝试从原始文本中提取
+    if (result.narrative.length < 100 && text.length > 200) {
+      const cleaned = text.replace(/```[\s\S]*?```/g, '').replace(/\{[\s\S]*\}/g, '').replace(/["""']/g, '').trim();
+      if (cleaned.length > result.narrative.length) {
+        result.narrative = cleaned.slice(0, 800);
+      }
+    }
     return result;
   } catch { console.error("出生叙事AI生成失败"); return { type: "BIRTH", title: `${params.cultivatorName}降世`, narrative: `${params.cultivatorName}降生于${params.worldName || "修仙世界"}。`, mood: "奇", hint: "仙途漫漫", summary: `${params.cultivatorName}降生${params.worldName || "修仙世界"}。` }; }
 }
