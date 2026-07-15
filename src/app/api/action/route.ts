@@ -4,7 +4,7 @@ import { getActionById, calculateActionExp, canBreakthrough, MORTAL_REALM, isAwa
 import { TECHNIQUES, calculateTechniqueBonuses, addProficiency, getDefaultStudyNarrative, triggerStudyEvent } from "@/lib/technique-data";
 import { generateActionNarrative, type StoryEntry, createEntry, buildSummaryFromEntries, compressStorySummary } from "@/lib/narrative";
 import { sanitizeAttributes } from "@/lib/utils";
-import { resolveCombat, getCombatNarrativeText, type PlayerCombatData } from "@/lib/combat-engine";
+import { resolveCombat, type PlayerCombatData } from "@/lib/combat-engine";
 import { getEnemiesForLocation } from "@/lib/enemy-data";
 
 
@@ -119,9 +119,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // injuryDebuff 递减（战斗设置的优先，否则用 DB 值）
-    const currentInjury = updateData.injuryDebuff ?? (cultivator.injuryDebuff || 0);
-    // 不按行动递减，改为按年递减（advance-year 路由中处理）
+    // injuryDebuff 按年递减（advance-year 路由中处理）
     txOps.push(prisma.cultivator.update({ where: { id: cultivator.id }, data: updateData }));
     // Bug 14: 有战斗时跳过 ACTION 事件（COMBAT 已创建）
     if (!combatResult?.enemy?.id || combatResult.enemy.id === "none") {
