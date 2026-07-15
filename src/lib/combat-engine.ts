@@ -2,7 +2,7 @@
 // 战斗引擎
 // ============================================================
 
-import { calculateActionExp, getItemById, ITEMS } from "./cultivation-data";
+import { getItemById } from "./cultivation-data";
 import { Enemy, getEnemiesForLocation, getRealmIndex, getRealmMultiplier, pickEnemy } from "./enemy-data";
 import { calculateTechniqueBonuses, TECHNIQUES } from "./technique-data";
 
@@ -16,10 +16,15 @@ export interface CombatResult {
 }
 
 export interface PlayerCombatData {
-  cultivator: { id: string; realm: string; realmLevel: number; gold: number; reincarnationCount: number; injuryDebuff: number };
+  cultivator: { id: string; name: string; realm: string; realmLevel: number; gold: number; reincarnationCount: number; injuryDebuff: number };
   attributes: Record<string, number>;
   equippedItems: { itemId: string }[];
   techniqueRecords: { techniqueId: string; level: number }[];
+}
+
+/** 玩家名称取巧（没有就用id）*/
+function playerName(player: PlayerCombatData): string {
+  return player.cultivator.name || player.cultivator.id;
 }
 
 /**
@@ -79,13 +84,17 @@ export function generateLoot(enemy: Enemy, playerLuck: number): { gold: number; 
 }
 
 /**
- * 战败惩罚
+ * 战败惩罚（按设计文档 §4）
+ * ratio < 1  → 档0: 丢5-10%灵石 + 道心受损1次 (injuryDebuff=1)
+ * 1 ≤ ratio < 2 → 档1: 丢20-50%灵石 + 丢1-2件物品 (无 injuryDebuff)
+ * 2 ≤ ratio < 5 → 档2: 丢50-80%灵石 + 重伤3次 (injuryDebuff=3) + 扣5-10年寿元
+ * ratio ≥ 5 → 档3: 道消
  */
 export function applyPenalty(ratio: number, playerGold: number): {
-  goldLoss: number; injuryDebuff: number; lifespanLoss: number; daoXiao: boolean
+  goldLoss: number; injuryDebuff: number; lifespanLoss: number; daoXiao: boolean; itemLoss?: string[]
 } {
   if (ratio < 1) return { goldLoss: Math.floor(playerGold * (0.05 + Math.random() * 0.05)), injuryDebuff: 1, lifespanLoss: 0, daoXiao: false };
-  if (ratio < 2) return { goldLoss: Math.floor(playerGold * (0.2 + Math.random() * 0.3)), injuryDebuff: 3, lifespanLoss: 0, daoXiao: false };
+  if (ratio < 2) return { goldLoss: Math.floor(playerGold * (0.2 + Math.random() * 0.3)), injuryDebuff: 0, lifespanLoss: 0, daoXiao: false, itemLoss: [] };
   if (ratio < 5) return { goldLoss: Math.floor(playerGold * (0.5 + Math.random() * 0.3)), injuryDebuff: 3, lifespanLoss: 5 + Math.floor(Math.random() * 5), daoXiao: false };
   return { goldLoss: Math.floor(playerGold * 0.8), injuryDebuff: 0, lifespanLoss: 0, daoXiao: true };
 }
@@ -130,7 +139,8 @@ export async function resolveCombat(
   const playerPower = calculateCombatPower(player);
   const { win, style } = resolveBattle(playerPower, enemy.combatPower);
   const ratio = enemy.combatPower / Math.max(1, playerPower);
-  const narrative = getCombatNarrativeText(style, win, player.cultivator.id, enemy.name);
+  const pname = playerName(player);
+  const narrative = getCombatNarrativeText(style, win, pname, enemy.name);
   if (win) {
     const loot = generateLoot(enemy, player.attributes.luck || 0);
     return { win: true, style, enemy, loot, narrative };

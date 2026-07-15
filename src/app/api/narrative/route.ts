@@ -177,7 +177,8 @@ export async function POST(request: NextRequest) {
         const result = performBreakthrough(
           cultivator.realm,
           cultivator.realmLevel,
-          cultivator.cultivationExp
+          cultivator.cultivationExp,
+          totalBuff
         );
 
         if (!result) {

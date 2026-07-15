@@ -22,6 +22,15 @@ export async function POST(request: NextRequest) {
 
     const cultivator = user.cultivator;
 
+    // 检查每日战斗次数上限
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const combatCount = await prisma.gameEvent.count({
+      where: { cultivatorId: cultivator.id, type: "COMBAT", createdAt: { gte: today } },
+    });
+    if (combatCount >= 5) {
+      return NextResponse.json({ error: "今日战斗次数已达上限（5次）" }, { status: 400 });
+    }
+
     // 获取装备物品
     const inventory: { itemId: string }[] = [];
     try {
@@ -39,6 +48,7 @@ export async function POST(request: NextRequest) {
     const player: PlayerCombatData = {
       cultivator: {
         id: cultivator.id,
+        name: cultivator.name,
         realm: cultivator.realm,
         realmLevel: cultivator.realmLevel,
         gold: cultivator.gold ?? 50,

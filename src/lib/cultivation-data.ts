@@ -130,15 +130,16 @@ export function canBreakthrough(realmName: string, realmLevel: number, cultivati
   }
   return cultivationExp >= threshold;
 }
-export function performBreakthrough(realmName: string, realmLevel: number, cultivationExp: number): { newRealm: string; newLevel: number; newExp: number } | null {
+export function performBreakthrough(realmName: string, realmLevel: number, cultivationExp: number, breakthroughBuff = 0): { newRealm: string; newLevel: number; newExp: number } | null {
   if (realmName === MORTAL_REALM) return null;
   const realm = getCurrentRealm(realmName);
   if (!realm) return null;
   const required = getRequiredExp(realmName, realmLevel);
-  if (realmLevel < realm.levels) return { newRealm: realmName, newLevel: realmLevel + 1, newExp: cultivationExp - required };
+  const threshold = Math.max(1, required - Math.floor(required * breakthroughBuff / 100));
+  if (realmLevel < realm.levels) return { newRealm: realmName, newLevel: realmLevel + 1, newExp: cultivationExp - threshold };
   const nextRealm = getNextRealm(realmName);
   if (!nextRealm) return null;
-  return { newRealm: nextRealm.name, newLevel: 1, newExp: cultivationExp - required };
+  return { newRealm: nextRealm.name, newLevel: 1, newExp: cultivationExp - threshold };
 }
 
 // ============================================================

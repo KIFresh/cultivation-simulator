@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
         const enemies = getEnemiesForLocation(locationId, cultivator.realm);
         if (enemies.length > 0) {
           const player: PlayerCombatData = {
-            cultivator: { id: cultivator.id, realm: cultivator.realm, realmLevel: cultivator.realmLevel, gold: cultivator.gold ?? 50, reincarnationCount: cultivator.reincarnationCount || 0, injuryDebuff: cultivator.injuryDebuff || 0 },
+            cultivator: { id: cultivator.id, name: cultivator.name, realm: cultivator.realm, realmLevel: cultivator.realmLevel, gold: cultivator.gold ?? 50, reincarnationCount: cultivator.reincarnationCount || 0, injuryDebuff: cultivator.injuryDebuff || 0 },
             attributes: safeAttrs,
             equippedItems: [],
             techniqueRecords: techniqueRecords.map((r) => ({ techniqueId: r.techniqueId, level: r.level })),
@@ -98,10 +98,18 @@ export async function POST(request: NextRequest) {
             const combatExpGain = combatResult.win ? (combatResult.loot?.exp || 0) : 0;
             newExp += combatExpGain;
             newTotalExp += combatExpGain;
+            // Bug 10: 同步 updateData 中的经验值
+            updateData.cultivationExp = newExp;
+            updateData.totalExp = newTotalExp;
             if (combatGold !== 0) updateData.gold = { increment: combatGold };
             if (!combatResult.win && combatResult.penalty?.injuryDebuff) {
               updateData.injuryDebuff = combatResult.penalty.injuryDebuff;
             }
+            // Bug 15: 同步叙事 mood/summary 为战斗风格
+            narrativeResult.mood = combatResult.win ? "燃" : "险";
+            // 战斗叙事替代行动叙事
+            narrativeResult.narrative = combatResult.narrative;
+            narrativeResult.title = combatResult.win ? "战斗胜利" : "战斗失败";
             txOps.push(prisma.gameEvent.create({
               data: { cultivatorId: cultivator.id, type: "COMBAT", title: combatResult.win ? "战斗胜利" : "战斗失败", narrative: combatResult.narrative, reward: JSON.stringify({ win: combatResult.win, style: combatResult.style, gold: combatGold, exp: combatExpGain, enemy: combatResult.enemy.name }) },
             }));
@@ -110,9 +118,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if ((cultivator.injuryDebuff || 0) > 0) updateData.injuryDebuff = Math.max(0, (cultivator.injuryDebuff || 0) - 1);
+    // injuryDebuff 递减（战斗设置的优先，否则用 DB 值）
+    const currentInjury = updateData.injuryDebuff ?? (cultivator.injuryDebuff || 0);
+    // 不按行动递减，改为按年递减（advance-year 路由中处理）
     txOps.push(prisma.cultivator.update({ where: { id: cultivator.id }, data: updateData }));
-    txOps.push(prisma.gameEvent.create({ data: { cultivatorId: cultivator.id, type: "ACTION", title: narrativeResult.title, narrative: narrativeResult.narrative, reward: JSON.stringify({ expGained, actionName: action.name, mood: narrativeResult.mood }) } }));
+    // Bug 14: 有战斗时跳过 ACTION 事件（COMBAT 已创建）
+    if (!combatResult) {
+      txOps.push(prisma.gameEvent.create({ data: { cultivatorId: cultivator.id, type: "ACTION", title: narrativeResult.title, narrative: narrativeResult.narrative, reward: JSON.stringify({ expGained, actionName: action.name, mood: narrativeResult.mood }) } }));
+    }
 
     // 研读功法：增加熟练度 + 随机事件
     let techniqueEvents: { techniqueName: string; icon: string; profGained: number; leveledUp: boolean; eventNarrative?: string }[] = [];
