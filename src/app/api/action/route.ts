@@ -104,7 +104,26 @@ export async function POST(request: NextRequest) {
             updateData.totalExp = newTotalExp;
             if (combatGold !== 0) updateData.gold = { increment: combatGold };
             if (!combatResult.win && combatResult.penalty?.injuryDebuff) {
-              updateData.injuryDebuff = combatResult.penalty.injuryDebuff;
+              updateData.injuryDebuff = Math.max(updateData.injuryDebuff ?? 0, combatResult.penalty.injuryDebuff);
+            }
+            // 道消处理
+            if (!combatResult.win && combatResult.penalty?.daoXiao) {
+              return NextResponse.json({
+                daoXiao: true,
+                summary: {
+                  age: cultivator.age,
+                  realm: cultivator.realm,
+                  realmLevel: cultivator.realmLevel,
+                  breakthroughCount: cultivator.breakthroughCount,
+                  reincarnationCount: cultivator.reincarnationCount || 0,
+                  totalExp: cultivator.totalExp,
+                },
+              });
+            }
+            // 寿元损失
+            if (!combatResult.win && combatResult.penalty?.lifespanLoss) {
+              const currentMax = updateData.maxAge ?? cultivator.maxAge ?? 80;
+              updateData.maxAge = Math.max(1, currentMax - combatResult.penalty.lifespanLoss);
             }
             // Bug 15: 同步叙事 mood/summary 为战斗风格
             narrativeResult.mood = combatResult.win ? "燃" : "险";

@@ -70,6 +70,29 @@ export async function POST(request: NextRequest) {
 
     const result = await resolveCombat(player, enemyId, locationId);
 
+    // 持久化战斗结果
+    if (result.enemy && result.enemy.id !== "none") {
+      const updateData: Record<string, any> = {};
+      if (result.win && result.loot) {
+        updateData.gold = { increment: result.loot.gold };
+        updateData.cultivationExp = { increment: result.loot.exp };
+        updateData.totalExp = { increment: result.loot.exp };
+      }
+      if (!result.win && result.penalty) {
+        updateData.gold = { decrement: Math.min(result.penalty.goldLoss, cultivator.gold ?? 50) };
+        if (result.penalty.injuryDebuff > 0) updateData.injuryDebuff = result.penalty.injuryDebuff;
+        if (result.penalty.lifespanLoss > 0) {
+          updateData.maxAge = Math.max(1, (cultivator.maxAge ?? 80) - result.penalty.lifespanLoss);
+        }
+      }
+      if (Object.keys(updateData).length > 0) {
+        await prisma.cultivator.update({ where: { id: cultivator.id }, data: updateData });
+      }
+      await prisma.gameEvent.create({
+        data: { cultivatorId: cultivator.id, type: "COMBAT", title: result.win ? "战斗胜利" : "战斗失败", narrative: result.narrative, reward: JSON.stringify({ win: result.win, style: result.style, enemy: result.enemy.name }) },
+      });
+    }
+
     return NextResponse.json({ ...result });
   } catch (error) {
     console.error("战斗失败:", error);

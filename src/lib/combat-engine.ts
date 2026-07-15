@@ -12,7 +12,7 @@ export interface CombatResult {
   style: "overwhelm" | "hard_fought" | "underdog" | "comedy" | "crushed";
   enemy: Enemy;
   loot?: { gold: number; exp: number; items?: string[] };
-  penalty?: { goldLoss: number; injuryDebuff: number; lifespanLoss: number; itemLoss?: string[] };
+  penalty?: { goldLoss: number; injuryDebuff: number; lifespanLoss: number; itemLoss?: string[]; daoXiao?: boolean };
   narrative: string;
 }
 
@@ -76,11 +76,8 @@ export function generateLoot(enemy: Enemy, playerLuck: number): { gold: number; 
   const items: string[] = [];
   const baseDropRate = enemy.rarity === "普通" ? 0.05 : enemy.rarity === "精英" ? 0.15 : 0.30;
   const luckRate = baseDropRate * (1 + (playerLuck || 0) * 0.1);
-  let remainingRate = luckRate;
-  while (remainingRate > 0) {
-    if (Math.random() < remainingRate) items.push("spirit_stone");
-    remainingRate -= 1;
-  }
+  // 单次判定，最多掉落1个
+  if (Math.random() < luckRate) items.push("spirit_stone");
   return { gold, exp, items };
 }
 
