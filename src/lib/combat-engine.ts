@@ -5,6 +5,7 @@
 import { getItemById } from "./cultivation-data";
 import { Enemy, getEnemiesForLocation, getRealmMultiplier, pickEnemy } from "./enemy-data";
 import { calculateTechniqueBonuses, TECHNIQUES } from "./technique-data";
+import { generateCombatNarrative } from "./narrative";
 
 export interface CombatResult {
   win: boolean;
@@ -140,7 +141,19 @@ export async function resolveCombat(
   const { win, style } = resolveBattle(playerPower, enemy.combatPower);
   const ratio = enemy.combatPower / Math.max(1, playerPower);
   const pname = playerName(player);
-  const narrative = getCombatNarrativeText(style, win, pname, enemy.name);
+  let narrative = getCombatNarrativeText(style, win, pname, enemy.name);
+  // Bug 12: 尝试 AI 叙事，失败用 fallback
+  try {
+    const aiText = await generateCombatNarrative({
+      cultivatorName: pname,
+      enemyName: enemy.name,
+      result: win ? "win" : "lose",
+      style,
+      playerRealm: player.cultivator.realm,
+      enemyRealm: enemy.realm,
+    });
+    if (aiText && aiText.trim()) narrative = aiText;
+  } catch {}
   if (win) {
     const loot = generateLoot(enemy, player.attributes.luck || 0);
     return { win: true, style, enemy, loot, narrative };
