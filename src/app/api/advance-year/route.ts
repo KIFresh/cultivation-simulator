@@ -102,6 +102,10 @@ export async function POST(request: NextRequest) {
     if (narrativeOcc) occupation = narrativeOcc;
 
     const updateData: Prisma.CultivatorUpdateInput = { age: newAge, stamina: calculateMaxStamina(newAge, newAttributes), storyEntries: JSON.stringify(updatedEntries), storyEntriesUpdatedAt: new Date(), maxAge };
+    // 重伤 debuff 按年递减
+    if ((cultivator.injuryDebuff || 0) > 0) {
+      updateData.injuryDebuff = Math.max(0, (cultivator.injuryDebuff || 0) - 1);
+    }
     if (newRealm !== cultivator.realm) { updateData.realm = newRealm; updateData.realmLevel = newRealmLevel; }
 
     const [updatedCultivator] = await prisma.$transaction([

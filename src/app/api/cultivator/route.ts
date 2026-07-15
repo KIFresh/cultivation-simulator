@@ -97,6 +97,7 @@ export async function POST(request: NextRequest) {
           storyEntriesUpdatedAt: new Date(),
           reincarnationCount: newCount,
           talents: JSON.stringify(["前世记忆"]),
+          injuryDebuff: 0,
         },
       });
 

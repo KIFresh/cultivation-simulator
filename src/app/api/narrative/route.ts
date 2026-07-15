@@ -177,7 +177,8 @@ export async function POST(request: NextRequest) {
         const result = performBreakthrough(
           cultivator.realm,
           cultivator.realmLevel,
-          cultivator.cultivationExp
+          cultivator.cultivationExp,
+          totalBuff
         );
 
         if (!result) {
@@ -312,8 +313,11 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     console.error("叙事生成失败:", error);
+    const msg = process.env.NODE_ENV === "development"
+      ? (error as Error).message || "生成失败，请重试"
+      : "生成失败，请重试";
     return NextResponse.json(
-      { error: "生成失败，请重试" },
+      { error: msg },
       { status: 500 }
     );
   }

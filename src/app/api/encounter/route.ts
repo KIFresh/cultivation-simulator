@@ -105,8 +105,8 @@ export async function GET(request: NextRequest) {
             hint: c.hint,
           }))
         ),
-        chosenOption: null, // 尚未选择
-        reward: null,
+        chosenOption: null,
+        reward: JSON.stringify({ encounterId: encounter.id }),
       },
     });
 
@@ -162,11 +162,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "修炼者不存在" }, { status: 404 });
     }
 
-    // 找到对应的奇遇数据（通过标题匹配）
+    // 找到对应的奇遇数据（通过 reward 中存储的 encounterId）
     const { ENCOUNTER_POOL } = await import("@/lib/encounter-data");
-    const encounter = ENCOUNTER_POOL.find(
-      (e) => e.title === gameEvent.title
-    );
+    let encounterId: string | null = null;
+    try {
+      const rewardData = JSON.parse(gameEvent.reward || "{}");
+      encounterId = rewardData.encounterId || null;
+    } catch {}
+    const encounter = encounterId
+      ? ENCOUNTER_POOL.find((e) => e.id === encounterId)
+      : ENCOUNTER_POOL.find((e) => e.title === gameEvent.title);
     if (!encounter) {
       return NextResponse.json({ error: "奇遇数据异常" }, { status: 500 });
     }

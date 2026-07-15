@@ -144,7 +144,8 @@ export default function CreatePage() {
           });
         }
       };
-      await genNarrative();
+      const ok = await genNarrative();
+      if (!ok) { setLoading(false); return; }
 
       router.replace("/dashboard");
     } catch (err) { console.error(err); alert("创建失败"); setLoading(false); }

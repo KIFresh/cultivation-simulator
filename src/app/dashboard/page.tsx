@@ -130,7 +130,7 @@ export default function DashboardPage() {
         const actions = getAvailableActions(capped.worldId || "earth", capped.age);
         setAvailableActions(actions);
         if (isAwakened(capped.realm)) {
-          setCanBreak(canBreakthrough(capped.realm, capped.realmLevel, capped.cultivationExp, capped.spiritualRoot));
+          setCanBreak(canBreakthrough(capped.realm, capped.realmLevel, capped.cultivationExp, capped.spiritualRoot, capped.breakthroughBuff || 0));
         }
         // 从 API 拉取历史记录
         fetch(`/api/events?userId=${userId}&limit=50`)
@@ -164,6 +164,11 @@ export default function DashboardPage() {
     setDevMode(dm);
     if (!id && !dm) { router.push("/"); return; }
     if (id) setUserId(id);
+    if (dm && !id) {
+      const tempId = "dev_" + Date.now();
+      localStorage.setItem("userId", tempId);
+      setUserId(tempId);
+    }
   }, [router]);
   useEffect(() => { if (userId) loadCultivator(); }, [userId, loadCultivator]);
   useEffect(() => { loadLocalData(); }, [loadLocalData]);
@@ -201,7 +206,7 @@ export default function DashboardPage() {
         if (c.storyEntries) {
           try { const parsed = typeof c.storyEntries === "string" ? JSON.parse(c.storyEntries) : c.storyEntries; setMemoryEntries(Array.isArray(parsed) ? parsed : []); } catch {}
         }
-        if (isAwakened(c.realm)) setCanBreak(canBreakthrough(c.realm, c.realmLevel, c.cultivationExp, c.spiritualRoot));
+        if (isAwakened(c.realm)) setCanBreak(canBreakthrough(c.realm, c.realmLevel, c.cultivationExp, c.spiritualRoot, c.breakthroughBuff || 0));
         setAvailableActions(getAvailableActions(c.worldId || "earth", c.age, currentLoc));
       }
       if (data.awakenEvent) { setAwakenEvent(data.awakenEvent); toast.success("🎉 灵气觉醒！", { duration: 5000 }); }
@@ -239,7 +244,7 @@ export default function DashboardPage() {
         if (c.storyEntries) {
           try { const parsed = typeof c.storyEntries === "string" ? JSON.parse(c.storyEntries) : c.storyEntries; setMemoryEntries(Array.isArray(parsed) ? parsed : []); } catch {}
         }
-        if (isAwakened(c.realm)) setCanBreak(canBreakthrough(c.realm, c.realmLevel, c.cultivationExp, c.spiritualRoot));
+        if (isAwakened(c.realm)) setCanBreak(canBreakthrough(c.realm, c.realmLevel, c.cultivationExp, c.spiritualRoot, c.breakthroughBuff || 0));
         setAvailableActions(getAvailableActions(c.worldId || "earth", c.age, currentLoc));
       }
       if (data.warnEarly) {
