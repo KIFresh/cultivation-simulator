@@ -4,6 +4,8 @@ import { getActionById, calculateActionExp, canBreakthrough, MORTAL_REALM, isAwa
 import { TECHNIQUES, calculateTechniqueBonuses, addProficiency, getDefaultStudyNarrative, triggerStudyEvent } from "@/lib/technique-data";
 import { generateActionNarrative, type StoryEntry, createEntry, buildSummaryFromEntries, compressStorySummary } from "@/lib/narrative";
 import { sanitizeAttributes } from "@/lib/utils";
+import { resolveCombat, getCombatNarrativeText, type PlayerCombatData } from "@/lib/combat-engine";
+import { getEnemiesForLocation } from "@/lib/enemy-data";
 
 
 export async function POST(request: NextRequest) {
@@ -70,6 +72,44 @@ export async function POST(request: NextRequest) {
     // 构建事务操作
     const txOps: any[] = [];
     const updateData: Record<string, any> = { stamina: { decrement: action.actionPointCost }, cultivationExp: newExp, totalExp: newTotalExp, realm: newRealm, realmLevel: newRealmLevel, storyEntries: JSON.stringify(updatedEntries), storyEntriesUpdatedAt: new Date() };
+    // 探索类行动触发战斗（updateData 已就绪）
+    let combatResult = null;
+    if (action.category === "explore" && !["home", "kindergarten", "school"].includes(locationId) && cultivator.realm !== "凡人") {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const combatCount = await prisma.gameEvent.count({
+        where: { cultivatorId: cultivator.id, type: "COMBAT", createdAt: { gte: today } },
+      });
+      if (combatCount < 5 && Math.random() < 0.3) {
+        const enemies = getEnemiesForLocation(locationId, cultivator.realm);
+        if (enemies.length > 0) {
+          const player: PlayerCombatData = {
+            cultivator: { id: cultivator.id, realm: cultivator.realm, realmLevel: cultivator.realmLevel, gold: cultivator.gold ?? 50, reincarnationCount: cultivator.reincarnationCount || 0, injuryDebuff: cultivator.injuryDebuff || 0 },
+            attributes: safeAttrs,
+            equippedItems: [],
+            techniqueRecords: techniqueRecords.map((r) => ({ techniqueId: r.techniqueId, level: r.level })),
+          };
+          try {
+            const parsed = JSON.parse(cultivator.inventory || "[]");
+            for (const item of parsed) { if (item.equipped) player.equippedItems.push({ itemId: item.itemId }); }
+          } catch {}
+          combatResult = await resolveCombat(player, undefined, locationId);
+          if (combatResult?.enemy?.id && combatResult.enemy.id !== "none") {
+            const combatGold = combatResult.win ? (combatResult.loot?.gold || 0) : -(combatResult.penalty?.goldLoss || 0);
+            const combatExpGain = combatResult.win ? (combatResult.loot?.exp || 0) : 0;
+            newExp += combatExpGain;
+            newTotalExp += combatExpGain;
+            if (combatGold !== 0) updateData.gold = { increment: combatGold };
+            if (!combatResult.win && combatResult.penalty?.injuryDebuff) {
+              updateData.injuryDebuff = combatResult.penalty.injuryDebuff;
+            }
+            txOps.push(prisma.gameEvent.create({
+              data: { cultivatorId: cultivator.id, type: "COMBAT", title: combatResult.win ? "战斗胜利" : "战斗失败", narrative: combatResult.narrative, reward: JSON.stringify({ win: combatResult.win, style: combatResult.style, gold: combatGold, exp: combatExpGain, enemy: combatResult.enemy.name }) },
+            }));
+          }
+        }
+      }
+    }
+
     if ((cultivator.injuryDebuff || 0) > 0) updateData.injuryDebuff = Math.max(0, (cultivator.injuryDebuff || 0) - 1);
     txOps.push(prisma.cultivator.update({ where: { id: cultivator.id }, data: updateData }));
     txOps.push(prisma.gameEvent.create({ data: { cultivatorId: cultivator.id, type: "ACTION", title: narrativeResult.title, narrative: narrativeResult.narrative, reward: JSON.stringify({ expGained, actionName: action.name, mood: narrativeResult.mood }) } }));
