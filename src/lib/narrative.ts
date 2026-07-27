@@ -130,7 +130,7 @@ function normalizeNarrativeKeys(o: unknown): void {
   if (obj.mood === undefined && typeof obj.m === "string") obj.mood = obj.m;
 }
 
-function extractJson<T>(text: string, fallback: T): T {
+export function extractJson<T>(text: string, fallback: T): T {
   let parsed: unknown = null;
 
   // 1. 直接解析（AI 返回纯净 JSON 时）
