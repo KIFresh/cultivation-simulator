@@ -92,7 +92,22 @@ describe("Travel API — 夺宝闭环", () => {
     expect(data.rob).toBeNull();
   });
 
+  it("服务端权威计价：忽略客户端传入的 staminaCost/goldCost", async () => {
+    mockFindUnique.mockResolvedValue({ id: "u1", cultivator: baseCultivator });
+    mockCultivatorUpdate.mockResolvedValue({ ...baseCultivator, location: "wild", stamina: 75, gold: 100 });
+    const req = new NextRequest(new URL("http://test/api/travel"), {
+      method: "POST",
+      body: JSON.stringify({ userId: "user1", locationId: "wild", staminaCost: 0, goldCost: 0 }),
+    });
+    const res = await POST(req);
+    const data = await res.json();
+    expect(res.status).toBe(200);
+    expect(data.staminaCost).toBe(5); // calcTravelCostByMode 返回值
+    expect(data.goldCost).toBe(0);
+  });
+
   it("战败时丢失越阶物品", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.1); // 15% 内触发
     mockFindUnique.mockResolvedValue({ id: "u1", cultivator: { ...baseCultivator, location: "market", inventory: JSON.stringify([{ itemId: "spirit_sword", quantity: 1, equipped: false }]), milestones: "{}" } });
     mockResolveCombat.mockResolvedValue({ win: false, style: "crushed", enemy: { id: "e1", name: "夺宝者", realm: "炼气期", combatPower: 1000, rarity: "精英", locationIds: ["market"] }, narrative: "战败" } as any);
     mockCultivatorUpdate.mockResolvedValue({ ...baseCultivator, location: "wild", inventory: "[]", milestones: JSON.stringify({ robDate: "2026-7-27", robCount: 1 }) });
@@ -107,5 +122,6 @@ describe("Travel API — 夺宝闭环", () => {
     expect(data.rob.win).toBe(false);
     expect(data.rob.targetItemId).toBe("spirit_sword");
     expect(mockCultivatorUpdate).toHaveBeenCalled();
+    randomSpy.mockRestore();
   });
 });

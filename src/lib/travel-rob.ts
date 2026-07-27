@@ -65,6 +65,8 @@ export function previewRob(ctx: RobContext): RobPreview {
   const target = overpriced.find((s) => inv.some((e) => e.itemId === s.itemId));
   if (!target) return { triggered: false };
   const item = ITEMS[target.itemId];
+  // 15% 概率触发夺宝
+  if (Math.random() > ROB_CHANCE) return { triggered: false, robCount: ms.robCount || 0 };
   return {
     triggered: true,
     enemyName: "夺宝者",
