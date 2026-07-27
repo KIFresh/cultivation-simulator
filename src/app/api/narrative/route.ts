@@ -29,34 +29,25 @@ import { applyEffects, clampEffectsArray, type NarrativeEffect, type ApplyContex
 import { NARRATIVE_EFFECT_WHITELISTS, checkEffectWhitelist } from "@/lib/narrative-schema";
 import { sanitizeAttributes } from "@/lib/utils";
 import { calculateMaxStamina } from "@/lib/cultivation-data";
+import { requireCultivator } from "@/lib/auth-helpers";
 
 // POST — 生成叙事 + 处理突破
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireCultivator(request);
+    if ("error" in auth) return auth.error;
+    const cultivator = auth.cultivator;
+
     const body = await request.json();
-    const { userId, type, taskType, taskDescription, choiceIndex } = body;
+    const { type, taskType, taskDescription, choiceIndex } = body;
     const isStream = new URL(request.url).searchParams.get("stream") === "true";
 
-    if (!userId || !type) {
+    if (!type) {
       return NextResponse.json(
         { error: "缺少必填参数" },
         { status: 400 }
       );
     }
-
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { cultivator: true },
-    });
-
-    if (!user?.cultivator) {
-      return NextResponse.json(
-        { error: "请先创建修炼者" },
-        { status: 400 }
-      );
-    }
-
-    const cultivator = user.cultivator;
 
     // 读取当前 entries
     const currentEntries: StoryEntry[] = JSON.parse(cultivator.storyEntries || '[]');

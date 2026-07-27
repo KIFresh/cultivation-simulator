@@ -39,9 +39,13 @@ const mockClampEffectsArray = vi.hoisted(() => vi.fn((effects: any[]) => effects
 const mockSanitizeAttributes = vi.hoisted(() => vi.fn(() => null));
 const mockCalculateMaxStamina = vi.hoisted(() => vi.fn(() => 100));
 const mockGetGoldMaxGainByRealm = vi.hoisted(() => vi.fn(() => 100));
+const mockRequireCultivator = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }));
 vi.mock('@/lib/narrative', () => mockNarrative);
+vi.mock('@/lib/auth-helpers', () => ({
+  requireCultivator: mockRequireCultivator,
+}));
 vi.mock('@/lib', () => ({
   canBreakthrough: mockCanBreakthrough,
   performBreakthrough: mockPerformBreakthrough,
@@ -85,6 +89,7 @@ const makeRequest = (url: string, body: any): NextRequest =>
 describe('Narrative API - POST', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRequireCultivator.mockResolvedValue({ cultivator: makeCultivator() } as any);
     const c = makeCultivator();
     mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', cultivator: c });
     mockPrisma.cultivator.findUnique.mockResolvedValue(c);
@@ -123,11 +128,9 @@ describe('Narrative API - POST', () => {
     mockAddProficiency.mockReturnValue({ newLevel: 1, newProficiency: 5, leveledUp: false });
   });
 
-  it('缺少 userId 或 type 返回 400', async () => {
+  it('缺少 type 返回 400', async () => {
     const res = await POST(makeRequest('http://localhost', { userId: 'u1' }));
     expect(res.status).toBe(400);
-    const res2 = await POST(makeRequest('http://localhost', { type: 'DAILY_CULTIVATION' }));
-    expect(res2.status).toBe(400);
   });
 
   it('未知叙事类型返回 400', async () => {

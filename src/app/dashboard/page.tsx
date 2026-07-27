@@ -131,7 +131,7 @@ export default function DashboardPage() {
           setCanBreak(canBreakthrough(capped.realm, capped.realmLevel, capped.cultivationExp, capped.spiritualRoot, capped.breakthroughBuff || 0));
         }
         // 从 API 拉取历史记录
-        fetch(`/api/events?userId=${userId}&limit=50`)
+        fetch(`/api/events?limit=50`)
           .then((r) => r.json())
           .then((evData) => {
             if (evData.events && evData.events.length > 0) {
@@ -185,8 +185,8 @@ export default function DashboardPage() {
       let familyData = null;
       try { const raw = localStorage.getItem("family"); if (raw) familyData = JSON.parse(raw); } catch {}
       const res = await fetch("/api/action?stream=true", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, actionId, freeInput: input || undefined, worldId: cultivator.worldId, family: familyData, attributes }),
+        method: "POST", headers: { "Content-Type": "application/json", "x-user-id": userId || "" },
+        body: JSON.stringify({ actionId, freeInput: input || undefined, worldId: cultivator.worldId, family: familyData, attributes }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -261,8 +261,8 @@ export default function DashboardPage() {
     setAdvancing(true);
     try {
       const res = await fetch("/api/advance-quarter", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, worldId: cultivator.worldId, attributes, schoolRank, occupation }),
+        method: "POST", headers: { "Content-Type": "application/json", "x-user-id": userId || "" },
+        body: JSON.stringify({ worldId: cultivator.worldId, attributes, schoolRank, occupation }),
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "季节推进失败"); return; }
@@ -300,7 +300,7 @@ export default function DashboardPage() {
   const handleBreakthrough = async () => {
     if (!userId || !cultivator) return;
     try {
-      const res = await fetch("/api/narrative", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, type: "BREAKTHROUGH", worldId: cultivator.worldId }) });
+      const res = await fetch("/api/narrative", { method: "POST", headers: { "Content-Type": "application/json", "x-user-id": userId || "" }, body: JSON.stringify({ type: "BREAKTHROUGH", worldId: cultivator.worldId }) });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "突破失败"); return; }
       if (data.cultivator) { setCultivator(data.cultivator); setCanBreak(false);
@@ -322,8 +322,8 @@ export default function DashboardPage() {
     toast(`💬 对${npcChat.name}说：${msg}`, { duration: 2000 });
     try {
       const res = await fetch("/api/npc-chat", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, message: msg }),
+        method: "POST", headers: { "Content-Type": "application/json", "x-user-id": userId || "" },
+        body: JSON.stringify({ message: msg }),
       });
       const data = await res.json();
       if (data.cultivator) setCultivator(data.cultivator);
@@ -349,8 +349,8 @@ export default function DashboardPage() {
     if (!userId) return;
     try {
       const res = await fetch("/api/cultivator/use-item", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, itemId, quantity: 1 }),
+        method: "POST", headers: { "Content-Type": "application/json", "x-user-id": userId || "" },
+        body: JSON.stringify({ itemId, quantity: 1 }),
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "使用失败"); return; }

@@ -37,7 +37,7 @@ export default function HistoryPage() {
   const fetchEvents = useCallback(async (p: number, append = false) => {
     const id = localStorage.getItem("userId");
     if (!id) { router.replace("/"); return; }
-    const res = await fetch(`/api/events?userId=${id}&page=${p}&limit=20`);
+    const res = await fetch(`/api/events?page=${p}&limit=20`);
     const data = await res.json();
     setEvents(prev => append ? [...prev, ...(data.events || [])] : (data.events || []));
     setHasMore(data.hasMore || false);

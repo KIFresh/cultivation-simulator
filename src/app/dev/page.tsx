@@ -69,8 +69,8 @@ export default function DevPage() {
     const genNarrative = async (): Promise<boolean> => {
       try {
         const r = await fetch("/api/narrative", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: data.user.id, type: "BIRTH", worldName: "地球", identityName, age: 1, worldId: "earth" }),
+          method: "POST", headers: { "Content-Type": "application/json", "x-user-id": data.user.id },
+          body: JSON.stringify({ type: "BIRTH", worldName: "地球", identityName, age: 1, worldId: "earth" }),
         });
         if (!r.ok) { const ed = await r.json().catch(() => ({})); throw new Error(ed.error || "出生叙事生成失败"); }
         return true;

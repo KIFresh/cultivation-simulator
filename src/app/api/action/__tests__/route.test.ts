@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { POST } from '../route';
 
+const mockRequireCultivator = vi.hoisted(() => vi.fn());
+
 // Mock prisma - minimal surface needed for action route
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -14,10 +16,24 @@ vi.mock('@/lib/prisma', () => ({
 }));
 
 // Mock auth
-vi.mock('@/lib/auth-helpers', () => ({
-  requireCultivator: vi.fn(),
-  apiError: vi.fn((msg: string, status = 400) => new Response(JSON.stringify({ error: msg }), { status })),
-}));
+vi.mock('@/lib/auth-helpers', () => {
+  const baseCultivator = {
+    id: 'c1', userId: 'u1', name: '测试者', realm: '炼气期', realmLevel: 3,
+    gold: 100, stamina: 80, cultivationExp: 100, totalExp: 500,
+    age: 16, worldId: 'earth', title: null, breakthroughCount: 0,
+    location: 'home', spiritualRoot: '杂灵根', inventory: '[]',
+    attributes: '{"root":10,"spirit":8,"insight":6,"luck":5,"charm":4,"mind":7}',
+    unlockedLocations: null, toxicity: 0,
+    maxAge: null, bonusAge: 0, reincarnationCount: 0, talents: '["protagonist"]',
+    inheritedTalent: null, inheritedItems: null,
+    injuryDebuff: 0, mindDemon: 0, furnaceEquipped: null,
+    storyEntries: null, storyEntriesUpdatedAt: null,
+  } as any;
+  return {
+    requireCultivator: mockRequireCultivator,
+    apiError: vi.fn((msg: string, status = 400) => new Response(JSON.stringify({ error: msg }), { status })),
+  };
+});
 
 // Mock narrative
 vi.mock('@/lib/narrative', () => ({
@@ -97,7 +113,7 @@ const baseCultivator = {
 function makeRequest(body: Record<string, unknown>): NextRequest {
   return new NextRequest(new URL('http://test/api/action'), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-user-id': 'u1' },
     body: JSON.stringify(body),
   });
 }
@@ -105,10 +121,7 @@ function makeRequest(body: Record<string, unknown>): NextRequest {
 describe('Action API', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockFindUnique.mockResolvedValue({ id: 'user1', cultivator: baseCultivator });
-    mockCultivatorUpdate.mockResolvedValue(baseCultivator);
-    mockTechniqueFindMany.mockResolvedValue([]);
-    // 设置 $transaction 回调形式的 tx 对象
+    mockRequireCultivator.mockResolvedValue({ cultivator: baseCultivator } as any);
     (prisma.$transaction as any).mockImplementation((tx: any) => {
       if (typeof tx === 'function') {
         return tx({
@@ -122,18 +135,33 @@ describe('Action API', () => {
   });
 
   describe('POST /api/action', () => {
-    it('缺少 userId 或 actionId 返回 400', async () => {
-      const res = await POST(makeRequest({}));
+    it('缺少 actionId 返回 400', async () => {
+      const req = new NextRequest('http://test/api/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': 'u1' },
+        body: JSON.stringify({}),
+      });
+      const res = await POST(req);
       expect(res.status).toBe(400);
     });
 
     it('无效 actionId 返回 400', async () => {
-      const res = await POST(makeRequest({ userId: 'user1', actionId: 'INVALID_ACTION' }));
+      const req = new NextRequest('http://test/api/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': 'u1' },
+        body: JSON.stringify({ actionId: 'INVALID_ACTION' }),
+      });
+      const res = await POST(req);
       expect(res.status).toBe(400);
     });
 
     it('成功执行冥想行动', async () => {
-      const res = await POST(makeRequest({ userId: 'user1', actionId: 'MEDITATE' }));
+      const req = new NextRequest('http://test/api/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': 'u1' },
+        body: JSON.stringify({ actionId: 'MEDITATE' }),
+      });
+      const res = await POST(req);
       expect(res.status).toBe(200);
       const data = await res.json();
       expect(data.narrative).toBeDefined();
@@ -141,8 +169,13 @@ describe('Action API', () => {
     });
 
     it('体力不足时返回 400', async () => {
-      mockFindUnique.mockResolvedValue({ id: 'user1', cultivator: { ...baseCultivator, stamina: 3 } });
-      const res = await POST(makeRequest({ userId: 'user1', actionId: 'MEDITATE' }));
+      mockRequireCultivator.mockResolvedValueOnce({ cultivator: { ...baseCultivator, stamina: 3 } });
+      const req = new NextRequest('http://test/api/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': 'u1' },
+        body: JSON.stringify({ actionId: 'MEDITATE' }),
+      });
+      const res = await POST(req);
       expect(res.status).toBe(400);
     });
   });

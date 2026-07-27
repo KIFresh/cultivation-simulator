@@ -124,9 +124,9 @@ export default function CreatePage() {
         try {
           const birthRes = await fetch("/api/narrative?stream=true", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", "x-user-id": newUserId },
             body: JSON.stringify({
-              userId: newUserId, type: "BIRTH", worldName: selectedWorld?.name,
+              type: "BIRTH", worldName: selectedWorld?.name,
               identityName: selectedIdentity?.name, age: 1, worldId: selectedWorld?.id,
               birthTier: selectedBirth?.name,
             }),

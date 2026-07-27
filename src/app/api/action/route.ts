@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireCultivator } from "@/lib/auth-helpers";
 import { getActionById, calculateActionExp, canBreakthrough, MORTAL_REALM, isAwakened, calculateMaxStamina, getLocationActionBonus, REALM_ORDER } from "@/lib";
 import { TECHNIQUES, calculateTechniqueBonuses, addProficiency, getDefaultStudyNarrative, triggerStudyEvent } from "@/lib/technique-data";
 import { generateActionNarrative, type StoryEntry, createEntry, buildSummaryFromEntries, compressStorySummary, stateFromCultivator } from "@/lib/narrative";
@@ -23,18 +24,18 @@ import { getGoldMaxGainByRealm } from "@/lib/gold";
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireCultivator(request);
+    if ("error" in auth) return auth.error;
+    const cultivator = auth.cultivator;
+
     const body = await request.json();
-    const { userId, actionId, freeInput, worldId } = body;
+    const { actionId, freeInput, worldId } = body;
     const isStream = new URL(request.url).searchParams.get("stream") === "true";
-    if (!userId || !actionId) return NextResponse.json({ error: "缺少必填参数" }, { status: 400 });
+    if (!actionId) return NextResponse.json({ error: "缺少必填参数" }, { status: 400 });
 
     const action = getActionById(actionId);
     if (!action) return NextResponse.json({ error: "无效的行动类型" }, { status: 400 });
 
-    const user = await prisma.user.findUnique({ where: { id: userId }, include: { cultivator: true } });
-    if (!user?.cultivator) return NextResponse.json({ error: "请先创建修炼者" }, { status: 400 });
-
-    const cultivator = user.cultivator;
     if (cultivator.stamina < action.actionPointCost) return NextResponse.json({ error: `行动力不足` }, { status: 400 });
 
     const isEarth = cultivator.worldId === "earth";
