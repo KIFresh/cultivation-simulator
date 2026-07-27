@@ -39,7 +39,6 @@
   "exclude": [
     "node_modules",
     "recovery_clone",
-    "src/src",
     "**/__tests__/**",
     "**/*.test.ts",
     "**/*.test.tsx",
