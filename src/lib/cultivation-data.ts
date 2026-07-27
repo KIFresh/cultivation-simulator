@@ -159,11 +159,16 @@ export const ACTIONS: Action[] = [
   { id: "TALK", name: "与人交谈", icon: "💬", description: "与身边的人交谈", actionPointCost: 2, baseExp: 5, category: "social", minAgeEarth: 1, narrativeTag: "social" },
   { id: "WANDER", name: "四处闲逛", icon: "🚶", description: "随意走走", actionPointCost: 2, baseExp: 3, category: "explore", minAgeEarth: 1, narrativeTag: "wander" },
   { id: "FREE", name: "自由探索", icon: "✨", description: "随心所欲，自由行动", actionPointCost: 2, baseExp: 10, category: "free", minAgeEarth: 1, narrativeTag: "free" },
+  { id: "SPIRIT_SENSE", name: "神识探宝", icon: "🔮", description: "释放神识探测周围宝物", actionPointCost: 8, baseExp: 50, category: "explore", minAgeEarth: 16, narrativeTag: "cultivate", minRealm: "结丹期" },
 ];
 
 export function getAvailableActions(worldId: string, age: number, realm: string, locationId?: string): Action[] {
   if (worldId !== "earth") return ACTIONS;
   const realmIndex = REALM_ORDER.indexOf(realm);
+  if (realmIndex < 0) {
+    // 未知/无效境界：保守返回仅按年龄过滤的基础行动，避免越权
+    return ACTIONS.filter((a) => age >= a.minAgeEarth && !a.minRealm);
+  }
   return ACTIONS.filter((a) => age >= a.minAgeEarth && (a.minRealm ? REALM_ORDER.indexOf(a.minRealm) <= realmIndex : true));
 }
 export function getActionById(actionId: string): Action | undefined { return ACTIONS.find((a) => a.id === actionId); }
@@ -352,7 +357,7 @@ export const LOCATIONS: Location[] = [
   { id: "downtown", name: "市区", icon: "🏙️", description: "繁华的城市中心", unlockAge: 12, distanceFromHome: 4, shopItems: ["phone", "talisman_shield"], localNPCs: ["street_vendor"] },
   { id: "wild", name: "野外", icon: "🌲", description: "灵气充盈的野外", unlockAge: 16, distanceFromHome: 8, requireAwakened: true, actionBonuses: { "EXPLORE": 1.3, "MEDITATE": 1.2 }, encounterPool: ["ancient_cave", "treasure_hunt"] },
   { id: "cave", name: "洞府", icon: "🏔️", description: "闭关修炼的洞府", unlockAge: 16, distanceFromHome: 6, requireAwakened: true, actionBonuses: { "SECLUSION": 1.5, "MEDITATE": 1.3 }, staminaRecovery: 5 },
-  { id: "market", name: "坊市", icon: "🏪", description: "修仙者交易市场", unlockAge: 16, distanceFromHome: 5, requireAwakened: true, shopItems: ["spirit_sword", "breakthrough_pill", "spirit_beads"], localNPCs: ["merchant", "alchemist"] },
+  { id: "market", name: "坊市", icon: "🏪", description: "修仙者交易市场", unlockAge: 17, distanceFromHome: 5, requireAwakened: true, shopItems: ["spirit_sword", "breakthrough_pill", "spirit_beads"], localNPCs: ["merchant", "alchemist"] },
 ];
 export function getUnlockedLocations(age: number, isAwakened: boolean, narrativeUnlocks: string[] = []): Location[] {
   return LOCATIONS.filter((loc) => narrativeUnlocks.includes(loc.id) || (loc.requireAwakened ? isAwakened && age >= loc.unlockAge : age >= loc.unlockAge));

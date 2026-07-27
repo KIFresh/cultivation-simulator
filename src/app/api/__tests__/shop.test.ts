@@ -49,12 +49,20 @@ describe('Shop API', () => {
   });
 
   describe('GET /api/shop', () => {
-    it('返回商品列表', async () => {
-      const req = new NextRequest(new URL('http://test/api/shop'));
+    it('返回普通商品列表', async () => {
+      const req = new NextRequest(new URL('http://test/api/shop?realm=凡人'));
       const res = await GET(req);
       const data = await res.json();
       expect(data.items).toEqual([qiPillListing]);
       expect(res.status).toBe(200);
+    });
+
+    it('坊市返回全部商品（越阶路径）', async () => {
+      const req = new NextRequest(new URL('http://test/api/shop?location=market'));
+      const res = await GET(req);
+      const data = await res.json();
+      expect(res.status).toBe(200);
+      expect(Array.isArray(data.items)).toBe(true);
     });
   });
 

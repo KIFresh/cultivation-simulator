@@ -170,13 +170,22 @@ describe('cultivation-data', () => {
 
   // ── 行动系统 ──
   describe('getAvailableActions', () => {
-    it('should filter by age for earth world', () => {
-      const actions = getAvailableActions('earth', 10);
+    it('should filter by age and realm for earth world', () => {
+      const actions = getAvailableActions('earth', 10, '凡人');
       expect(actions.every((a) => a.minAgeEarth <= 10)).toBe(true);
+      expect(actions.some((a) => a.minRealm && a.minRealm !== '凡人')).toBe(false);
     });
     it('should return all actions for non-earth world', () => {
-      const actions = getAvailableActions('other', 1);
+      const actions = getAvailableActions('other', 1, '凡人');
       expect(actions.length).toBe(ACTIONS.length);
+    });
+    it('should include Spirit Sense for 结丹期', () => {
+      const actions = getAvailableActions('earth', 20, '结丹期');
+      expect(actions.some((a) => a.id === 'SPIRIT_SENSE')).toBe(true);
+    });
+    it('should not return high-realm actions for unknown realm', () => {
+      const actions = getAvailableActions('earth', 20, 'unknown_realm');
+      expect(actions.some((a) => a.id === 'SPIRIT_SENSE')).toBe(false);
     });
   });
 

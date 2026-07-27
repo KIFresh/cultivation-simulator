@@ -126,7 +126,7 @@ function deriveStoreFields(raw: any) {
     cultivator.spiritualRoot,
     cultivator.breakthroughBuff || 0,
   );
-  const actions = getAvailableActions(worldId, age, location || undefined);
+  const actions = getAvailableActions(worldId, age, cultivator.realm, location || undefined);
 
   return {
     cultivator,

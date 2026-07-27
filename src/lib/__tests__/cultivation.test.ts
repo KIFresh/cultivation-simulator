@@ -132,7 +132,7 @@ describe('cultivation', () => {
 
   describe('行动可用性', () => {
     it('should filter by age on earth', () => {
-      const actions = getAvailableActions('earth', 10);
+      const actions = getAvailableActions('earth', 10, '凡人');
       expect(actions.length).toBeGreaterThan(0);
       // 所有行动应该 <= 10岁
       expect(actions.every(a => a.minAgeEarth <= 10)).toBe(true);

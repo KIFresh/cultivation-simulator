@@ -18,6 +18,7 @@ export default function ShopPage() {
   const [gold, setGold] = useState(0);
   const [userId, setUserId] = useState("");
   const [realm, setRealm] = useState("");
+  const [location, setLocation] = useState("");
 
   useEffect(() => {
     const id = localStorage.getItem("userId");
@@ -25,15 +26,19 @@ export default function ShopPage() {
     setUserId(id);
     fetch(`/api/cultivator?userId=${id}`).then((r) => r.json()).then((d) => {
       const c = d.user?.cultivator;
-      setGold(c?.gold ?? 50);
+      setGold(c?.gold ?? 0);
       setRealm(c?.realm || "");
+      setLocation(c?.location || "");
     }).catch(() => {});
   }, [router]);
 
   useEffect(() => {
     if (!realm) return;
-    fetch(`/api/shop?realm=${encodeURIComponent(realm)}`).then((r) => r.json()).then((d) => setItems(d.items || [])).catch(() => {});
-  }, [realm]);
+    const params = new URLSearchParams();
+    params.set("realm", realm);
+    if (location) params.set("location", location);
+    fetch(`/api/shop?${params.toString()}`).then((r) => r.json()).then((d) => setItems(d.items || [])).catch(() => {});
+  }, [realm, location]);
 
   const buy = async (itemId: string) => {
     if (!userId) return;

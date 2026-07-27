@@ -1,82 +1,111 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { POST } from '../route';
-import { NextRequest } from 'next/server';
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { NextRequest } from "next/server";
+import { POST } from "../route";
 
-const mockPrisma = vi.hoisted(() => ({
-  user: { findUnique: vi.fn() },
-  cultivator: { update: vi.fn() },
+// Mock prisma
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    user: { findUnique: vi.fn() },
+    cultivator: { update: vi.fn() },
+    gameEvent: { count: vi.fn() },
+    $transaction: vi.fn(),
+  },
 }));
 
-vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }));
-vi.mock('@/lib/cultivation-data', () => ({
-  calcTravelCostByMode: vi.fn((from, to, mode: string) => {
-    const costs: Record<string, { staminaCost: number; goldCost: number }> = {
-      walk: { staminaCost: 3, goldCost: 0 },
-      car: { staminaCost: 1, goldCost: 6 },
-      bus: { staminaCost: 2, goldCost: 3 },
-      taxi: { staminaCost: 1, goldCost: 9 },
-    };
-    return costs[mode] || { staminaCost: 3, goldCost: 0 };
-  }),
+// Mock travel cost
+vi.mock("@/lib", () => ({
+  calcTravelCostByMode: vi.fn(() => ({ staminaCost: 5, goldCost: 0 })),
 }));
 
-const makeRequest = (body: any): NextRequest =>
-  ({ json: () => Promise.resolve(body) }) as unknown as NextRequest;
+// Mock combat engine
+vi.mock("@/lib/combat-engine", () => ({
+  resolveCombat: vi.fn(),
+}));
 
-const makeCultivator = (overrides: any = {}) => ({
-  id: 'c1', name: '测试', realm: '炼气期',
-  stamina: 20, gold: 50, age: 18, location: 'home',
-  worldId: 'earth', inventory: '[]',
-  ...overrides,
+// Mock enemy data
+vi.mock("@/lib/enemy-data", () => ({
+  getEnemiesForLocation: vi.fn(() => []),
+}));
+
+import { prisma } from "@/lib/prisma";
+import { calcTravelCostByMode } from "@/lib";
+import { resolveCombat } from "@/lib/combat-engine";
+import { getEnemiesForLocation } from "@/lib/enemy-data";
+
+const mockFindUnique = vi.mocked(prisma.user.findUnique) as any;
+const mockCultivatorUpdate = vi.mocked(prisma.cultivator.update) as any;
+const mockCalcTravel = vi.mocked(calcTravelCostByMode) as any;
+const mockResolveCombat = vi.mocked(resolveCombat) as any;
+const mockGetEnemies = vi.mocked(getEnemiesForLocation) as any;
+
+const baseCultivator = {
+  id: "c1", userId: "user1", name: "测试者", realm: "炼气期", realmLevel: 1,
+  gold: 100, stamina: 80, location: "home", attributes: "{}", inventory: "[]", milestones: "{}",
+} as any;
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockCalcTravel.mockReturnValue({ staminaCost: 5, goldCost: 0 });
+  mockResolveCombat.mockResolvedValue({ win: true, style: "overwhelm", enemy: { id: "e1", name: "敌", realm: "炼气期", combatPower: 100, rarity: "普通", locationIds: [] }, narrative: "胜利" } as any);
+  mockGetEnemies.mockReturnValue([]);
 });
 
-describe('Travel API', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', cultivator: makeCultivator() });
-    mockPrisma.cultivator.update.mockResolvedValue(makeCultivator({ location: 'school' }));
-  });
-
-  it('缺少目的地时返回400', async () => {
-    const res = await POST(makeRequest({ userId: 'u1' }));
-    expect(res.status).toBe(400);
-  });
-
-  it('步行：消耗体力，不消耗金币', async () => {
-    const res = await POST(makeRequest({ userId: 'u1', locationId: 'school', travelMode: 'walk' }));
+describe("Travel API — 夺宝闭环", () => {
+  it("非坊市离开不触发夺宝", async () => {
+    mockFindUnique.mockResolvedValue({ id: "u1", cultivator: { ...baseCultivator, location: "wild" } });
+    mockCultivatorUpdate.mockResolvedValue({ ...baseCultivator, location: "market" });
+    const req = new NextRequest(new URL("http://test/api/travel"), {
+      method: "POST",
+      body: JSON.stringify({ userId: "user1", locationId: "market" }),
+    });
+    const res = await POST(req);
     const data = await res.json();
-    expect(data.travelMode).toBe('walk');
-    expect(data.staminaCost).toBe(3);
-    expect(data.goldCost).toBe(0);
+    expect(res.status).toBe(200);
+    expect(data.rob).toBeNull();
   });
 
-  it('开车：消耗金币', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', cultivator: makeCultivator({ inventory: JSON.stringify([{ itemId: 'car', quantity: 1 }]) }) });
-    const res = await POST(makeRequest({ userId: 'u1', locationId: 'school', travelMode: 'car' }));
+  it("坊市无越阶物品不触发夺宝", async () => {
+    mockFindUnique.mockResolvedValue({ id: "u1", cultivator: { ...baseCultivator, location: "market", inventory: JSON.stringify([{ itemId: "qi_pill", quantity: 1, equipped: false }]) } });
+    mockCultivatorUpdate.mockResolvedValue({ ...baseCultivator, location: "wild" });
+    const req = new NextRequest(new URL("http://test/api/travel"), {
+      method: "POST",
+      body: JSON.stringify({ userId: "user1", locationId: "wild" }),
+    });
+    const res = await POST(req);
     const data = await res.json();
-    expect(data.travelMode).toBe('car');
-    expect(data.goldCost).toBeGreaterThan(0);
+    expect(res.status).toBe(200);
+    expect(data.rob).toBeNull();
   });
 
-  it('打车：消耗金币', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', cultivator: makeCultivator({ inventory: JSON.stringify([{ itemId: 'phone', quantity: 1 }]) }) });
-    const res = await POST(makeRequest({ userId: 'u1', locationId: 'school', travelMode: 'taxi' }));
+  it("概率边界：今日已夺宝过不触发", async () => {
+    const today = new Date();
+    const key = `${today.getFullYear()}-${today.getMonth()+1}-${today.getDate()}`;
+    mockFindUnique.mockResolvedValue({ id: "u1", cultivator: { ...baseCultivator, location: "market", inventory: JSON.stringify([{ itemId: "spirit_sword", quantity: 1, equipped: false }]), milestones: JSON.stringify({ robDate: key, robCount: 1 }) } });
+    mockCultivatorUpdate.mockResolvedValue({ ...baseCultivator, location: "wild" });
+    const req = new NextRequest(new URL("http://test/api/travel"), {
+      method: "POST",
+      body: JSON.stringify({ userId: "user1", locationId: "wild" }),
+    });
+    const res = await POST(req);
     const data = await res.json();
-    expect(data.travelMode).toBe('taxi');
-    expect(data.goldCost).toBeGreaterThan(0);
+    expect(res.status).toBe(200);
+    expect(data.rob).toBeNull();
   });
 
-  it('体力不足时返回400', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', cultivator: makeCultivator({ stamina: 1 }) });
-    const res = await POST(makeRequest({ userId: 'u1', locationId: 'school', travelMode: 'walk' }));
-    expect(res.status).toBe(400);
-  });
-
-  it('公共交通：消耗体力+金币', async () => {
-    const res = await POST(makeRequest({ userId: 'u1', locationId: 'school', travelMode: 'bus' }));
+  it("战败时丢失越阶物品", async () => {
+    mockFindUnique.mockResolvedValue({ id: "u1", cultivator: { ...baseCultivator, location: "market", inventory: JSON.stringify([{ itemId: "spirit_sword", quantity: 1, equipped: false }]), milestones: "{}" } });
+    mockResolveCombat.mockResolvedValue({ win: false, style: "crushed", enemy: { id: "e1", name: "夺宝者", realm: "炼气期", combatPower: 1000, rarity: "精英", locationIds: ["market"] }, narrative: "战败" } as any);
+    mockCultivatorUpdate.mockResolvedValue({ ...baseCultivator, location: "wild", inventory: "[]", milestones: JSON.stringify({ robDate: "2026-7-27", robCount: 1 }) });
+    const req = new NextRequest(new URL("http://test/api/travel"), {
+      method: "POST",
+      body: JSON.stringify({ userId: "user1", locationId: "wild" }),
+    });
+    const res = await POST(req);
     const data = await res.json();
-    expect(data.travelMode).toBe('bus');
-    expect(data.staminaCost).toBe(2);
-    expect(data.goldCost).toBe(3);
+    expect(res.status).toBe(200);
+    expect(data.rob.triggered).toBe(true);
+    expect(data.rob.win).toBe(false);
+    expect(data.rob.targetItemId).toBe("spirit_sword");
+    expect(mockCultivatorUpdate).toHaveBeenCalled();
   });
 });

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getShopItems, getItemById, REALM_ORDER } from "@/lib";
+import { getShopItems } from "@/lib";
 
 
 interface InventoryEntry {
@@ -16,7 +16,10 @@ function parseInventory(raw: string | null | undefined): InventoryEntry[] {
 
 export async function GET(request: NextRequest) {
   const realm = new URL(request.url).searchParams.get("realm") || undefined;
-  return NextResponse.json({ items: getShopItems(realm) });
+  const location = new URL(request.url).searchParams.get("location") || undefined;
+  // 坊市（market）允许展示/购买高于当前境界的商品（越阶购买路径）
+  const items = location === "market" ? getShopItems() : getShopItems(realm);
+  return NextResponse.json({ items });
 }
 
 export async function POST(request: NextRequest) {
@@ -29,10 +32,11 @@ export async function POST(request: NextRequest) {
     if (!user?.cultivator) return NextResponse.json({ error: "请先创建修炼者" }, { status: 400 });
 
     const c = user.cultivator;
-    const shopItem = getShopItems(c.realm).find((s) => s.itemId === itemId);
+    const isMarket = c.location === "market";
+    const shopItem = (isMarket ? getShopItems() : getShopItems(c.realm)).find((s) => s.itemId === itemId);
     if (!shopItem) return NextResponse.json({ error: "商品不存在或境界不足" }, { status: 400 });
     const totalCost = shopItem.price * quantity;
-    if ((c.gold ?? 50) < totalCost) return NextResponse.json({ error: `金币不足，需要${totalCost}，当前${c.gold ?? 50}` }, { status: 400 });
+    if ((c.gold ?? 0) < totalCost) return NextResponse.json({ error: `金币不足，需要${totalCost}，当前${c.gold ?? 0}` }, { status: 400 });
 
     // 读取当前背包，合并新物品
     const inv = parseInventory(c.inventory);
