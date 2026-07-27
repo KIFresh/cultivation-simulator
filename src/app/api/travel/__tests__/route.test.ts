@@ -79,7 +79,9 @@ describe("Travel API — 夺宝闭环", () => {
 
   it("概率边界：今日已夺宝过不触发", async () => {
     const today = new Date();
-    const key = `${today.getFullYear()}-${today.getMonth()+1}-${today.getDate()}`;
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    const key = `${today.getFullYear()}-${mm}-${dd}`;
     mockFindUnique.mockResolvedValue({ id: "u1", cultivator: { ...baseCultivator, location: "market", inventory: JSON.stringify([{ itemId: "spirit_sword", quantity: 1, equipped: false }]), milestones: JSON.stringify({ robDate: key, robCount: 1 }) } });
     mockCultivatorUpdate.mockResolvedValue({ ...baseCultivator, location: "wild" });
     const req = new NextRequest(new URL("http://test/api/travel"), {

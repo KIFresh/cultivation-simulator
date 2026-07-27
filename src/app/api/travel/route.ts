@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calcTravelCostByMode, type TravelModeId } from "@/lib";
-import { previewRob, applyRobResult, parseMilestones } from "@/lib/travel-rob";
+import { previewRob, applyRobResult, parseMilestonesJson } from "@/lib/travel-rob";
 
 // POST — 旅行：扣除体力/金币，更新位置
 export async function POST(request: NextRequest) {
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
         const msPatch = applyRobResult({
           cultivator: { realm: c.realm, location: c.location, inventory: c.inventory, milestones: c.milestones },
         }, false, lostItemId).milestonesPatch;
-        const currentMs = parseMilestones(c.milestones);
+        const currentMs = parseMilestonesJson(c.milestones);
         await prisma.cultivator.update({
           where: { id: c.id },
           data: { inventory: JSON.stringify(newInv), milestones: JSON.stringify({ ...currentMs, ...msPatch }) },

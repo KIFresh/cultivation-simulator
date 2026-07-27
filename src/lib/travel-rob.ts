@@ -24,14 +24,16 @@ function parseInventory(raw: string | null | undefined): { itemId: string; quant
   try { return JSON.parse(raw); } catch { return []; }
 }
 
-export function parseMilestones(raw: string | null | undefined): Record<string, any> {
+export function parseMilestonesJson(raw: string | null | undefined): Record<string, any> {
   if (!raw) return {};
   try { return JSON.parse(raw); } catch { return {}; }
 }
 
 function todayKey(): string {
   const d = new Date();
-  return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
 export interface RobContext {
@@ -53,7 +55,9 @@ export interface RobPreview {
 export function previewRob(ctx: RobContext): RobPreview {
   if (ctx.cultivator.location !== "market") return { triggered: false };
   const inv = parseInventory(ctx.cultivator.inventory);
-  const ms = parseMilestones(ctx.cultivator.milestones);
+  const hasConceal = inv.some((e) => e.itemId === CONCEAL_ITEM);
+  if (hasConceal) return { triggered: false };
+  const ms = parseMilestonesJson(ctx.cultivator.milestones);
   const today = todayKey();
   if (ms.robDate === today) return { triggered: false, robCount: ms.robCount || 0 };
   // 寻找越境物品（minRealm > cultivator.realm 且不是遮掩物品）
@@ -62,7 +66,10 @@ export function previewRob(ctx: RobContext): RobPreview {
     if (s.itemId === CONCEAL_ITEM) return false;
     return realmIndex(s.minRealm) > realmIndex(ctx.cultivator.realm);
   });
-  const target = overpriced.find((s) => inv.some((e) => e.itemId === s.itemId));
+  // 按价格降序，取最高价值越境物品
+  const target = overpriced
+    .filter((s) => inv.some((e) => e.itemId === s.itemId))
+    .sort((a, b) => (b.price || 0) - (a.price || 0))[0] || null;
   if (!target) return { triggered: false };
   const item = ITEMS[target.itemId];
   // 15% 概率触发夺宝
@@ -87,7 +94,7 @@ export function applyRobResult(
   targetItemId: string,
 ): { milestonesPatch: Record<string, any>; lostItemId?: string } {
   const today = todayKey();
-  const ms = parseMilestones(ctx.cultivator.milestones);
+  const ms = parseMilestonesJson(ctx.cultivator.milestones);
   const patch: Record<string, any> = {};
   patch.robDate = today;
   patch.robCount = (ms.robCount || 0) + 1;
