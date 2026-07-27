@@ -86,15 +86,24 @@ export async function POST(request: NextRequest) {
       const freshC = await tx.cultivator.findUnique({ where: { id: c.id } });
       if (!freshC) throw new Error("修炼者不存在");
 
-      // 构建效果数组（原始值，钳制层会统一处理）
+      // 构建效果数组（优先使用 AI effects，否则从 intimacyDelta/goldChange 转换）
       const effects: NarrativeEffect[] = [
         { kind: "stamina", delta: -apCost },
       ];
-      if (result.intimacyDelta) {
-        effects.push({ kind: "intimacy", targetRelation: familyMember.relation, delta: result.intimacyDelta });
-      }
-      if (result.goldChange) {
-        effects.push({ kind: "gold", delta: result.goldChange });
+      if (result.effects && result.effects.length > 0) {
+        // 从 AI effects 中提取亲密/金币效果，体力消耗仍由服务端决定
+        for (const e of result.effects) {
+          if (e.kind === "intimacy" || e.kind === "gold" || e.kind === "storyEntry" || e.kind === "mood") {
+            effects.push(e);
+          }
+        }
+      } else {
+        if (result.intimacyDelta) {
+          effects.push({ kind: "intimacy", targetRelation: familyMember.relation, delta: result.intimacyDelta });
+        }
+        if (result.goldChange) {
+          effects.push({ kind: "gold", delta: result.goldChange });
+        }
       }
 
       // 按境界动态设置金币上限，一次钳制全量效果

@@ -202,11 +202,23 @@ export async function POST(request: NextRequest) {
           state: stateFromCultivator(cultivator),
         });
 
-        // 构建效果数组：AI 提议的金币变动经钳制后统一落库
+        // 1) 优先使用 AI 直接输出的 effects，否则从 goldChange 转换
         const effects: NarrativeEffect[] = [];
-        if (narrative.goldChange) {
+        if (narrative.effects && narrative.effects.length > 0) {
+          effects.push(...narrative.effects);
+        } else if (narrative.goldChange) {
           effects.push({ kind: "gold", delta: narrative.goldChange });
         }
+
+        // 效果白名单校验（DAILY: gold/stamina/attrExp/storyEntry/mood）
+        const deniedKinds = effects.filter((e) => !["gold", "stamina", "attrExp", "storyEntry", "mood"].includes(e.kind)).map((e) => e.kind);
+        if (deniedKinds.length > 0) {
+          console.warn(`DAILY_CULTIVATION: 拒绝白名单外效果 kind: ${deniedKinds.join(", ")}`);
+          const allowed = effects.filter((e) => ["gold", "stamina", "attrExp", "storyEntry", "mood"].includes(e.kind));
+          effects.length = 0;
+          effects.push(...allowed);
+        }
+
         const clamped = clampEffectsArray(effects, {
           currentGold: cultivator.gold ?? 0,
           currentStamina: cultivator.stamina,
@@ -394,10 +406,21 @@ export async function POST(request: NextRequest) {
           // 修炼值仅与修炼相关，常规行动/奇遇不再加成
           const expBonus = 0;
 
-          // 构建效果数组（仅金币，奇遇不消耗体力）
+          // 构建效果数组（优先使用 AI effects，否则从 goldChange 转换）
           const effects: NarrativeEffect[] = [];
-          if (narrative.goldChange) {
+          if (narrative.effects && narrative.effects.length > 0) {
+            effects.push(...narrative.effects);
+          } else if (narrative.goldChange) {
             effects.push({ kind: "gold", delta: narrative.goldChange });
+          }
+
+          // 效果白名单校验（ENCOUNTER: gold/stamina/health/attrExp/storyEntry/mood）
+          const deniedKinds = effects.filter((e) => !["gold", "stamina", "health", "attrExp", "storyEntry", "mood"].includes(e.kind)).map((e) => e.kind);
+          if (deniedKinds.length > 0) {
+            console.warn(`ENCOUNTER(有选择): 拒绝白名单外效果 kind: ${deniedKinds.join(", ")}`);
+            const allowed = effects.filter((e) => ["gold", "stamina", "health", "attrExp", "storyEntry", "mood"].includes(e.kind));
+            effects.length = 0;
+            effects.push(...allowed);
           }
           const clamped = clampEffectsArray(effects, {
             currentGold: cultivator.gold ?? 0,
@@ -448,8 +471,19 @@ export async function POST(request: NextRequest) {
 
         // 无选择分支：直接应用效果
         const effects: NarrativeEffect[] = [];
-        if (narrative.goldChange) {
+        if (narrative.effects && narrative.effects.length > 0) {
+          effects.push(...narrative.effects);
+        } else if (narrative.goldChange) {
           effects.push({ kind: "gold", delta: narrative.goldChange });
+        }
+
+        // 效果白名单校验（ENCOUNTER: gold/stamina/health/attrExp/storyEntry/mood）
+        const deniedKinds = effects.filter((e) => !["gold", "stamina", "health", "attrExp", "storyEntry", "mood"].includes(e.kind)).map((e) => e.kind);
+        if (deniedKinds.length > 0) {
+          console.warn(`ENCOUNTER(无选择): 拒绝白名单外效果 kind: ${deniedKinds.join(", ")}`);
+          const allowed = effects.filter((e) => ["gold", "stamina", "health", "attrExp", "storyEntry", "mood"].includes(e.kind));
+          effects.length = 0;
+          effects.push(...allowed);
         }
         const clamped = clampEffectsArray(effects, {
           currentGold: cultivator.gold ?? 0,
