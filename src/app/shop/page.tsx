@@ -5,26 +5,31 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Coins } from "lucide-react";
-import { getItemById } from "@/lib";
+import { getItemById, REALM_ORDER } from "@/lib";
 import { toast } from "sonner";
 
 import TopNav from "@/components/top-nav";
 
-interface ShopItemData { itemId: string; price: number; category: string; item: { id: string; name: string; icon: string; description: string; effect?: string } }
+interface ShopItemData { itemId: string; price: number; category: string; minRealm?: string; item: { id: string; name: string; icon: string; description: string; effect?: string } }
 
 export default function ShopPage() {
   const router = useRouter();
   const [items, setItems] = useState<ShopItemData[]>([]);
   const [gold, setGold] = useState(0);
   const [userId, setUserId] = useState("");
+  const [realm, setRealm] = useState("");
 
   useEffect(() => {
     const id = localStorage.getItem("userId");
     if (!id) { router.push("/"); return; }
     setUserId(id);
-    fetch(`/api/cultivator?userId=${id}`).then((r) => r.json()).then((d) => { setGold(d.user?.cultivator?.gold ?? 50); }).catch(() => {});
-    fetch("/api/shop").then((r) => r.json()).then((d) => setItems(d.items || [])).catch(() => {});
-  }, [router]);
+    fetch(`/api/cultivator?userId=${id}`).then((r) => r.json()).then((d) => {
+      const c = d.user?.cultivator;
+      setGold(c?.gold ?? 50);
+      setRealm(c?.realm || "");
+    }).catch(() => {});
+    fetch(`/api/shop?realm=${encodeURIComponent(realm)}`).then((r) => r.json()).then((d) => setItems(d.items || [])).catch(() => {});
+  }, [router, realm]);
 
   const buy = async (itemId: string) => {
     if (!userId) return;
@@ -66,7 +71,10 @@ export default function ShopPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-bold text-primary">{s.price}💰</p>
-                      <Button size="sm" className="h-7 text-xs bg-primary hover:bg-[#B33A2A] text-white mt-1" disabled={gold < s.price} onClick={() => buy(s.itemId)}>购买</Button>
+                      {s.minRealm && REALM_ORDER.indexOf(s.minRealm) > REALM_ORDER.indexOf(realm || "凡人") && (
+                        <p className="text-[10px] text-muted-foreground">需要 {s.minRealm}</p>
+                      )}
+                      <Button size="sm" className="h-7 text-xs bg-primary hover:bg-[#B33A2A] text-white mt-1" disabled={gold < s.price || (s.minRealm ? REALM_ORDER.indexOf(s.minRealm) > REALM_ORDER.indexOf(realm || "凡人") : false)} onClick={() => buy(s.itemId)}>购买</Button>
                     </div>
                   </CardContent>
                 </Card>

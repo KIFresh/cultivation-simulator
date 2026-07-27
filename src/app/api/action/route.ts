@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getActionById, calculateActionExp, canBreakthrough, MORTAL_REALM, isAwakened, calculateMaxStamina, getLocationActionBonus } from "@/lib";
+import { getActionById, calculateActionExp, canBreakthrough, MORTAL_REALM, isAwakened, calculateMaxStamina, getLocationActionBonus, REALM_ORDER } from "@/lib";
 import { TECHNIQUES, calculateTechniqueBonuses, addProficiency, getDefaultStudyNarrative, triggerStudyEvent } from "@/lib/technique-data";
 import { generateActionNarrative, type StoryEntry, createEntry, buildSummaryFromEntries, compressStorySummary, stateFromCultivator } from "@/lib/narrative";
 import { streamNarrativeResult } from "@/lib/narrative-stream";
@@ -29,6 +29,11 @@ export async function POST(request: NextRequest) {
 
     const isEarth = cultivator.worldId === "earth";
     if (isEarth && cultivator.age < action.minAgeEarth) return NextResponse.json({ error: `年龄不足` }, { status: 400 });
+
+    const cultivatorRealmIndex = REALM_ORDER.indexOf(cultivator.realm);
+    if (action.minRealm && REALM_ORDER.indexOf(action.minRealm) > cultivatorRealmIndex) {
+      return NextResponse.json({ error: `境界不足，需要${action.minRealm}` }, { status: 400 });
+    }
 
     // 计算功法加成
     const techniqueRecords = await prisma.cultivatorTechnique.findMany({

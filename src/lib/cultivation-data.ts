@@ -72,6 +72,8 @@ export const REALMS: Realm[] = [
   { name: "渡劫期", levels: 1, expRequired: 500000, expIncrement: 0, lifespan: "与天地同寿", description: "渡过天劫，飞升仙界" },
 ];
 
+export const REALM_ORDER = ["凡人", ...REALMS.map((r) => r.name)];
+
 /** 各境界基础寿元（年） */
 const BASE_LIFESPAN: Record<string, number> = {
   "凡人": 80,
@@ -145,22 +147,24 @@ export function performBreakthrough(realmName: string, realmLevel: number, culti
 // ============================================================
 // 行动体系
 // ============================================================
-export interface Action { id: string; name: string; icon: string; description: string; actionPointCost: number; baseExp: number; category: "cultivate" | "explore" | "social" | "rest" | "free"; minAgeEarth: number; narrativeTag: string; }
+export interface Action { id: string; name: string; icon: string; description: string; actionPointCost: number; baseExp: number; category: "cultivate" | "explore" | "social" | "rest" | "free"; minAgeEarth: number; narrativeTag: string; minRealm?: string; }
 
 export const ACTIONS: Action[] = [
-  { id: "MEDITATE", name: "打坐修炼", icon: "🧘", description: "盘膝而坐，引天地灵气入体", actionPointCost: 5, baseExp: 30, category: "cultivate", minAgeEarth: 16, narrativeTag: "cultivate" },
-  { id: "BREATHE", name: "吐纳练气", icon: "🌬️", description: "调整呼吸，以气引气", actionPointCost: 3, baseExp: 15, category: "cultivate", minAgeEarth: 16, narrativeTag: "cultivate" },
-  { id: "EXPLORE", name: "外出历练", icon: "⚔️", description: "踏出洞府，探索未知之地", actionPointCost: 8, baseExp: 40, category: "explore", minAgeEarth: 16, narrativeTag: "explore" },
-  { id: "ALCHEMY", name: "炼丹制药", icon: "🔥", description: "采集灵草，开炉炼丹", actionPointCost: 6, baseExp: 25, category: "cultivate", minAgeEarth: 16, narrativeTag: "cultivate" },
-  { id: "STUDY", name: "研读功法", icon: "📖", description: "翻阅古籍，参悟功法奥义", actionPointCost: 3, baseExp: 20, category: "cultivate", minAgeEarth: 16, narrativeTag: "study" },
-  { id: "SECLUSION", name: "洞府闭关", icon: "🏔️", description: "封闭洞府，潜心苦修", actionPointCost: 10, baseExp: 60, category: "cultivate", minAgeEarth: 16, narrativeTag: "cultivate" },
+  { id: "MEDITATE", name: "打坐修炼", icon: "🧘", description: "盘膝而坐，引天地灵气入体", actionPointCost: 5, baseExp: 30, category: "cultivate", minAgeEarth: 16, narrativeTag: "cultivate", minRealm: "炼气期" },
+  { id: "BREATHE", name: "吐纳练气", icon: "🌬️", description: "调整呼吸，以气引气", actionPointCost: 3, baseExp: 15, category: "cultivate", minAgeEarth: 16, narrativeTag: "cultivate", minRealm: "炼气期" },
+  { id: "EXPLORE", name: "外出历练", icon: "⚔️", description: "踏出洞府，探索未知之地", actionPointCost: 8, baseExp: 40, category: "explore", minAgeEarth: 16, narrativeTag: "explore", minRealm: "炼气期" },
+  { id: "ALCHEMY", name: "炼丹制药", icon: "🔥", description: "采集灵草，开炉炼丹", actionPointCost: 6, baseExp: 25, category: "cultivate", minAgeEarth: 16, narrativeTag: "cultivate", minRealm: "筑基期" },
+  { id: "STUDY", name: "研读功法", icon: "📖", description: "翻阅古籍，参悟功法奥义", actionPointCost: 3, baseExp: 20, category: "cultivate", minAgeEarth: 16, narrativeTag: "study", minRealm: "筑基期" },
+  { id: "SECLUSION", name: "洞府闭关", icon: "🏔️", description: "封闭洞府，潜心苦修", actionPointCost: 10, baseExp: 60, category: "cultivate", minAgeEarth: 16, narrativeTag: "cultivate", minRealm: "筑基期" },
   { id: "TALK", name: "与人交谈", icon: "💬", description: "与身边的人交谈", actionPointCost: 2, baseExp: 5, category: "social", minAgeEarth: 1, narrativeTag: "social" },
   { id: "WANDER", name: "四处闲逛", icon: "🚶", description: "随意走走", actionPointCost: 2, baseExp: 3, category: "explore", minAgeEarth: 1, narrativeTag: "wander" },
   { id: "FREE", name: "自由探索", icon: "✨", description: "随心所欲，自由行动", actionPointCost: 2, baseExp: 10, category: "free", minAgeEarth: 1, narrativeTag: "free" },
 ];
 
-export function getAvailableActions(worldId: string, age: number, locationId?: string): Action[] {
-  return ACTIONS.filter((a) => worldId === "earth" ? age >= a.minAgeEarth : true);
+export function getAvailableActions(worldId: string, age: number, realm: string, locationId?: string): Action[] {
+  if (worldId !== "earth") return ACTIONS;
+  const realmIndex = REALM_ORDER.indexOf(realm);
+  return ACTIONS.filter((a) => age >= a.minAgeEarth && (a.minRealm ? REALM_ORDER.indexOf(a.minRealm) <= realmIndex : true));
 }
 export function getActionById(actionId: string): Action | undefined { return ACTIONS.find((a) => a.id === actionId); }
 
@@ -238,25 +242,36 @@ export interface ShopItem {
   itemId: string;
   price: number;
   category: string;
+  minRealm?: string;
 }
 
 export const SHOP_ITEMS: ShopItem[] = [
-  { itemId: "qi_pill", price: 15, category: "丹药" },
-  { itemId: "bone_pill", price: 40, category: "丹药" },
-  { itemId: "breakthrough_pill", price: 100, category: "丹药" },
-  { itemId: "iron_sword", price: 50, category: "武器" },
-  { itemId: "leather_armor", price: 40, category: "防具" },
-  { itemId: "jade_pendant", price: 30, category: "饰品" },
-  { itemId: "spirit_grass", price: 8, category: "材料" },
-  { itemId: "spirit_wood", price: 12, category: "材料" },
-  { itemId: "spirit_stone", price: 5, category: "材料" },
-  { itemId: "talisman_shield", price: 60, category: "符箓" },
-  { itemId: "talisman_fire", price: 45, category: "符箓" },
-  { itemId: "phone", price: 100, category: "特殊" },
+  { itemId: "qi_pill", price: 15, category: "丹药", minRealm: "凡人" },
+  { itemId: "wooden_sword", price: 20, category: "武器", minRealm: "凡人" },
+  { itemId: "cloth_armor", price: 20, category: "防具", minRealm: "凡人" },
+  { itemId: "spirit_stone", price: 5, category: "材料", minRealm: "凡人" },
+  { itemId: "bone_pill", price: 40, category: "丹药", minRealm: "筑基期" },
+  { itemId: "iron_sword", price: 50, category: "武器", minRealm: "筑基期" },
+  { itemId: "leather_armor", price: 40, category: "防具", minRealm: "筑基期" },
+  { itemId: "jade_pendant", price: 30, category: "饰品", minRealm: "筑基期" },
+  { itemId: "spirit_grass", price: 8, category: "材料", minRealm: "筑基期" },
+  { itemId: "spirit_wood", price: 12, category: "材料", minRealm: "筑基期" },
+  { itemId: "breakthrough_pill", price: 100, category: "丹药", minRealm: "结丹期" },
+  { itemId: "spirit_sword", price: 120, category: "武器", minRealm: "结丹期" },
+  { itemId: "spirit_robe", price: 90, category: "防具", minRealm: "结丹期" },
+  { itemId: "spirit_beads", price: 80, category: "饰品", minRealm: "结丹期" },
+  { itemId: "talisman_shield", price: 60, category: "符箓", minRealm: "结丹期" },
+  { itemId: "talisman_fire", price: 45, category: "符箓", minRealm: "筑基期" },
+  { itemId: "phone", price: 100, category: "特殊", minRealm: "凡人" },
 ];
 
-export function getShopItems(): (ShopItem & { item: Item })[] {
-  return SHOP_ITEMS.map((s) => ({ ...s, item: ITEMS[s.itemId] })).filter((s) => s.item);
+export function getShopItems(realm?: string): (ShopItem & { item: Item })[] {
+  const realmIndex = REALM_ORDER.indexOf(realm || "凡人");
+  return SHOP_ITEMS.map((s) => ({ ...s, item: ITEMS[s.itemId] })).filter((s) => {
+    if (!s.item) return false;
+    if (s.minRealm && REALM_ORDER.indexOf(s.minRealm) > realmIndex) return false;
+    return true;
+  });
 }
 // 学校系统
 // ============================================================

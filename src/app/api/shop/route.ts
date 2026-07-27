@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getShopItems, getItemById } from "@/lib";
+import { getShopItems, getItemById, REALM_ORDER } from "@/lib";
 
 
 interface InventoryEntry {
@@ -14,8 +14,9 @@ function parseInventory(raw: string | null | undefined): InventoryEntry[] {
   try { return JSON.parse(raw); } catch { return []; }
 }
 
-export async function GET() {
-  return NextResponse.json({ items: getShopItems() });
+export async function GET(request: NextRequest) {
+  const realm = new URL(request.url).searchParams.get("realm") || undefined;
+  return NextResponse.json({ items: getShopItems(realm) });
 }
 
 export async function POST(request: NextRequest) {
@@ -24,13 +25,12 @@ export async function POST(request: NextRequest) {
     const { userId, itemId, quantity = 1 } = body;
     if (!userId || !itemId) return NextResponse.json({ error: "缺少必填参数" }, { status: 400 });
 
-    const shopItem = getShopItems().find((s) => s.itemId === itemId);
-    if (!shopItem) return NextResponse.json({ error: "商品不存在" }, { status: 400 });
-
     const user = await prisma.user.findUnique({ where: { id: userId }, include: { cultivator: true } });
     if (!user?.cultivator) return NextResponse.json({ error: "请先创建修炼者" }, { status: 400 });
 
     const c = user.cultivator;
+    const shopItem = getShopItems(c.realm).find((s) => s.itemId === itemId);
+    if (!shopItem) return NextResponse.json({ error: "商品不存在或境界不足" }, { status: 400 });
     const totalCost = shopItem.price * quantity;
     if ((c.gold ?? 50) < totalCost) return NextResponse.json({ error: `金币不足，需要${totalCost}，当前${c.gold ?? 50}` }, { status: 400 });
 

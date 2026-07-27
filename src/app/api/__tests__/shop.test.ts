@@ -50,7 +50,8 @@ describe('Shop API', () => {
 
   describe('GET /api/shop', () => {
     it('返回商品列表', async () => {
-      const res = await GET();
+      const req = new NextRequest(new URL('http://test/api/shop'));
+      const res = await GET(req);
       const data = await res.json();
       expect(data.items).toEqual([qiPillListing]);
       expect(res.status).toBe(200);
