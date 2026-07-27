@@ -57,11 +57,18 @@ vi.mock('@/lib/technique-data', () => ({
 }));
 
 // Mock effects
-vi.mock('@/lib/narrative-effects', () => ({
-  applyEffects: vi.fn(() => ({})),
-  clampEffectsArray: vi.fn((e: any[]) => e),
-  NarrativeEffectSchema: { safeParse: () => ({ success: true, data: {} }) },
-}));
+vi.mock('@/lib/narrative-effects', () => {
+  const z = require('zod');
+  return {
+    applyEffects: vi.fn(() => ({})),
+    clampEffectsArray: vi.fn((e: any[]) => e),
+    NarrativeEffectSchema: z.object({
+      kind: z.string(),
+      delta: z.number().optional(),
+      targetRelation: z.string().optional(),
+    }),
+  };
+});
 
 // Mock gold
 vi.mock('@/lib/gold', () => ({
