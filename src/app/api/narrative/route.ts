@@ -1,4 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+// ═══════════════════════════════════════════════════════════════════════════
+// narrative/route.ts — 叙事生成 API
+// 职责：
+// 1. 接收叙事请求（DAILY/ENCOUNTER/BREAKTHROUGH/BIRTH），调用 generate* 函数
+// 2. 效果白名单校验（每种叙事类型有独立的 whitelist）
+// 3. 效果经由 clampEffectsArray + applyEffects 统一持久化
+// 4. 支持流式与非流式响应
+// ═══════════════════════════════════════════════════════════════════════════
+
 import {
   generateDailyCultivationNarrative,
   generateBreakthroughNarrative,
@@ -17,7 +26,7 @@ import { canBreakthrough, performBreakthrough } from "@/lib";
 import { TECHNIQUES, addProficiency, calculateTechniqueBonuses } from "@/lib/technique-data";
 import { streamNarrativeResult } from "@/lib/narrative-stream";
 import { applyEffects, clampEffectsArray, type NarrativeEffect, type ApplyContext } from "@/lib/narrative-effects";
-import { NARRATIVE_EFFECT_WHITELISTS } from "@/lib/narrative-schema";
+import { NARRATIVE_EFFECT_WHITELISTS, checkEffectWhitelist } from "@/lib/narrative-schema";
 import { sanitizeAttributes } from "@/lib/utils";
 import { calculateMaxStamina } from "@/lib/cultivation-data";
 
@@ -212,10 +221,10 @@ export async function POST(request: NextRequest) {
         }
 
         // 效果白名单校验（DAILY: gold/stamina/attrExp/storyEntry/mood）
-        const deniedKinds = effects.filter((e) => !NARRATIVE_EFFECT_WHITELISTS.DAILY_CULTIVATION.includes(e.kind)).map((e) => e.kind);
+        const deniedKinds = checkEffectWhitelist(effects, NARRATIVE_EFFECT_WHITELISTS.DAILY_CULTIVATION);
         if (deniedKinds.length > 0) {
           console.warn(`DAILY_CULTIVATION: 拒绝白名单外效果 kind: ${deniedKinds.join(", ")}`);
-          const allowed = effects.filter((e) => NARRATIVE_EFFECT_WHITELISTS.DAILY_CULTIVATION.includes(e.kind));
+          const allowed = effects.filter((e) => !deniedKinds.includes(e.kind));
           effects.length = 0;
           effects.push(...allowed);
         }
@@ -416,10 +425,10 @@ export async function POST(request: NextRequest) {
           }
 
           // 效果白名单校验（ENCOUNTER: gold/stamina/health/attrExp/storyEntry/mood）
-          const deniedKinds = effects.filter((e) => !NARRATIVE_EFFECT_WHITELISTS.ENCOUNTER.includes(e.kind)).map((e) => e.kind);
+          const deniedKinds = checkEffectWhitelist(effects, NARRATIVE_EFFECT_WHITELISTS.ENCOUNTER);
           if (deniedKinds.length > 0) {
             console.warn(`ENCOUNTER(有选择): 拒绝白名单外效果 kind: ${deniedKinds.join(", ")}`);
-            const allowed = effects.filter((e) => NARRATIVE_EFFECT_WHITELISTS.ENCOUNTER.includes(e.kind));
+            const allowed = effects.filter((e) => !deniedKinds.includes(e.kind));
             effects.length = 0;
             effects.push(...allowed);
           }
@@ -479,10 +488,10 @@ export async function POST(request: NextRequest) {
         }
 
         // 效果白名单校验（ENCOUNTER: gold/stamina/health/attrExp/storyEntry/mood）
-        const deniedKinds = effects.filter((e) => !NARRATIVE_EFFECT_WHITELISTS.ENCOUNTER.includes(e.kind)).map((e) => e.kind);
+        const deniedKinds = checkEffectWhitelist(effects, NARRATIVE_EFFECT_WHITELISTS.ENCOUNTER);
         if (deniedKinds.length > 0) {
           console.warn(`ENCOUNTER(无选择): 拒绝白名单外效果 kind: ${deniedKinds.join(", ")}`);
-          const allowed = effects.filter((e) => NARRATIVE_EFFECT_WHITELISTS.ENCOUNTER.includes(e.kind));
+          const allowed = effects.filter((e) => !deniedKinds.includes(e.kind));
           effects.length = 0;
           effects.push(...allowed);
         }

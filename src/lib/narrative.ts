@@ -3,116 +3,10 @@
 // ============================================================
 
 import { SpiritualRoot, formatRealmLevel, LOCATIONS } from "./cultivation-data";
-import { getWorldAIPrompt } from "./worlds-data";
 import type { NarrativeEffect } from "./narrative-effects";
 
-// ============================================================
-// 供应方配置
-// ============================================================
-
-interface ProviderConfig {
-  priority: number;
-  type: "anthropic" | "openai" | "ollama";
-  apiKey?: string;
-  model: string;
-  baseUrl?: string;
-}
-
-let runtimeSettings: Record<string, string> | null = null;
-
-export async function syncProviderConfig(): Promise<void> {
-  try {
-    const { prisma } = await import("@/lib/prisma");
-    const settings = await prisma.appSetting.findMany();
-    runtimeSettings = {};
-    settings.forEach((s) => { runtimeSettings![s.key] = s.value; });
-  } catch (e) {
-    console.error("同步 AI 供应方配置失败:", e);
-    runtimeSettings = null;
-  }
-}
-
-// 预热 AI 供应方连接（最佳努力，绝不 reject；由 /api/warmup 在后台调用）
-export async function warmupAI(): Promise<void> {
-  try {
-    await syncProviderConfig().catch(() => {});
-    const providers = loadProviders();
-    if (providers.length === 0) return;
-    // 仅做一次极轻量调用以建立连接/预热缓存
-    await callAI({
-      systemPrompt: "你是连接预热助手。",
-      userPrompt: "ping",
-      maxTokens: 1,
-      temperature: 0,
-    }).catch(() => {});
-  } catch {
-    /* 预热失败不影响主流程 */
-  }
-}
-
-function loadProviders(): ProviderConfig[] {
-  const providers: ProviderConfig[] = [];
-  for (let i = 1; i <= 3; i++) {
-    const type = runtimeSettings?.[`AI_PROVIDER_${i}`] || process.env[`AI_PROVIDER_${i}`] as string;
-    if (!type) continue;
-    const apiKey = runtimeSettings?.[`AI_PROVIDER_${i}_KEY`] || process.env[`AI_PROVIDER_${i}_KEY`] || undefined;
-    const model = runtimeSettings?.[`AI_PROVIDER_${i}_MODEL`] || process.env[`AI_PROVIDER_${i}_MODEL`] || "";
-    const baseUrl = runtimeSettings?.[`AI_PROVIDER_${i}_BASE_URL`] || process.env[`AI_PROVIDER_${i}_BASE_URL`] || undefined;
-    if ((type === "anthropic" || type === "openai") && !apiKey) continue;
-    if (type === "ollama" && !baseUrl) continue;
-    providers.push({ priority: i, type: type as ProviderConfig["type"], apiKey, model, baseUrl });
-  }
-  return providers;
-}
-
-async function callAI(params: { systemPrompt: string; userPrompt: string; maxTokens?: number; temperature?: number }): Promise<string> {
-  // 每次调用都同步配置，确保用户最新保存的 AI 供应方生效
-  await syncProviderConfig().catch((e) => {
-    console.error("callAI: syncProviderConfig 失败", e);
-  });
-  const providers = loadProviders();
-  if (providers.length === 0) throw new Error("NO_PROVIDER_CONFIGURED");
-
-  for (const provider of providers) {
-    try {
-      const model = provider.model;
-      const temperature = params.temperature ?? 0.8;
-      const maxTokens = params.maxTokens ?? 500;
-
-      switch (provider.type) {
-        case "anthropic": {
-          const Anthropic = (await import("@anthropic-ai/sdk")).default;
-          const client = new Anthropic({ apiKey: provider.apiKey });
-          const resp = await client.messages.create({
-            model, max_tokens: maxTokens, system: params.systemPrompt,
-            messages: [{ role: "user", content: params.userPrompt }], temperature,
-          });
-          return (resp.content as Array<{ type: string; text?: string }>).filter((c) => c.type === "text").map((c) => c.text || "").join("");
-        }
-        case "openai": {
-          const OpenAI = (await import("openai")).default;
-          const client = new OpenAI({ apiKey: provider.apiKey, ...(provider.baseUrl ? { baseURL: provider.baseUrl } : {}) });
-          const resp = await client.chat.completions.create({
-            model, max_tokens: maxTokens, temperature,
-            messages: [{ role: "system", content: params.systemPrompt }, { role: "user", content: params.userPrompt }],
-          });
-          return resp.choices[0]?.message?.content || "";
-        }
-        case "ollama": {
-          const baseUrl = (provider.baseUrl || "http://localhost:11434").replace(/\/$/, "");
-          const resp = await fetch(`${baseUrl}/api/chat`, {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ model, stream: false, options: { temperature, num_predict: maxTokens }, messages: [{ role: "system", content: params.systemPrompt }, { role: "user", content: params.userPrompt }] }),
-          });
-          if (!resp.ok) throw new Error(`Ollama error: ${resp.status}`);
-          const data = await resp.json();
-          return data.message?.content || "";
-        }
-      }
-    } catch (e) { console.warn(`Provider ${provider.type} failed:`, (e as Error).message); continue; }
-  }
-  throw new Error("ALL_PROVIDERS_FAILED");
-}
+import { syncProviderConfig, callAI, warmupAI } from "./narrative/provider";
+export { syncProviderConfig, callAI, warmupAI };
 
 function normalizeNarrativeKeys(o: unknown): void {
   if (!o || typeof o !== "object") return;
@@ -184,59 +78,8 @@ export function shouldCompress(summary: string): boolean {
   return text.length > 1000;
 }
 
-// ============================================================
-// System Prompt
-// ============================================================
-
-const SYSTEM_PROMPT_BASE = `你是一个现代背景的叙事引擎，用自然、生活化、接近当代小说的中文来讲故事。
-
-叙事风格：
-- 现代白话，口语化、有烟火气，像在讲一个发生在当下的真实故事
-- 不使用文言、半文半白或"仙侠腔"句式，不要堆砌古风辞藻
-- 叙事简洁有力，200-400字为宜
-- 角色年龄要合理，年轻角色阅历有限
-
-关于世界观：
-- 世界的具体设定由本段之外的背景说明给出，你无需在叙事里解释或强调它
-- 只讲故事本身，不要把设定当旁白向读者科普
-- 哪怕涉及修炼、灵根、境界等内容，也当作故事中自然发生的事来写，不要生硬罗列名词、不要向读者讲解世界观
-
-输出JSON格式。`;
-
-// 凡人写实系统提示词（出生叙事专用）：严禁任何修仙/灵气/世界观设定
-const SYSTEM_PROMPT_CIVILIAN = `你是一个写实风格的生活叙事引擎，描写普通人在现代社会的出生与成长。
-
-【你能写的世界】
-- 家人之间的相处（父母、祖辈、兄弟姐妹的日常对话、争吵、疼爱、期待）
-- 邻里与社区的烟火气（邻居串门、小区花园、街边小店、同龄玩伴）
-- 城市与自然的细节（四季、天气、街道、菜场、公园、学校、医院）
-- 孩童的好奇与笨拙（戳土块、看蚂蚁、追落叶、第一次穿鞋、第一次走路）
-- 凡人世界的情感与困境（经济拮据、家人健康、学业压力、市井冷暖）
-
-【绝对不能出现的内容】
-- 修仙概念：修仙、修真、修炼、功法、灵气、灵根、法术、丹药、飞升、仙侠、仙人、道、天道、机缘、闭关、洞府、境界、突破、觉醒、机缘、气运（设定词用法）、悟道、参悟
-- 任何超自然现象：异能、特异功能、神秘力量、不可思议的异象
-- 直接点明或暗示"这是某某世界"：禁止使用"灵根觉醒前/后""灵气复苏前/后""修真界的日常""凡间俗世"等设定旁白
-- 否定句式绕开：禁止用"没有灵气""尚未觉醒""不像某些故事里""与修仙无关"这类句式来暗示修仙概念的存在。写到"看似普通"时必须用具体行为（戳土、看蚂蚁）来表达，不要点破世界观
-
-【叙事要求】
-- 用自然、生活化的现代白话语言，像在讲一个真实家庭的故事
-- 只写平凡生活与烟火气，不向读者科普任何"世界观"或设定
-- 角色年龄合理，婴幼儿没有超出认知的行为
-- 叙事 200-350 字，温暖或有烟火气
-- 不要重复正文里已经出现过的细节或时间段；如果正文聚焦一个瞬间，summary 写另一个侧面（如家庭氛围、邻里趣闻、性格特征）
-
-输出严格JSON格式。`;
-
-function buildSystemPrompt(worldId?: string): string {
-  const worldPrompt = worldId ? getWorldAIPrompt(worldId) : "";
-  if (worldPrompt) {
-    return `${SYSTEM_PROMPT_BASE}
-
-${worldPrompt}`;
-  }
-  return SYSTEM_PROMPT_BASE;
-}
+import { SYSTEM_PROMPT_BASE, SYSTEM_PROMPT_CIVILIAN, buildSystemPrompt } from "./narrative/prompts/system";
+export { SYSTEM_PROMPT_BASE, SYSTEM_PROMPT_CIVILIAN, buildSystemPrompt };
 
 // ============================================================
 // 玩家状态上下文（注入叙事生成，让 AI 参考年龄/金币/体力/所在地/资质）

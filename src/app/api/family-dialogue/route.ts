@@ -1,4 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+// ═══════════════════════════════════════════════════════════════════════════
+// family-dialogue/route.ts — 家庭对话 API
+// 职责：
+// 1. 生成家庭 NPC 对话叙事
+// 2. 效果经由 clampEffectsArray + applyEffects 统一持久化
+// 3. 白名单校验：效果 kind 必须在 FAMILY_DIALOGUE 白名单内
+// ═══════════════════════════════════════════════════════════════════════════
+
 import { generateFamilyDialogue, buildSummaryFromEntries, stateFromCultivator } from "@/lib/narrative";
 import { streamNarrativeResult } from "@/lib/narrative-stream";
 import { prisma } from "@/lib/prisma";
@@ -6,7 +14,7 @@ import { requireCultivator, apiError } from "@/lib/auth-helpers";
 import { json } from "@/lib/json-helper";
 import { logger } from "@/lib/logger";
 import { applyEffects, clampEffectsArray, type NarrativeEffect, type ApplyContext } from "@/lib/narrative-effects";
-import { NARRATIVE_EFFECT_WHITELISTS } from "@/lib/narrative-schema";
+import { NARRATIVE_EFFECT_WHITELISTS, checkEffectWhitelist } from "@/lib/narrative-schema";
 import { getGoldMaxGainByRealm } from "@/lib/gold";
 import { sanitizeAttributes } from "@/lib/utils";
 import { calculateMaxStamina } from "@/lib/cultivation-data";
@@ -93,12 +101,14 @@ export async function POST(request: NextRequest) {
       ];
       if (result.effects && result.effects.length > 0) {
         // 从 AI effects 中提取白名单内效果，体力消耗仍由服务端决定
-        const FAMILY_WHITELIST = NARRATIVE_EFFECT_WHITELISTS.FAMILY_DIALOGUE;
+        // 白名单校验
+        const deniedKinds = checkEffectWhitelist(result.effects, NARRATIVE_EFFECT_WHITELISTS.FAMILY_DIALOGUE);
+        if (deniedKinds.length > 0) {
+          console.warn(`FAMILY_DIALOGUE: 拒绝白名单外效果 kind: ${deniedKinds.join(", ")}`);
+        }
         for (const e of result.effects) {
-          if (FAMILY_WHITELIST.includes(e.kind)) {
+          if (!deniedKinds.includes(e.kind)) {
             effects.push(e);
-          } else {
-            console.warn(`FAMILY_DIALOGUE: 拒绝白名单外效果 kind: ${e.kind}`);
           }
         }
       } else {

@@ -28,8 +28,12 @@ export default function ShopPage() {
       setGold(c?.gold ?? 50);
       setRealm(c?.realm || "");
     }).catch(() => {});
+  }, [router]);
+
+  useEffect(() => {
+    if (!realm) return;
     fetch(`/api/shop?realm=${encodeURIComponent(realm)}`).then((r) => r.json()).then((d) => setItems(d.items || [])).catch(() => {});
-  }, [router, realm]);
+  }, [realm]);
 
   const buy = async (itemId: string) => {
     if (!userId) return;
@@ -71,9 +75,10 @@ export default function ShopPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-bold text-primary">{s.price}💰</p>
-                      {s.minRealm && REALM_ORDER.indexOf(s.minRealm) > REALM_ORDER.indexOf(realm || "凡人") && (
-                        <p className="text-[10px] text-muted-foreground">需要 {s.minRealm}</p>
-                      )}
+                      {s.minRealm && (() => {
+                        const locked = REALM_ORDER.indexOf(s.minRealm) > REALM_ORDER.indexOf(realm || "凡人");
+                        return locked ? <p className="text-[10px] text-muted-foreground">需要 {s.minRealm}</p> : null;
+                      })()}
                       <Button size="sm" className="h-7 text-xs bg-primary hover:bg-[#B33A2A] text-white mt-1" disabled={gold < s.price || (s.minRealm ? REALM_ORDER.indexOf(s.minRealm) > REALM_ORDER.indexOf(realm || "凡人") : false)} onClick={() => buy(s.itemId)}>购买</Button>
                     </div>
                   </CardContent>

@@ -1,8 +1,6 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// narrative/provider.ts — AI 供应方配置与调用
+// narrative/provider.ts — AI 供应方配置与调用（唯一真相源）
 // ═══════════════════════════════════════════════════════════════════════════
-
-// ── 1. 供应方配置 ─────────────────────────────────────────────────────────
 
 interface ProviderConfig {
   priority: number;
@@ -19,9 +17,7 @@ export async function syncProviderConfig(): Promise<void> {
     const { prisma } = await import("@/lib/prisma");
     const settings = await prisma.appSetting.findMany();
     runtimeSettings = {};
-    for (const s of settings) {
-      runtimeSettings[s.key] = s.value;
-    }
+    for (const s of settings) { runtimeSettings[s.key] = s.value; }
   } catch {
     /* 仅首次加载失败时静默保留上次值 */
   }
@@ -42,18 +38,8 @@ function loadProviders(): ProviderConfig[] {
   return providers;
 }
 
-// ── 2. callAI — 多供应方自动切换 ──────────────────────────────────────────
-
-export async function callAI(params: {
-  systemPrompt: string;
-  userPrompt: string;
-  maxTokens?: number;
-  temperature?: number;
-}): Promise<string> {
-  // 每次调用都同步配置，确保用户最新保存的 AI 供应方生效
-  await syncProviderConfig().catch((e) => {
-    console.error("callAI: syncProviderConfig 失败", e);
-  });
+export async function callAI(params: { systemPrompt: string; userPrompt: string; maxTokens?: number; temperature?: number }): Promise<string> {
+  await syncProviderConfig().catch((e) => { console.error("callAI: syncProviderConfig 失败", e); });
   const providers = loadProviders();
   if (providers.length === 0) throw new Error("NO_PROVIDER_CONFIGURED");
 
@@ -86,38 +72,24 @@ export async function callAI(params: {
           const baseUrl = (provider.baseUrl || "http://localhost:11434").replace(/\/$/, "");
           const resp = await fetch(`${baseUrl}/api/chat`, {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              model, stream: false, options: { temperature, num_predict: maxTokens },
-              messages: [{ role: "system", content: params.systemPrompt }, { role: "user", content: params.userPrompt }],
-            }),
+            body: JSON.stringify({ model, stream: false, options: { temperature, num_predict: maxTokens }, messages: [{ role: "system", content: params.systemPrompt }, { role: "user", content: params.userPrompt }] }),
           });
           if (!resp.ok) throw new Error(`Ollama error: ${resp.status}`);
           const data = await resp.json();
           return data.message?.content || "";
         }
       }
-    } catch (e) {
-      console.warn(`Provider ${provider.type} failed:`, (e as Error).message);
-      continue;
-    }
+    } catch (e) { console.warn(`Provider ${provider.type} failed:`, (e as Error).message); continue; }
   }
   throw new Error("ALL_PROVIDERS_FAILED");
 }
-
-// ── 3. 预热 ───────────────────────────────────────────────────────────────
 
 export async function warmupAI(): Promise<void> {
   try {
     await syncProviderConfig();
     const providers = loadProviders();
     if (providers.length === 0) return;
-    // 仅做一次极轻量调用以建立连接/预热缓存
-    await callAI({
-      systemPrompt: "你是连接预热助手。",
-      userPrompt: "ping",
-      maxTokens: 1,
-      temperature: 0,
-    }).catch(() => {});
+    await callAI({ systemPrompt: "你是连接预热助手。", userPrompt: "ping", maxTokens: 1, temperature: 0 }).catch(() => {});
   } catch {
     /* 预热失败不影响主流程 */
   }

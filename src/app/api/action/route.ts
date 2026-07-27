@@ -1,3 +1,12 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// action/route.ts — 行动执行 API
+// 职责：
+// 1. 接收行动请求，校验前提（年龄、境界、体力）
+// 2. 调用 combat-engine 处理战斗
+// 3. 效果经由 clampEffectsArray + applyEffects 统一持久化
+// 4. 白名单校验：效果 kind 必须在 ACTION 白名单内
+// ═══════════════════════════════════════════════════════════════════════════
+
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActionById, calculateActionExp, canBreakthrough, MORTAL_REALM, isAwakened, calculateMaxStamina, getLocationActionBonus, REALM_ORDER } from "@/lib";
@@ -8,6 +17,7 @@ import { sanitizeAttributes } from "@/lib/utils";
 import { resolveCombat, type PlayerCombatData } from "@/lib/combat-engine";
 import { getEnemiesForLocation } from "@/lib/enemy-data";
 import { applyEffects, clampEffectsArray, type NarrativeEffect, type ApplyContext } from "@/lib/narrative-effects";
+import { NARRATIVE_EFFECT_WHITELISTS, checkEffectWhitelist } from "@/lib/narrative-schema";
 import { getGoldMaxGainByRealm } from "@/lib/gold";
 
 
@@ -167,6 +177,14 @@ export async function POST(request: NextRequest) {
       if (combatGold !== 0) {
         effects.push({ kind: "gold", delta: combatGold });
       }
+    }
+    // 白名单校验：拒绝不在 ACTION 允许范围内的效果
+    const deniedKinds = checkEffectWhitelist(effects, NARRATIVE_EFFECT_WHITELISTS.ACTION);
+    if (deniedKinds.length > 0) {
+      console.warn(`action/route: 拒绝白名单外效果 kind: ${deniedKinds.join(", ")}`);
+      const filtered = effects.filter((e) => !deniedKinds.includes(e.kind));
+      effects.length = 0;
+      effects.push(...filtered);
     }
     const clamped = clampEffectsArray(effects, {
       currentGold: cultivator.gold ?? 0,

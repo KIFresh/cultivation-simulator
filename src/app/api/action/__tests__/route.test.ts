@@ -60,6 +60,7 @@ vi.mock('@/lib/technique-data', () => ({
 vi.mock('@/lib/narrative-effects', () => ({
   applyEffects: vi.fn(() => ({})),
   clampEffectsArray: vi.fn((e: any[]) => e),
+  NarrativeEffectSchema: { safeParse: () => ({ success: true, data: {} }) },
 }));
 
 // Mock gold
