@@ -16,7 +16,7 @@ interface NarrativePanelProps {
   narrativeExpanded: boolean;
   onActionClick: (actionId: string) => void;
   onActionSubmit: (actionId: string) => void;
-  onActionInputChange: (value: string) => void;
+  onActionInputChange?: (value: string) => void;
 }
 
 export function NarrativePanel({
@@ -31,7 +31,7 @@ export function NarrativePanel({
   narrativeExpanded,
   onActionClick,
   onActionSubmit,
-  onActionInputChange,
+  onActionInputChange = () => {},
 }: NarrativePanelProps) {
   return (
     <div className="rounded-3xl border border-[#EADCD0] bg-white p-6 shadow-sm">
@@ -111,7 +111,7 @@ export function NarrativePanel({
                   <div className="flex gap-1 animate-in fade-in slide-in-from-top-1 duration-150">
                     <input
                       value={actionInput}
-                      onChange={(e) => onActionInputChange(e.target.value)}
+                      onChange={(e) => onActionInputChange?.(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") onActionSubmit(action.id);
                       }}

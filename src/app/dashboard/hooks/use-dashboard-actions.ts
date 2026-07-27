@@ -31,6 +31,7 @@ export interface UseDashboardActionsResult {
   handleBreakthrough: () => Promise<void>;
   handleUseItem: (itemId: string) => Promise<void>;
   sendNpcMessage: (msg: string, npcChat: any, npcChatHistory: { role: string; content: string }[]) => Promise<void>;
+  setActionInput: React.Dispatch<React.SetStateAction<string>>;
 }
 
 export function useDashboardActions({
@@ -49,6 +50,7 @@ export function useDashboardActions({
   onActionSuccess,
 }: UseDashboardActionsOptions): UseDashboardActionsResult {
   const [streamingText, setStreamingText] = useState<string | null>(null);
+  const [, setActionInput] = useState("");
 
   const syncCultivator = useCallback(
     (c: CultivatorData) => {
@@ -205,5 +207,5 @@ export function useDashboardActions({
     [userId, cultivator, syncCultivator],
   );
 
-  return { performAction, advanceSeason, handleBreakthrough, handleUseItem, sendNpcMessage };
+  return { performAction, advanceSeason, handleBreakthrough, handleUseItem, sendNpcMessage, setActionInput };
 }
