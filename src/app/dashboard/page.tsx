@@ -14,27 +14,12 @@ import {
 } from "@/lib";
 import type { Action, InventoryItem, NPC } from "@/lib";
 import { toast } from "sonner";
-import { consumeNarrativeStream } from "@/lib/sse-client";
 import MemoryPanel from "@/components/memory-panel";
 import DaoXiaoModal from "@/components/dao-xiao-modal";
 import TechniquePanel from "@/components/technique-panel";
 import TopNav from "@/components/top-nav";
-
-interface CultivatorData {
-  id: string; name: string; spiritualRoot: string; realm: string;
-  realmLevel: number; cultivationExp: number; totalExp: number;
-  stamina: number; age: number; worldId: string | null;
-  title: string | null; breakthroughCount: number; location: string | null;
-  gold: number;
-  maxAge: number | null;
-  bonusAge: number;
-  reincarnationCount: number;
-  talents: string | null;
-}
-
-interface NarrativeDisplay {
-  title: string; narrative: string; mood: string; hint?: string;
-}
+import { useDashboardActions } from "@/app/dashboard/hooks/use-dashboard-actions";
+import type { CultivatorData, NarrativeDisplay } from "@/app/dashboard/types";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -178,96 +163,38 @@ export default function DashboardPage() {
   const locs = cultivator ? getUnlockedLocations(cultivator.age, isAwake, unlockedLocs) : [];
   const maxStamina = cultivator ? calculateMaxStamina(cultivator.age) : 20;
 
-  const performAction = async (actionId: string, input?: string) => {
-    if (!userId || !cultivator || actionLoading) return;
-    setActionLoading(true); setActiveActionId(null); setActionInput(""); setStreamingText("");
-    try {
-      let familyData = null;
-      try { const raw = localStorage.getItem("family"); if (raw) familyData = JSON.parse(raw); } catch {}
-      const res = await fetch("/api/action?stream=true", {
-        method: "POST", headers: { "Content-Type": "application/json", "x-user-id": userId || "" },
-        body: JSON.stringify({ actionId, freeInput: input || undefined, worldId: cultivator.worldId, family: familyData, attributes }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        toast.error(err.error || "行动失败");
-        return;
-      }
-      const ct = res.headers.get("content-type") || "";
-      if (ct.includes("text/event-stream")) {
-        // 流式叙事：逐段回填，不暴露 JSON 骨架
-        await consumeNarrativeStream(res, {
-          onChunk: (c) => setStreamingText((prev) => (prev || "") + c),
-          onDone: (d: any) => {
-            if (!d) return;
-            const data = d;
-            const newN: NarrativeDisplay = { title: data.narrative.title, narrative: data.narrative.narrative, mood: data.narrative.mood, hint: data.narrative.hint };
-            setNarrative(newN); setNarrativeExpanded(false); setNarrativeHistory((prev) => [newN, ...prev].slice(0, 50));
-            if (data.cultivator) {
-              setCultivator(data.cultivator);
-              const c = data.cultivator;
-              if (c.storyEntries) {
-                try { const parsed = typeof c.storyEntries === "string" ? JSON.parse(c.storyEntries) : c.storyEntries; setMemoryEntries(Array.isArray(parsed) ? parsed : []); } catch {}
-              }
-              if (isAwakened(c.realm)) setCanBreak(canBreakthrough(c.realm, c.realmLevel, c.cultivationExp, c.spiritualRoot, c.breakthroughBuff || 0));
-              setAvailableActions(getAvailableActions(c.worldId || "earth", c.age, c.realm, currentLoc));
-            }
-            if (data.awakenEvent) { setAwakenEvent(data.awakenEvent); toast.success("🎉 灵气觉醒！", { duration: 5000 }); }
-            if (data.expGained) toast.success(`修炼值 +${data.expGained}`, { duration: 2000 });
-            if (data.techniqueEvents && data.techniqueEvents.length > 0) {
-              data.techniqueEvents.forEach((te: any) => {
-                const profMsg = te.eventNarrative ? te.eventNarrative : `${te.icon} ${te.techniqueName} 熟练度 +${te.profGained}`;
-                toast(profMsg, { duration: 3000 });
-                if (te.leveledUp) toast.success(`⚡ ${te.icon} ${te.techniqueName} 升级！`, { duration: 4000 });
-              });
-            }
-          },
-          onError: (e: any) => { toast.error(e?.message || "行动叙事生成失败，请重试"); },
-        });
-      } else {
-        const data = await res.json();
-        if (data.updatedFamily) localStorage.setItem("family", JSON.stringify(data.updatedFamily));
-        if (data.intimacyChanges) data.intimacyChanges.forEach((c: any) => {
-          if (c.delta > 0) toast(`💕 与${c.relation}${c.name} 亲近${c.delta}`, { duration: 3000 });
-          else if (c.delta < 0) toast(`💔 与${c.relation}${c.name} 疏远${Math.abs(c.delta)}`, { duration: 3000 });
-        });
-        const newN: NarrativeDisplay = { title: data.narrative.title, narrative: data.narrative.narrative, mood: data.narrative.mood, hint: data.narrative.hint };
-        setNarrative(newN); setNarrativeExpanded(false); setNarrativeHistory((prev) => [newN, ...prev].slice(0, 50));
-        if (data.cultivator) {
-          setCultivator(data.cultivator);
-          const c = data.cultivator;
-          if (c.storyEntries) {
-            try { const parsed = typeof c.storyEntries === "string" ? JSON.parse(c.storyEntries) : c.storyEntries; setMemoryEntries(Array.isArray(parsed) ? parsed : []); } catch {}
-          }
-          if (isAwakened(c.realm)) setCanBreak(canBreakthrough(c.realm, c.realmLevel, c.cultivationExp, c.spiritualRoot, c.breakthroughBuff || 0));
-          setAvailableActions(getAvailableActions(c.worldId || "earth", c.age, c.realm, currentLoc));
+  const actions = useDashboardActions({
+    userId,
+    cultivator,
+    currentLoc,
+    attributes,
+    schoolRank,
+    occupation,
+    unlockedLocs,
+    actionLoading,
+    onNarrative: ({ narrative, cultivator: c, awakenEvent, expGained, techniqueEvents }) => {
+      setNarrative(narrative); setNarrativeExpanded(false); setNarrativeHistory((prev) => [narrative, ...prev].slice(0, 50));
+      if (c) {
+        setCultivator(c);
+        if (c.storyEntries) {
+          try { const parsed = typeof c.storyEntries === "string" ? JSON.parse(c.storyEntries) : c.storyEntries; setMemoryEntries(Array.isArray(parsed) ? parsed : []); } catch {}
         }
-        if (data.awakenEvent) { setAwakenEvent(data.awakenEvent); toast.success("🎉 灵气觉醒！", { duration: 5000 }); }
-        if (data.expGained) toast.success(`修炼值 +${data.expGained}`, { duration: 2000 });
-        if (data.techniqueEvents && data.techniqueEvents.length > 0) {
-          data.techniqueEvents.forEach((te: any) => {
-            const profMsg = te.eventNarrative ? te.eventNarrative : `${te.icon} ${te.techniqueName} 熟练度 +${te.profGained}`;
-            toast(profMsg, { duration: 3000 });
-            if (te.leveledUp) toast.success(`⚡ ${te.icon} ${te.techniqueName} 升级！`, { duration: 4000 });
-          });
-        }
+        if (isAwakened(c.realm)) setCanBreak(canBreakthrough(c.realm, c.realmLevel, c.cultivationExp, c.spiritualRoot, c.breakthroughBuff || 0));
+        setAvailableActions(getAvailableActions(c.worldId || "earth", c.age, c.realm, currentLoc));
       }
-    } catch (err) { console.error("行动失败:", err); toast.error("行动失败，请重试"); }
-    finally { setStreamingText(null); setActionLoading(false); }
-  };
-
-  const advanceSeason = async () => {
-    if (!userId || !cultivator || advancing) return;
-    setAdvancing(true);
-    try {
-      const res = await fetch("/api/advance-quarter", {
-        method: "POST", headers: { "Content-Type": "application/json", "x-user-id": userId || "" },
-        body: JSON.stringify({ worldId: cultivator.worldId, attributes, schoolRank, occupation }),
-      });
-      const data = await res.json();
-      if (!res.ok) { toast.error(data.error || "季节推进失败"); return; }
+      if (awakenEvent) { setAwakenEvent(awakenEvent); toast.success("🎉 灵气觉醒！", { duration: 5000 }); }
+      if (expGained) toast.success(`修炼值 +${expGained}`, { duration: 2000 });
+      if (techniqueEvents && techniqueEvents.length > 0) {
+        techniqueEvents.forEach((te: any) => {
+          const profMsg = te.eventNarrative ? te.eventNarrative : `${te.icon} ${te.techniqueName} 熟练度 +${te.profGained}`;
+          toast(profMsg, { duration: 3000 });
+          if (te.leveledUp) toast.success(`⚡ ${te.icon} ${te.techniqueName} 升级！`, { duration: 4000 });
+        });
+      }
+    },
+    onAdvance: (data) => {
       if (data.daoXiao) {
-        setDaoXiao({ summary: data.summary, name: cultivator.name });
+        setDaoXiao({ summary: data.summary, name: cultivator?.name ?? "" });
         return;
       }
       setCultivator(data.cultivator);
@@ -290,74 +217,36 @@ export default function DashboardPage() {
       if (data.examResult) toast.success(`📝 ${data.examResult.description}`, { duration: 5000 });
       const newLocs = getUnlockedLocations(data.cultivator.age, isAwakened(data.cultivator.realm), unlockedLocs);
       localStorage.setItem("unlockedLocations", JSON.stringify(newLocs.map((l: any) => l.id)));
-      // 季节推进不生成叙事（按需求删除）
       toast.success(`🌿 ${data.cultivator.name} ${data.yearWrapped ? `${data.newAge}岁` : `第${data.quarter}季`}`, { duration: 3000 });
       if (data.awakenEvent) { setAwakenEvent(data.awakenEvent); toast.success("🎉 灵气觉醒！", { duration: 5000 }); }
-    } catch (err) { console.error("季节推进失败:", err); toast.error("季节推进失败"); }
-    finally { setAdvancing(false); }
-  };
+    },
+    onCultivatorUpdate: (c) => setCultivator(c),
+    onActionError: (message) => toast.error(message),
+    onActionSuccess: () => {},
+  });
 
-  const handleBreakthrough = async () => {
-    if (!userId || !cultivator) return;
-    try {
-      const res = await fetch("/api/narrative", { method: "POST", headers: { "Content-Type": "application/json", "x-user-id": userId || "" }, body: JSON.stringify({ type: "BREAKTHROUGH", worldId: cultivator.worldId }) });
-      const data = await res.json();
-      if (!res.ok) { toast.error(data.error || "突破失败"); return; }
-      if (data.cultivator) { setCultivator(data.cultivator); setCanBreak(false);
-        if (data.cultivator.storyEntries) {
-          try { const parsed = typeof data.cultivator.storyEntries === "string" ? JSON.parse(data.cultivator.storyEntries) : data.cultivator.storyEntries; setMemoryEntries(Array.isArray(parsed) ? parsed : []); } catch {}
-        }
-      }
-      const bn: NarrativeDisplay = { title: data.narrative.title, narrative: data.narrative.narrative, mood: "燃" };
-      setNarrative(bn); setNarrativeExpanded(false); setNarrativeHistory((prev) => [bn, ...prev].slice(0, 50));
-      toast.success(`⚡ 突破成功！${data.narrative.title}`, { duration: 5000 });
-    } catch (err) { console.error("突破失败:", err); toast.error("突破失败"); }
-  };
+  const handleUseItem = async (itemId: string) => actions.handleUseItem(itemId);
 
-
-  const sendNpcMessage = async (msg: string) => {
-    if (!userId || !cultivator || !npcChat || cultivator.stamina < 1) return;
-    setNpcChatHistory((prev) => [...prev, { role: "player", content: msg }]);
-    setNpcMessage("");
-    toast(`💬 对${npcChat.name}说：${msg}`, { duration: 2000 });
-    try {
-      const res = await fetch("/api/npc-chat", {
-        method: "POST", headers: { "Content-Type": "application/json", "x-user-id": userId || "" },
-        body: JSON.stringify({ message: msg }),
-      });
-      const data = await res.json();
-      if (data.cultivator) setCultivator(data.cultivator);
-    } catch { /* 静默失败，下次同步会修正 */ }
-  };
+  const sendNpcMessage = async (msg: string) => actions.sendNpcMessage(msg, npcChat, npcChatHistory);
 
   const handleActionClick = (actionId: string) => {
     if (!cultivator || cultivator.stamina < (getActionById(actionId)?.actionPointCost || 0)) return;
-    if (activeActionId === actionId) performAction(actionId);
+    if (activeActionId === actionId) actions.performAction(actionId);
     else { setActiveActionId(actionId); setActionInput(""); }
   };
 
   const handleSubmitWithInput = (actionId: string) => {
-    if (actionInput.trim()) performAction(actionId, actionInput.trim());
-    else performAction(actionId);
+    if (actionInput.trim()) actions.performAction(actionId, actionInput.trim());
+    else actions.performAction(actionId);
   };
+
+  const handleBreakthrough = () => actions.handleBreakthrough();
+
+  const advanceSeason = () => actions.advanceSeason();
 
   const moodColor = { "燃": "text-[#B83227]", "悟": "text-[#D49B4B]", "静": "text-blue-600", "奇": "text-purple-600", "险": "text-orange-600" }[narrative?.mood || "静"] || "text-stone-600";
   const currentLocName = locs.find((l) => l.id === currentLoc)?.name || "";
   const totalItems = getEquippedItems(inventory).length + getBackpackItems(inventory).length;
-
-  const handleUseItem = async (itemId: string) => {
-    if (!userId) return;
-    try {
-      const res = await fetch("/api/cultivator/use-item", {
-        method: "POST", headers: { "Content-Type": "application/json", "x-user-id": userId || "" },
-        body: JSON.stringify({ itemId, quantity: 1 }),
-      });
-      const data = await res.json();
-      if (!res.ok) { toast.error(data.error || "使用失败"); return; }
-      if (data.cultivator) setCultivator(data.cultivator);
-      if (data.message) toast.success(data.message);
-    } catch { toast.error("使用失败"); }
-  };
 
   // 开发者模式：快速生成角色
   const handleQuickCreate = async () => {
