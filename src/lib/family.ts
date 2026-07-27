@@ -1,85 +1,106 @@
-// ============================================================
-// 修仙模拟器 — 家庭成员生成工具
-// ============================================================
+// 地球世界：生成初始家庭（父母 + 视身份而定的成员）。
+// 被 src/app/create/page.tsx 与 src/app/dev/page.tsx 使用，结果以 JSON 存 localStorage。
 
-export interface FamilyMember {
-  id: string;
-  relation: string;
-  name: string;
-  age: number;
-  alive: boolean;
-  personality?: string;
-  intimacy: number;
-  dialogueHistory: FamilyDialogueEntry[];
-}
+import type { FamilyMember } from "@/app/dashboard/types";
 
-export interface FamilyDialogueEntry {
-  role: "player" | "npc";
-  content: string;
-  timestamp: number;
-}
-
-export interface FamilyData {
+export interface EarthFamily {
   members: FamilyMember[];
 }
 
-const SURNAMES = ["张", "李", "王", "刘", "陈", "杨", "赵", "黄", "周", "吴",
-  "徐", "孙", "马", "胡", "朱", "郭", "何", "罗", "高", "林"];
-const MALE_GIVEN = ["建国", "伟", "强", "磊", "军", "勇", "明", "平", "建华", "志强",
-  "海", "涛", "斌", "浩", "鹏", "飞", "鑫", "宇", "杰", "文"];
-const FEMALE_GIVEN = ["芳", "敏", "静", "丽", "娟", "婷", "玲", "雪", "燕", "红",
-  "萍", "娜", "霞", "琴", "玉", "慧", "秀英", "琳", "瑶", "萱"];
+const SURNAMES = ["林", "陈", "赵", "周", "吴", "郑", "王", "李"];
+const GIVEN = ["建国", "秀英", "志强", "丽华", "文", "静", "磊", "婷", "海", "梅"];
 
-function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
-function chance(p: number): boolean { return Math.random() < p; }
-
-function generatePersonName(isMale: boolean): string {
-  const surname = pick(SURNAMES);
-  const given = isMale ? pick(MALE_GIVEN) : pick(FEMALE_GIVEN);
-  if (chance(0.3)) return surname + given.slice(0, 1) + pick(["小", "子", "大", "阿"]);
-  return surname + given;
+function pick<T>(arr: T[], seed: number): T {
+  return arr[Math.abs(seed) % arr.length];
 }
 
-let familyIdCounter = 0;
-function nextFamilyId(): string { return `fam_${Date.now()}_${++familyIdCounter}`; }
+/**
+ * 生成地球家庭。
+ * @param seed 任意数字，用于稳定生成（同一 seed 同结果）。
+ * @param identityId 出身身份，影响父母亲密度与额外成员。
+ */
+export function generateEarthFamily(seed: number = 1, identityId: string = "scholar"): EarthFamily {
+  const fatherName = `${pick(SURNAMES, seed + 1)}${pick(GIVEN, seed + 3)}`;
+  const motherName = `${pick(SURNAMES, seed + 7)}${pick(GIVEN, seed + 9)}`;
 
-export function generateEarthFamily(cultivatorAge: number, identity: string): FamilyData {
-  const members: FamilyMember[] = [];
-  if (identity === "orphan") return { members };
-  if (chance(0.85)) {
-    const fatherAge = cultivatorAge + (24 + Math.floor(Math.random() * 17));
-    const motherAge = cultivatorAge + (22 + Math.floor(Math.random() * 17));
-    members.push({ id: nextFamilyId(), relation: "父亲", name: generatePersonName(true), age: fatherAge, alive: chance(0.85), intimacy: 50, dialogueHistory: [] });
-    members.push({ id: nextFamilyId(), relation: "母亲", name: generatePersonName(false), age: motherAge, alive: chance(0.88), intimacy: 55, dialogueHistory: [] });
-    const maxParentAgeForSibling = 40;
-    const canHaveSiblings = (fatherAge - cultivatorAge) <= maxParentAgeForSibling || (motherAge - cultivatorAge) <= maxParentAgeForSibling;
-    if (canHaveSiblings) {
-      let siblingCount = 0;
-      if (chance(0.6)) siblingCount = 1;
-      if (chance(0.2)) siblingCount = 2;
-      for (let i = 0; i < siblingCount; i++) {
-        const isOlder = chance(0.45);
-        const isMale = chance(0.5);
-        const ageDiff = isOlder ? 1 + Math.floor(Math.random() * 8) : 1 + Math.floor(Math.random() * 5);
-        const relation = isMale ? (isOlder ? "哥哥" : "弟弟") : (isOlder ? "姐姐" : "妹妹");
-        const siblingAge = isOlder ? cultivatorAge + ageDiff : Math.max(1, cultivatorAge - ageDiff);
-        const aliveChance = isOlder ? 0.92 : 0.98;
-        const isAlive = siblingAge <= 3 ? true : chance(aliveChance);
-        members.push({ id: nextFamilyId(), relation, name: generatePersonName(isMale), age: siblingAge, alive: isAlive, intimacy: 50, dialogueHistory: [] });
-      }
-    }
+  const baseIntimacy = identityIntimacy(identityId);
+  const members: FamilyMember[] = [
+    {
+      id: `f_${seed}_father`,
+      name: fatherName,
+      relation: "父亲",
+      alive: true,
+      age: 38 + (Math.abs(seed) % 12),
+      intimacy: clampIntimacy(baseIntimacy + 5),
+    },
+    {
+      id: `f_${seed}_mother`,
+      name: motherName,
+      relation: "母亲",
+      alive: true,
+      age: 36 + (Math.abs(seed) % 12),
+      intimacy: clampIntimacy(baseIntimacy + 5),
+    },
+  ];
+
+  // 商贾/书香之家更可能有祖辈同住
+  if (identityId === "merchant" || identityId === "scholar") {
+    members.push({
+      id: `f_${seed}_grandpa`,
+      name: `${pick(SURNAMES, seed + 11)}老爷`,
+      relation: "祖父",
+      alive: true,
+      age: 60 + (Math.abs(seed) % 20),
+      intimacy: clampIntimacy(baseIntimacy - 5),
+    });
   }
+
+  // 书香/将门可能有个兄弟姐妹
+  if (identityId === "scholar" || identityId === "general" || identityId === "sect") {
+    members.push({
+      id: `f_${seed}_sibling`,
+      name: `${pick(SURNAMES, seed + 5)}弟`,
+      relation: "弟弟",
+      alive: true,
+      age: 1 + (Math.abs(seed) % 8),
+      intimacy: clampIntimacy(baseIntimacy),
+    });
+  }
+
   return { members };
 }
 
-export function decayIntimacy(family: FamilyData, excludeIds: string[] = [], amount?: number): { updated: FamilyData; changes: { name: string; relation: string; delta: number }[] } {
-  const changes: { name: string; relation: string; delta: number }[] = [];
-  const updated: FamilyData = { members: family.members.map((m) => {
-    if (excludeIds.includes(m.id)) return m;
-    const decayAmount = amount ?? (2 + Math.floor(Math.random() * 2));
-    const newIntimacy = Math.max(0, m.intimacy - decayAmount);
-    changes.push({ name: m.name, relation: m.relation, delta: newIntimacy - m.intimacy });
-    return { ...m, intimacy: newIntimacy };
-  })};
-  return { updated, changes };
+function identityIntimacy(identityId: string): number {
+  switch (identityId) {
+    case "orphan":
+      return 20;
+    case "merchant":
+      return 70;
+    case "scholar":
+      return 75;
+    case "general":
+      return 60;
+    case "sect":
+      return 65;
+    default:
+      return 55;
+  }
+}
+
+function clampIntimacy(v: number): number {
+  return Math.max(0, Math.min(100, Math.round(v)));
+}
+
+/** 解析已存储的家庭 JSON（容错）。 */
+export function parseFamily(raw: string | null): EarthFamily {
+  if (!raw) return { members: [] };
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && Array.isArray((parsed as { members?: unknown }).members)) {
+      return parsed as EarthFamily;
+    }
+  } catch {
+    // ignore
+  }
+  return { members: [] };
 }

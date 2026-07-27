@@ -1,0 +1,169 @@
+// ============================================================
+// 修仙模拟器 — 修炼体系数据
+// ============================================================
+
+export type SpiritualRoot = "杂灵根" | "四灵根" | "三灵根" | "双灵根" | "异灵根" | "天灵根";
+
+export interface SpiritualRootInfo {
+  name: string; description: string; rarity: number;
+  speedBonus: number; color: string; element: string; quality?: string;
+}
+
+const OLD_ROOTS: Record<string, SpiritualRootInfo> = {
+  "杂灵根": { name: "杂灵根", description: "五行俱全却无一突出，修炼速度最为缓慢", rarity: 1, speedBonus: 1.0, color: "#8B7355", element: "五行俱全" },
+  "四灵根": { name: "四灵根", description: "四属性灵根，修炼速度稍快", rarity: 2, speedBonus: 1.1, color: "#6B8E6B", element: "四属性" },
+  "三灵根": { name: "三灵根", description: "三种属性灵根，修炼速度中等", rarity: 2, speedBonus: 1.2, color: "#4A90D9", element: "三属性" },
+  "双灵根": { name: "双灵根", description: "两种属性相辅相成", rarity: 3, speedBonus: 1.3, color: "#9B59B6", element: "双属性" },
+  "异灵根": { name: "异灵根", description: "雷、冰、风等变异属性", rarity: 4, speedBonus: 1.4, color: "#E74C3C", element: "变异属性" },
+  "天灵根": { name: "天灵根", description: "单一纯属性灵根，天道垂青", rarity: 5, speedBonus: 1.5, color: "#F1C40F", element: "单一纯属性" },
+};
+
+const ELEMENT_MAP: Record<string, { icon: string; color: string }> = {
+  "金": { icon: "🔱", color: "#FFD700" }, "木": { icon: "🌿", color: "#4CAF50" },
+  "水": { icon: "💧", color: "#2196F3" }, "火": { icon: "🔥", color: "#FF5722" }, "土": { icon: "⛰️", color: "#8D6E63" },
+};
+const QUALITY_MAP: Record<string, { multiplier: number; rarity: number }> = {
+  "上品": { multiplier: 1.6, rarity: 5 }, "中品": { multiplier: 1.3, rarity: 3 }, "下品": { multiplier: 1.0, rarity: 2 },
+};
+const NEW_ROOT_MAP: Record<string, { element: string; quality: string; multiplier: number; color: string }> = {};
+for (const [el, info] of Object.entries(ELEMENT_MAP)) {
+  for (const [q, qInfo] of Object.entries(QUALITY_MAP)) {
+    NEW_ROOT_MAP[`${el}_${q}`] = { element: el, quality: q, multiplier: qInfo.multiplier, color: info.color };
+  }
+}
+NEW_ROOT_MAP["chaos"] = { element: "五行杂灵根", quality: "凡品", multiplier: 0.2, color: "#607D8B" };
+
+export const SPIRITUAL_ROOTS: Record<string, SpiritualRootInfo> = (() => {
+  const map: Record<string, SpiritualRootInfo> = {};
+  for (const [k, v] of Object.entries(OLD_ROOTS)) map[k] = v;
+  for (const [k, n] of Object.entries(NEW_ROOT_MAP)) {
+    map[k] = {
+      name: k === "chaos" ? n.element : `${n.element}·${n.quality}`,
+      description: `${n.element} · ${n.quality}，修炼速度 ${n.multiplier}x`,
+      rarity: QUALITY_MAP[n.quality]?.rarity ?? 1,
+      speedBonus: n.multiplier, color: n.color, element: n.element, quality: n.quality,
+    };
+  }
+  return map;
+})();
+
+export function getRootInfo(rootKey: string, talents?: string[], reincarnationCount = 0): SpiritualRootInfo {
+  const info = SPIRITUAL_ROOTS[rootKey] || { name: rootKey, description: "", rarity: 1, speedBonus: 1.0, color: "#8B7355", element: "未知" };
+  // 前世记忆天赋：每世 +10% 修炼速度
+  if (talents?.includes("前世记忆") && reincarnationCount > 0) {
+    const bonus = 1 + reincarnationCount * 0.1;
+    return { ...info, speedBonus: info.speedBonus * bonus };
+  }
+  return info;
+}
+
+// ============================================================
+// 修炼境界
+// ============================================================
+export const MORTAL_REALM = "凡人";
+export function isAwakened(realm: string): boolean { return realm !== MORTAL_REALM; }
+
+export interface Realm { name: string; levels: number; expRequired: number; expIncrement: number; lifespan: string; description: string; }
+
+export const REALMS: Realm[] = [
+  { name: "炼气期", levels: 13, expRequired: 50, expIncrement: 10, lifespan: "百岁", description: "引天地灵气入体，踏上修仙之路" },
+  { name: "筑基期", levels: 3, expRequired: 600, expIncrement: 300, lifespan: "二百余岁", description: "筑就道基，仙凡有别" },
+  { name: "结丹期", levels: 3, expRequired: 1500, expIncrement: 700, lifespan: "五百余岁", description: "凝结金丹，法力大增" },
+  { name: "元婴期", levels: 3, expRequired: 3500, expIncrement: 1500, lifespan: "千余岁", description: "碎丹成婴，元神初成" },
+  { name: "化神期", levels: 3, expRequired: 8000, expIncrement: 3500, lifespan: "两千余岁", description: "元婴化神，人界巅峰" },
+  { name: "炼虚期", levels: 3, expRequired: 18000, expIncrement: 8000, lifespan: "五千余岁", description: "炼神还虚，可飞升灵界" },
+  { name: "合体期", levels: 3, expRequired: 40000, expIncrement: 18000, lifespan: "万余岁", description: "法体合一" },
+  { name: "大乘期", levels: 3, expRequired: 90000, expIncrement: 40000, lifespan: "数万岁", description: "大道初成，万法归一" },
+  { name: "渡劫期", levels: 1, expRequired: 500000, expIncrement: 0, lifespan: "与天地同寿", description: "渡过天劫，飞升仙界" },
+];
+
+/** 各境界基础寿元（年） */
+const BASE_LIFESPAN: Record<string, number> = {
+  "凡人": 80,
+  "炼气期": 100,
+  "筑基期": 200,
+  "结丹期": 500,
+  "元婴期": 1000,
+  "化神期": 2000,
+  "炼虚期": 5000,
+  "合体期": 10000,
+  "大乘期": 50000,
+  "渡劫期": 999999,
+};
+
+/** 计算修炼者的最大寿元 */
+export function calculateMaxAge(
+  realm: string,
+  attributes: Record<string, number>,
+  bonusAge = 0
+): number {
+  const base = BASE_LIFESPAN[realm] ?? 80;
+  const rootBonus = (attributes.root ?? 0) * 2;
+  const mindBonus = (attributes.mind ?? 0) * 1;
+  return base + rootBonus + mindBonus + bonusAge;
+}
+
+const LEVEL_LABELS: Record<number, string> = { 1: "初期", 2: "中期", 3: "后期" };
+const LIANQI_LABELS: Record<number, string> = { 1:"第一层",2:"第二层",3:"第三层",4:"第四层",5:"第五层",6:"第六层",7:"第七层",8:"第八层",9:"第九层",10:"第十层",11:"第十一层",12:"第十二层",13:"第十三层" };
+
+export function formatRealmLevel(realmName: string, level: number): string {
+  if (realmName === MORTAL_REALM) return "";
+  if (realmName === "炼气期") return LIANQI_LABELS[level] ?? `第${level}层`;
+  return LEVEL_LABELS[level] ?? `第${level}期`;
+}
+export function getCurrentRealm(realmName: string): Realm | undefined { return realmName === MORTAL_REALM ? undefined : REALMS.find((r) => r.name === realmName); }
+export function getNextRealm(realmName: string): Realm | undefined {
+  if (realmName === MORTAL_REALM) return REALMS[0];
+  const idx = REALMS.findIndex((r) => r.name === realmName);
+  return idx >= 0 && idx < REALMS.length - 1 ? REALMS[idx + 1] : undefined;
+}
+export function getRequiredExp(realmName: string, realmLevel: number): number {
+  if (realmName === MORTAL_REALM) return 50;
+  const realm = getCurrentRealm(realmName);
+  return realm ? realm.expRequired + (realmLevel - 1) * realm.expIncrement : 100;
+}
+export function canBreakthrough(realmName: string, realmLevel: number, cultivationExp: number, _spiritualRoot: string, breakthroughBuff = 0): boolean {
+  if (realmName === MORTAL_REALM) return false;
+  const realm = getCurrentRealm(realmName);
+  if (!realm) return false;
+  const required = getRequiredExp(realmName, realmLevel);
+  const threshold = Math.max(1, required - Math.floor(required * breakthroughBuff / 100));
+  if (realmLevel >= realm.levels) {
+    const nextRealm = getNextRealm(realmName);
+    if (!nextRealm) return false;
+    return cultivationExp >= threshold;
+  }
+  return cultivationExp >= threshold;
+}
+
+export function performBreakthrough(realmName: string, realmLevel: number, cultivationExp: number, breakthroughBuff = 0): { newRealm: string; newLevel: number; newExp: number } | null {
+  if (realmName === MORTAL_REALM) return null;
+  const realm = getCurrentRealm(realmName);
+  if (!realm) return null;
+  const required = getRequiredExp(realmName, realmLevel);
+  const threshold = Math.max(1, required - Math.floor(required * breakthroughBuff / 100));
+  if (realmLevel < realm.levels) return { newRealm: realmName, newLevel: realmLevel + 1, newExp: cultivationExp - threshold };
+  const nextRealm = getNextRealm(realmName);
+  if (!nextRealm) return null;
+  return { newRealm: nextRealm.name, newLevel: 1, newExp: cultivationExp - threshold };
+}
+
+// ============================================================
+// 行动体系
+// ============================================================
+export interface Action { id: string; name: string; icon: string; description: string; actionPointCost: number; baseExp: number; category: "cultivate" | "explore" | "social" | "rest" | "free" | "study" | "school"; minAgeEarth: number; minRealm?: string; narrativeTag: string; minAttributeLevel?: Record<string, number>; schoolStage?: "primary" | "middle" | "high" | "university"; subjectRewards?: Record<string, number>; allowedLocations?: string[]; goldCost?: number; healthGain?: number; }
+
+export const ACTIONS: Action[] = [
+  { id: "MEDITATE", name: "打坐修炼", icon: "🧘", description: "盘膝而坐，引天地灵气入体", actionPointCost: 5, baseExp: 30, category: "cultivate", minAgeEarth: 16, minRealm: "炼气期", narrativeTag: "cultivate", allowedLocations: ["home"] },
+  { id: "BREATHE", name: "吐纳练气", icon: "🌬️", description: "调整呼吸，以气引气", actionPointCost: 3, baseExp: 15, category: "cultivate", minAgeEarth: 16, minRealm: "炼气期", narrativeTag: "cultivate", allowedLocations: ["home"] },
+  { id: "EXPLORE", name: "外出历练", icon: "⚔️", description: "踏出洞府，探索未知之地", actionPointCost: 8, baseExp: 40, category: "explore", minAgeEarth: 16, minRealm: "炼气期", narrativeTag: "explore", allowedLocations: ["wild"] },
+  { id: "ALCHEMY", name: "炼丹制药", icon: "🔥", description: "采集灵草，开炉炼丹", actionPointCost: 6, baseExp: 25, category: "cultivate", minAgeEarth: 16, minRealm: "筑基期", narrativeTag: "cultivate", allowedLocations: ["home"] },
+  { id: "STUDY", name: "研读功法", icon: "📖", description: "翻阅古籍，参悟功法奥义", actionPointCost: 3, baseExp: 20, category: "cultivate", minAgeEarth: 16, minRealm: "炼气期", narrativeTag: "study", allowedLocations: ["home"] },
+  { id: "STUDY_TECHNIQUE", name: "参悟功法", icon: "💡", description: "潜心参悟功法奥义，大幅提升熟练度", actionPointCost: 5, baseExp: 15, category: "cultivate", minAgeEarth: 16, minRealm: "炼气期", narrativeTag: "study", allowedLocations: ["home"] },
+  { id: "SECLUSION", name: "洞府闭关", icon: "🏔️", description: "封闭洞府，潜心苦修", actionPointCost: 10, baseExp: 60, category: "cultivate", minAgeEarth: 16, minRealm: "筑基期", narrativeTag: "cultivate", allowedLocations: ["home"] },
+  { id: "TALK", name: "与人交谈", icon: "💬", description: "与身边的人交谈", actionPointCost: 2, baseExp: 5, category: "social", minAgeEarth: 1, narrativeTag: "social", allowedLocations: ["home", "school", "kindergarten"] },
+  { id: "WANDER", name: "四处闲逛", icon: "🚶", description: "随意走走", actionPointCost: 2, baseExp: 3, category: "explore", minAgeEarth: 1, narrativeTag: "wander", allowedLocations: ["home", "school", "kindergarten"] },
+  { id: "GATHER", name: "采集灵药", icon: "🌿", description: "在山野间采集灵草药材", actionPointCost: 4, baseExp: 5, category: "explore", minAgeEarth: 8, narrativeTag: "gather", allowedLocations: ["wild"] },
+  { id: "FREE", name: "自由探索", icon: "✨", description: "随心所欲，自由行动", actionPointCost: 2, baseExp: 10, category: "free", minAgeEarth: 1, narrativeTag: "free", allowedLocations: ["home", "school", "kindergarten"] },
+  // 幼儿园专属行动
+  { id: "LISTEN_TEACHER", name: "听老师讲故事", icon: "📖", description: "围坐在老师身边，听一个有趣的故事"

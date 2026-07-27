@@ -3,25 +3,43 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Noto_Serif_SC } from "next/font/google";
-import { Settings } from "lucide-react";
+import { Settings, User, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import SettingsDialog from "@/components/settings-dialog";
-
-const notoSerifSC = Noto_Serif_SC({
-  subsets: ["latin"],
-  weight: ["400", "500", "700", "900"],
-  display: "swap",
-});
+import { useDevModeEnabled } from "@/hooks/use-dev-mode";
+import { fetchStreamNarrative, cleanNarrativeStream } from "@/lib/stream-client";
 
 export default function Home() {
   const router = useRouter();
   const [devMode, setDevMode] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [userName, setUserName] = useState("");
+  const [birthStream, setBirthStream] = useState("");
+  const { enabled, mounted } = useDevModeEnabled();
 
   useEffect(() => {
     setDevMode(localStorage.getItem("devMode") === "true");
+    const uid = localStorage.getItem("userId");
+    if (uid) {
+      setLoggedIn(true);
+      const cachedName = localStorage.getItem("userDisplayName");
+      if (cachedName) {
+        setUserName(cachedName);
+      } else {
+        fetch("/api/cultivator?userId=" + uid)
+          .then(r => r.json())
+          .then(data => {
+            if (data.user?.name) {
+              setUserName(data.user.name);
+              localStorage.setItem("userDisplayName", data.user.name);
+            }
+          })
+          .catch(() => {});
+      }
+    }
   }, []);
+
 
   const handleQuickCreate = async () => {
     // 随机出生资质
@@ -47,55 +65,104 @@ export default function Home() {
     const rem = budget % 6;
     attrKeys.forEach((k, i) => { attr[k] = base + (i < rem ? 1 : 0); });
     // 生成家庭
-    const { generateEarthFamily } = await import("@/lib/family");
-    const family = generateEarthFamily(1, identity.id);
-    localStorage.setItem("family", JSON.stringify(family));
+    // 家庭由出生叙事生成并服务端落库，不预先创建随机家庭
+    // 快速生成 = 一键造一个与正常流程创建无异的全新角色。
+    // cs_session 是 HttpOnly cookie，前端 JS 无法清除；先调登出接口让服务端清掉旧会话，
+    // 保证后端按「全新用户」建号，而不是撞上已有修炼者返回 409。
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     // 创建角色
-    const res = await fetch("/api/cultivator", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userName: `dev_${Date.now()}`, cultivatorName: `测试_${Date.now()}`, spiritualRoot: root, worldId: "earth" }) });
+    const res = await fetch("/api/cultivator", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userName: `dev_${Date.now()}`, cultivatorName: "未命名", spiritualRoot: root, worldId: "earth", attributes: attr, gender: Math.random() > 0.5 ? "男" : "女" }) });
     const data = await res.json();
     if (!data.user) { toast.error("生成失败"); return; }
     localStorage.setItem("userId", data.user.id);
-    localStorage.setItem("cultivatorName", data.user.cultivator.name);
-    localStorage.setItem("attributes", JSON.stringify(attr));
-    // 生成出生叙事（失败时弹重试按钮，不跳转）
+    localStorage.setItem("userDisplayName", data.user.name);
+    // attributes 已通过 API 写入 DB
+    // 生成出生叙事（由叙事决定家庭构成）
     const identityName = { orphan:"山野遗孤", scholar:"书香门第", merchant:"商贾之子", general:"将门之后", sect:"散修传人" }[identity.id];
+    const birthBody = { userId: data.user.id, type: "BIRTH", worldName: "地球", identityName, age: 1, worldId: "earth" };
+    let lastBirthPayload: { params: unknown; gameEventId?: string | null } | undefined;
     const genNarrative = async (): Promise<boolean> => {
-      try {
-        const r = await fetch("/api/narrative", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: data.user.id, type: "BIRTH", worldName: "地球", identityName, age: 1, worldId: "earth", family: family.members }),
-        });
-        if (!r.ok) { const ed = await r.json().catch(() => ({})); throw new Error(ed.error || "出生叙事生成失败"); }
-        return true;
-      } catch (err) {
-        console.error("出生叙事生成失败:", err);
-        return new Promise((resolve) => {
-          toast.error(`出生叙事生成失败: ${(err as Error).message}`, {
+      const showRetry = () =>
+        new Promise<boolean>((resolve) => {
+          toast.error("出生叙事生成失败，请点击重试", {
             action: { label: "重试", onClick: () => resolve(genNarrative()) },
             duration: 10000,
           });
         });
+      try {
+        let birthData: any = null;
+        let birthName: string | undefined;
+        if (lastBirthPayload) {
+          const r = await fetch("/api/narrative/retry", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type: "BIRTH", params: lastBirthPayload.params, gameEventId: lastBirthPayload.gameEventId ?? undefined }),
+          });
+          birthData = await r.json().catch(() => null);
+          birthName = birthData?.narrative?.characterName;
+        } else {
+          const sr = await fetchStreamNarrative("/api/narrative?stream=true", birthBody, {
+            onChunk: (text: string) => setBirthStream((prev) => cleanNarrativeStream(prev + text)),
+          });
+          if (sr?.narrativeError) {
+            setBirthStream("");
+            lastBirthPayload = { params: sr.narrativeError.params, gameEventId: sr.narrativeError.gameEventId };
+            return showRetry();
+          }
+          birthData = sr.narrative;
+          birthName = sr.characterName || sr.narrative?.characterName;
+        }
+        if (birthData?.narrativeError) {
+          lastBirthPayload = { params: birthData.narrativeError.params, gameEventId: birthData.narrativeError.gameEventId };
+          return showRetry();
+        }
+        if (birthName && birthName.length >= 2 && birthName.length <= 10) {
+          localStorage.setItem("characterName", birthName);
+        }
+        setBirthStream("");
+        return true;
+      } catch {
+        setBirthStream("");
+        return showRetry();
       }
     };
-    if (await genNarrative()) { window.location.href = "/dashboard"; }
+    if (await genNarrative()) { router.push("/dashboard"); }
   };
 
   const handleReset = async () => {
     if (!window.confirm("确定要重置所有数据吗？此操作不可恢复")) return;
     localStorage.clear();
+    // cs_session 是 HttpOnly cookie，前端 JS 无法清除，需服务端下发清除指令
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     setDevMode(false);
-    window.location.href = "/";
+    router.replace("/");
   };
 
   const handleExitDev = () => {
     localStorage.removeItem("devMode");
-    window.location.href = "/";
+    // 清理 dev_ 前缀的临时 userId，防止残留
+    const uid = localStorage.getItem("userId");
+    if (uid && uid.startsWith("dev_")) {
+      localStorage.removeItem("userId");
+      localStorage.removeItem("cultivatorName");
+      localStorage.removeItem("userDisplayName");
+    }
+    router.replace("/");
   };
+  const handleLogout = () => {
+    localStorage.removeItem("userId");
+    localStorage.removeItem("cultivatorName");
+    localStorage.removeItem("userDisplayName");
+    setLoggedIn(false);
+    setUserName("");
+    toast.success("已退出登录");
+    router.refresh();
+  };
+
   return (
     <div
-      className={`min-h-screen bg-[#FDFBF7] text-[#2C2C2C] relative overflow-x-hidden selection:bg-[#8F9A8A] selection:text-white ${notoSerifSC.className}`}
+      className="min-h-screen bg-[#FDFBF7] text-[#2C2C2C] relative overflow-x-hidden selection:bg-[#8F9A8A] selection:text-white"
     >
-      {devMode && (
+      {mounted && enabled && devMode && (
         <div className="fixed top-0 left-0 right-0 bg-orange-500 text-white text-xs text-center py-1 z-50 flex items-center justify-center gap-4">
           <span>DEV MODE</span>
           <button onClick={handleQuickCreate} className="underline hover:no-underline">快速生成</button>
@@ -148,6 +215,14 @@ export default function Home() {
       </div>
 
       <div className="max-w-6xl mx-auto px-6 relative z-10">
+        {birthStream && (
+          <div className="border border-border bg-card rounded-xl p-4 shadow-sm mb-4">
+            <h3 className="font-bold text-foreground text-base">🍃 降生纪实</h3>
+            <p className="text-foreground text-sm leading-relaxed whitespace-pre-wrap">
+              {birthStream}<span className="animate-pulse">▍</span>
+            </p>
+          </div>
+        )}
         {/* 导航栏 */}
         <nav className="flex justify-between items-center py-8 fade-in-up">
           <div className="flex items-center gap-3">
@@ -169,12 +244,26 @@ export default function Home() {
               <Settings className="w-5 h-5" />
             </button>
             {/* 对接 Next.js 路由的登录入口 */}
-            <Link
-              href="/login"
-              className="text-[#5C5C5C] hover:text-[#8B2626] transition-colors tracking-widest font-medium text-sm"
-            >
-              仙录登入
-            </Link>
+            {loggedIn ? (
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-[#5C5C5C]" />
+                <span className="text-[#5C5C5C] text-sm font-medium">{userName}</span>
+                <button
+                  onClick={handleLogout}
+                  className="text-[#5C5C5C] hover:text-[#8B2626] transition-colors"
+                  title="退出登录"
+                >
+                  <LogOut className="w-3 h-3" />
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/login"
+                className="text-[#5C5C5C] hover:text-[#8B2626] transition-colors tracking-widest font-medium text-sm"
+              >
+                叩问仙门
+              </Link>
+            )}
             <button className="px-6 py-2 border border-[#2C2C2C] text-[#2C2C2C] hover:bg-[#2C2C2C] hover:text-[#FDFBF7] transition-all duration-300 rounded-sm tracking-widest font-medium text-sm">
               结缘预约
             </button>
@@ -207,7 +296,7 @@ export default function Home() {
 
           {/* 水墨风格按钮，对接 Next.js 路由的创建角色/主页入口 */}
           <Link
-            href="/create"
+            href={loggedIn ? "/dashboard" : "/login"}
             className="relative group px-14 py-4 bg-transparent border-2 border-[#2C2C2C] text-[#2C2C2C] font-bold text-lg tracking-[0.3em] overflow-hidden transition-all duration-300 rounded-sm inline-block"
           >
             <div className="absolute inset-0 bg-[#2C2C2C] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-500 ease-in-out z-0"></div>

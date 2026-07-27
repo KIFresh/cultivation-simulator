@@ -1,0 +1,88 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, Coins, Home, Car, Key } from "lucide-react";
+import { PROPERTY_DEFS, FURNITURE_ITEMS, type PropertyDef } from "@/lib/property-data";
+import { json } from "@/lib/json-helper";
+import { toast } from "sonner";
+
+export default function AssetsPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [properties, setProperties] = useState<any[]>([]);
+  const [gold, setGold] = useState(0);
+  const [showBuy, setShowBuy] = useState(false);
+  const [selectedProperty, setSelectedProperty] = useState<string | null>(null);
+
+  useEffect(() => {
+    const uid = localStorage.getItem("userId");
+    if (!uid) { router.replace("/"); return; }
+    setUserId(uid);
+    loadProperties(uid);
+  }, [router]);
+
+  const loadProperties = async (uid: string) => {
+    try {
+      const res = await fetch(`/api/properties?userId=${uid}`);
+      const data = await res.json();
+      if (data.properties) setProperties(data.properties);
+      // 同时加载 cultivator 数据获取金
+      const cRes = await fetch(`/api/cultivator?userId=${uid}`);
+      const cData = await cRes.json();
+      if (cData.user?.cultivator) setGold(cData.user.cultivator.gold ?? 0);
+    } catch { toast.error("加载失败"); }
+    finally { setLoading(false); }
+  };
+
+  const handleAction = async (action: string, propertyId?: string, furnitureId?: string) => {
+    if (!userId) return;
+    const body: Record<string, unknown> = { userId, action };
+    if (action === "buy") body.propertyType = propertyId;
+    else body.propertyId = propertyId;
+    if (furnitureId) body.furnitureId = furnitureId;
+    const res = await fetch("/api/properties", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) { toast.error(data.error || "操作失败"); return; }
+    setProperties(data.properties);
+    if (data.goldChange) setGold((g) => g + data.goldChange);
+    toast.success(data.success ? (action === "buy" ? "购买成功" : "操作成功") : "操作成功");
+  };
+
+  if (loading) return (
+    <main className="flex-1 min-h-screen bg-background flex items-center justify-center">
+      <p className="text-muted-foreground">加载中…</p>
+    </main>
+  );
+
+  const livingProp = properties.find((p: any) => p.selfLiving);
+  const totalRent = properties.reduce((s: number, p: any) => s + (p.rented ? p.rentPrice : 0), 0);
+
+  if (showBuy) return (
+    <main className="flex-1 min-h-screen bg-background">
+      <div className="max-w-sm mx-auto p-4 space-y-4">
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowBuy(false)} className="text-muted-foreground hover:text-primary"><ArrowLeft className="w-4 h-4" /></button>
+          <h1 className="text-lg font-bold">购买资产</h1>
+        </div>
+        <p className="text-xs text-muted-foreground">当前金币：{gold}</p>
+        {PROPERTY_DEFS.filter((d) => d.type !== "car" || !properties.some((p: any) => p.type === "car")).map((def) => {
+          const already = properties.some((p: any) => p.type === def.type);
+          return (
+            <Card key={def.type} className={`border ${already ? "opacity-50" : ""}`}>
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="font-medium">{def.icon} {def.name}</p>
+                  <p className="text-xs text-muted-foreground">{def.desc}</p>
+                  <p className="text-xs mt-1">{def.selfLivingBonus}</p>
+                  {def.rentPrice > 0 && <p className="text-xs">出租收入：{def.rentPrice}金/年</p>}
+                </div>
+                <Button size="sm" disabled={already || gold < def.price} onClick={() => handleAction("buy", def.type)}>
+     

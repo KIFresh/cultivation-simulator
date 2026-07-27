@@ -1,0 +1,39 @@
+istory[0]);
+              }
+            }
+          })
+          .catch(() => {});
+      }
+    } catch (err) {
+      logger.error("加载角色失败:", err);
+    } finally {
+      setLoading(false);
+      fetch("/api/warmup").catch(() => {});
+    }
+  }, [userId]);
+
+  const refreshCultivator = useCallback(() => {
+    loadCultivator();
+  }, [loadCultivator]);
+
+  useEffect(() => {
+    if (userId) loadCultivator();
+  }, [userId, loadCultivator]);
+
+  return {
+    cultivator,
+    loading,
+    narrative,
+    narrativeHistory,
+    attributes,
+    inventory,
+    maxAge,
+    remaining,
+    memoryEntries,
+    setCultivator,
+    setNarrative,
+    setAttributes,
+    loadCultivator,
+    refreshCultivator,
+  };
+}

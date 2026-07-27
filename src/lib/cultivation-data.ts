@@ -347,6 +347,27 @@ export function calcTravelCost(fromLocId: string, toLocId: string): number {
   const to = LOCATIONS.find((l) => l.id === toLocId);
   return from && to ? Math.max(1, Math.abs(from.distanceFromHome - to.distanceFromHome)) : 1;
 }
+
+// ============================================================
+// 出行方式
+// ============================================================
+export type TravelModeId = "walk" | "bus" | "taxi" | "car";
+export interface TravelMode { id: TravelModeId; name: string; icon: string; staminaMult: number; goldPerDist: number; desc: string; }
+export const TRAVEL_MODES: TravelMode[] = [
+  { id: "walk", name: "步行", icon: "🚶", staminaMult: 1, goldPerDist: 0, desc: "不耗金币，费体力" },
+  { id: "bus", name: "公交", icon: "🚌", staminaMult: 0.4, goldPerDist: 2, desc: "便宜，略费体力" },
+  { id: "taxi", name: "出租车", icon: "🚕", staminaMult: 0.2, goldPerDist: 6, desc: "省体力，贵" },
+  { id: "car", name: "私家车", icon: "🚗", staminaMult: 0.3, goldPerDist: 1, desc: "自由，油费低" },
+];
+
+/** 按出行方式计算体力/金币消耗（service 端权威计价，client 仅预估） */
+export function calcTravelCostByMode(fromLocId: string, toLocId: string, mode: TravelModeId): { staminaCost: number; goldCost: number } {
+  const base = calcTravelCost(fromLocId, toLocId);
+  const m = TRAVEL_MODES.find((x) => x.id === mode) || TRAVEL_MODES[0];
+  const staminaCost = Math.max(1, Math.round(base * m.staminaMult));
+  const goldCost = Math.max(0, Math.round(base * m.goldPerDist));
+  return { staminaCost, goldCost };
+}
 export function calculateMaxStamina(age: number, attributes?: Record<string, number>): number {
   let base: number;
   if (age <= 0) base = 5;
@@ -428,3 +449,16 @@ export function applyActivityEffects(activity: DailyActivity, attributes: Record
 }
 
 export function getStartingGold(): number { return 50; }
+
+// ── schoolRank 数据库 ↔ 业务类型转换 ──────────────────────
+// DB 存储 Int: 0=普通, 1=重点, 2=名校
+const SCHOOL_RANK_DB_MAP: Record<number, SchoolRank> = { 0: "普通", 1: "重点", 2: "名校" };
+const SCHOOL_RANK_TO_DB: Record<SchoolRank, number> = { "普通": 0, "重点": 1, "名校": 2 };
+
+export function dbToSchoolRank(db: number): SchoolRank {
+  return SCHOOL_RANK_DB_MAP[db] ?? "普通";
+}
+
+export function schoolRankToDb(rank: SchoolRank): number {
+  return SCHOOL_RANK_TO_DB[rank] ?? 0;
+}

@@ -5,6 +5,18 @@
 import type { SpiritualRoot } from "./cultivation-data";
 import { SPIRITUAL_ROOTS } from "./cultivation-data";
 
+// 天命（fate）对 NPC 初遇好感度的基础偏移：确定性、可复现。
+// fate 为未定义时返回 0；否则按字符串哈希映射到 -3~+6 的小幅偏移。
+export function getFateFirstMeetOffset(fate?: string | null): number {
+  if (!fate) return 0;
+  let h = 0;
+  for (let i = 0; i < fate.length; i++) {
+    h = (h * 31 + fate.charCodeAt(i)) | 0;
+  }
+  const v = ((h % 10) + 10) % 10; // 0..9
+  return v - 3; // -3..+6
+}
+
 // ============================================================
 // 类型定义
 // ============================================================

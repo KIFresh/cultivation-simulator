@@ -4,16 +4,16 @@ import { getAvailableActivities, applyActivityEffects } from "@/lib";
 import { sanitizeAttributes } from "@/lib/utils";
 
 
+import { requireCultivator, apiError } from "@/lib/auth-helpers";
+import { logger } from "@/lib/logger";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { userId, activityId, attributes } = body;
     if (!userId || !activityId) return NextResponse.json({ error: "缺少必填参数" }, { status: 400 });
-
-    const user = await prisma.user.findUnique({ where: { id: userId }, include: { cultivator: true } });
-    if (!user?.cultivator) return NextResponse.json({ error: "请先创建修炼者" }, { status: 400 });
-
-    const c = user.cultivator;
+    const auth = await requireCultivator(request);
+    if ("error" in auth) return auth.error;
+    const c = auth.cultivator;
     const isAwake = c.realm !== "凡人";
     const activities = getAvailableActivities(c.age, isAwake);
     const activity = activities.find((a) => a.id === activityId);
@@ -27,18 +27,16 @@ export async function POST(request: NextRequest) {
     const [updated] = await prisma.$transaction([
       prisma.cultivator.update({
         where: { id: c.id },
-        data: { stamina: { decrement: activity.staminaCost }, gold: { increment: activity.goldDelta } },
-      }),
+        data: { stamina: { decrement: activity.staminaCost }, gold: { increment: activity.goldDelta }, attributes: JSON.stringify(newAttrs) }}),
     ]);
 
     return NextResponse.json({
       cultivator: updated,
       newAttributes: newAttrs,
       activityName: activity.name,
-      goldDelta: activity.goldDelta,
-    });
+      goldDelta: activity.goldDelta});
   } catch (error) {
-    console.error("活动执行失败:", error);
+    logger.error("活动执行失败:", error);
     return NextResponse.json({ error: "活动执行失败" }, { status: 500 });
   }
 }

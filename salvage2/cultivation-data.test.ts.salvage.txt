@@ -1,0 +1,113 @@
+expect(ACTION_ATTR_MAP['MEDITATE']).toBeDefined();
+      expect(ACTION_ATTR_MAP['STUDY']).toBeDefined();
+      expect(ACTION_ATTR_MAP['FREE']).toBeDefined();
+      expect(ACTION_ATTR_MAP['LISTEN_TEACHER']).toBeDefined();
+    });
+  });
+
+  describe('expToNextLevel', () => {
+    it('level 1 -> 100', () => {
+      expect(expToNextLevel(1)).toBe(100);
+    });
+    it('level 2 -> 400', () => {
+      expect(expToNextLevel(2)).toBe(400);
+    });
+  });
+
+  describe('calculateAttributeExp', () => {
+    it('returns exp gain for MEDITATE', () => {
+      const result = calculateAttributeExp('MEDITATE', {}, 30);
+      expect(result.attrResults['spirit']).toBeDefined();
+      expect(result.attrResults['spirit'].expGained).toBeGreaterThan(0);
+    });
+    it('uses root=1 fallback for unknown action', () => {
+          const result = calculateAttributeExp('UNKNOWN', {}, 10);
+          expect(result.attrResults['root']).toBeDefined();
+          expect(result.attrResults['root'].expGained).toBeGreaterThan(0);
+        });
+  });
+
+  describe('getAvailableActions (age gate for LISTEN_TEACHER)', () => {
+      it('does not include cultivation-only actions for kindergarten age at home', () => {
+        const actions = getAvailableActions('earth', 5, 'home', '凡人');
+        expect(actions.some(a => a.id === 'LISTEN_TEACHER')).toBe(false);
+        expect(actions.some(a => a.category === 'cultivate')).toBe(false);
+        // at home, kindergarteners should still get social/free actions
+        expect(actions.some(a => ['TALK', 'WANDER', 'FREE'].includes(a.id))).toBe(true);
+      });
+  });
+});
+
+describe('地点专属行动补全', () => {
+  // 16 条地点专属行动：actionId -> 归属地点
+  const LOCATION_ACTIONS: Record<string, string> = {
+    PARK_SWING: 'park', PARK_KITE: 'park',
+    KINDER_NAP: 'kindergarten', KINDER_TOY: 'kindergarten',
+    LIB_READ: 'library', LIB_BORROW: 'library',
+    CLINIC_CHECK: 'clinic', CLINIC_CONSULT: 'clinic', CLINIC_TREAT: 'clinic',
+    FURN_PICK: 'store_furniture', FURN_TRY: 'store_furniture',
+    MALL_SHOP: 'mall', MALL_FOOD: 'mall',
+    DOWNTOWN_STROLL: 'downtown', DOWNTOWN_SHOW: 'downtown', CITY_DINE: 'downtown',
+  };
+
+  it('16 条地点行动都存在于 ACTIONS 且 allowedLocations 指向唯一归属地点', () => {
+    for (const [actionId, loc] of Object.entries(LOCATION_ACTIONS)) {
+      const a = ACTIONS.find(x => x.id === actionId);
+      expect(a, `missing action ${actionId}`).toBeDefined();
+      expect(a!.allowedLocations).toEqual([loc]);
+    }
+  });
+
+  it('ACTION_ATTR_MAP 覆盖全部 16 条地点行动，且权重和为 1', () => {
+    for (const actionId of Object.keys(LOCATION_ACTIONS)) {
+      const w = ACTION_ATTR_MAP[actionId];
+      expect(w, `missing attr map for ${actionId}`).toBeDefined();
+      const sum = Object.values(w).reduce((s, v) => s + v, 0);
+      expect(sum).toBeCloseTo(1, 5);
+    }
+  });
+
+  it('金币消耗行动字段正确（看病/美食广场/下馆子）', () => {
+    const treat = ACTIONS.find(a => a.id === 'CLINIC_TREAT')!;
+    expect(treat.goldCost).toBe(20);
+    expect(treat.healthGain).toBe(15);
+    expect(treat.allowedLocations).toEqual(['clinic']);
+
+    const food = ACTIONS.find(a => a.id === 'MALL_FOOD')!;
+    expect(food.goldCost).toBe(15);
+
+    const dine = ACTIONS.find(a => a.id === 'CITY_DINE')!;
+    expect(dine.goldCost).toBe(25);
+    expect(dine.allowedLocations).toEqual(['downtown']);
+  });
+
+  it('在归属地点能拿到专属行动，其它地点拿不到（空壳地点不再为空）', () => {
+    // 公园（age 5）
+    const parkActs = getAvailableActions('earth', 5, 'park', '凡人').map(a => a.id);
+    expect(parkActs).toContain('PARK_SWING');
+    expect(parkActs).toContain('PARK_KITE');
+    // 同年龄在家不应出现公园专属行动
+    const homeActs = getAvailableActions('earth', 5, 'home', '凡人').map(a => a.id);
+    expect(homeActs).not.toContain('PARK_SWING');
+    // 图书馆（age 8）
+    const libActs = getAvailableActions('earth', 8, 'library', '凡人').map(a => a.id);
+    expect(libActs).toContain('LIB_READ');
+    expect(libActs).toContain('LIB_BORROW');
+    // 诊所（age 8）含看病抓药
+    const clinicActs = getAvailableActions('earth', 8, 'clinic', '凡人').map(a => a.id);
+    expect(clinicActs).toContain('CLINIC_CHECK');
+    expect(clinicActs).toContain('CLINIC_TREAT');
+    // 市区（age 14）含下馆子
+    const dtActs = getAvailableActions('earth', 14, 'downtown', '凡人').map(a => a.id);
+    expect(dtActs).toContain('DOWNTOWN_STROLL');
+    expect(dtActs).toContain('DOWNTOWN_SHOW');
+    expect(dtActs).toContain('CITY_DINE');
+  });
+
+  it('年龄未达解锁门槛时地点专属行动被屏蔽', () => {
+    // 图书馆 minAgeEarth 6，3 岁时在 library 不应出现 LIB_READ
+    const acts = getAvailableActions('earth', 3, 'library', '凡人').map(a => a.id);
+    expect(acts).not.toContain('LIB_READ');
+  });
+});
+

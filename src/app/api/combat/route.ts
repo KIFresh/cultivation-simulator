@@ -32,11 +32,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 获取装备物品
-    const inventory: { itemId: string }[] = [];
+    const inventory: { itemId: string; quantity: number; equipped: boolean }[] = [];
     try {
       const parsed = JSON.parse(cultivator.inventory || "[]");
       for (const item of parsed) {
-        if (item.equipped) inventory.push({ itemId: item.itemId });
+        inventory.push({ itemId: item.itemId, quantity: item.quantity ?? 1, equipped: !!item.equipped });
       }
     } catch {}
 
@@ -54,9 +54,11 @@ export async function POST(request: NextRequest) {
         gold: cultivator.gold ?? 50,
         reincarnationCount: cultivator.reincarnationCount || 0,
         injuryDebuff: cultivator.injuryDebuff || 0,
+        mindDemon: cultivator.mindDemon || 0,
       },
       attributes: {},
-      equippedItems: inventory,
+      equippedItems: inventory.filter((i) => i.equipped),
+      inventory,
       techniqueRecords: techniqueRecords.map((r) => ({
         techniqueId: r.techniqueId,
         level: r.level,
@@ -83,6 +85,22 @@ export async function POST(request: NextRequest) {
         if (result.penalty.injuryDebuff > 0) updateData.injuryDebuff = result.penalty.injuryDebuff;
         if (result.penalty.lifespanLoss > 0) {
           updateData.maxAge = Math.max(1, (cultivator.maxAge ?? 80) - result.penalty.lifespanLoss);
+        }
+        // 道心受损（档0）
+        if (result.penalty.mindDemonDelta) {
+          updateData.mindDemon = { increment: result.penalty.mindDemonDelta };
+        }
+        // 扣物（档1）
+        if (result.penalty.itemLoss && result.penalty.itemLoss.length > 0) {
+          const currentInv = JSON.parse(cultivator.inventory || "[]");
+          for (const lostId of result.penalty.itemLoss) {
+            const idx = currentInv.findIndex((i: any) => i.itemId === lostId && !i.equipped);
+            if (idx !== -1) {
+              currentInv[idx].quantity = (currentInv[idx].quantity ?? 1) - 1;
+              if (currentInv[idx].quantity <= 0) currentInv.splice(idx, 1);
+            }
+          }
+          updateData.inventory = JSON.stringify(currentInv);
         }
       }
       if (Object.keys(updateData).length > 0) {

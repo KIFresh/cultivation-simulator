@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import crypto from "node:crypto";
+import { logger } from "@/lib/logger";
+import { signSession, SESSION_COOKIE_NAME } from "@/lib/session";
+
+/** 登录/注册成功后向响应写入 HttpOnly 签名会话 cookie */
+function setSessionCookie(response: NextResponse, userId: string): void {
+  response.cookies.set(SESSION_COOKIE_NAME, signSession(userId), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30, // 30 天
+  });
+}
 
 function hashPassword(password: string, salt?: string): { hash: string; salt: string } {
   const s = salt || crypto.randomBytes(16).toString("hex");
@@ -19,7 +32,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const existing = await prisma.user.findUnique({ where: { name } });
+    const existing = await prisma.user.findUnique({
+      where: { name },
+      include: { cultivator: true },
+    });
 
     // 账号存在 → 验证密码
     if (existing) {
@@ -31,13 +47,16 @@ export async function POST(request: NextRequest) {
       }
       const [salt, storedHash] = existing.password.split(":");
       const { hash } = hashPassword(password, salt);
-      if (hash !== storedHash) {
+      if (!crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(storedHash))) {
         return NextResponse.json(
           { action: "error", message: "密码错误" },
           { status: 401 }
         );
       }
-      return NextResponse.json({ action: "login", user: existing });
+      const { password: _pw, ...safeExisting } = existing;
+      const response = NextResponse.json({ action: "login", user: safeExisting });
+      setSessionCookie(response, existing.id);
+      return response;
     }
 
     // 账号不存在 → 自动创建（仅 user，无 cultivator）
@@ -56,9 +75,12 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ action: "created", user });
+    const { password: _pw2, ...safeUser } = user;
+    const response = NextResponse.json({ action: "created", user: safeUser });
+    setSessionCookie(response, user.id);
+    return response;
   } catch (error) {
-    console.error("统一登录/注册失败:", error);
+    logger.error("统一登录/注册失败:", error);
     return NextResponse.json(
       { action: "error", message: "服务器错误" },
       { status: 500 }

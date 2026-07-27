@@ -1,0 +1,120 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
+import BottomNav from "@/components/bottom-nav";
+
+interface GameEvent {
+  id: string; type: string; title: string; narrative: string; createdAt: string;
+}
+
+const typeLabel = (type: string) => {
+  if (type === "BIRTH") return { text: "出生", cls: "border-green-300 text-green-700" };
+  if (type === "BREAKTHROUGH") return { text: "突破", cls: "border-red-300 text-red-700" };
+  if (type === "ENCOUNTER" || type === "RANDOM_ENCOUNTER") return { text: "奇遇", cls: "border-purple-300 text-purple-700" };
+  return { text: "修炼", cls: "border-border text-muted-foreground" };
+};
+
+const fmt = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+};
+
+export default function HistoryPage() {
+  const router = useRouter();
+  const [events, setEvents] = useState<GameEvent[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  const fetchEvents = useCallback(async (p: number, append = false) => {
+    const id = localStorage.getItem("userId");
+    if (!id) { router.replace("/"); return; }
+    const res = await fetch(`/api/events?userId=${id}&page=${p}&limit=20`);
+    const data = await res.json();
+    setEvents(prev => append ? [...prev, ...(data.events || [])] : (data.events || []));
+    setHasMore(data.hasMore || false);
+    setTotal(data.total || 0);
+  }, [router]);
+
+  useEffect(() => { fetchEvents(1).finally(() => setLoading(false)); }, [fetchEvents]);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    const next = page + 1;
+    await fetchEvents(next, true);
+    setPage(next);
+    setLoadingMore(false);
+  };
+
+  if (loading) {
+    return (
+      <main className="flex-1 p-4 max-w-lg mx-auto min-h-screen pb-24 space-y-3 animate-pulse">
+        {[...Array(6)].map((_, i) => <div key={i} className="h-20 bg-muted rounded-xl" />)}
+        <BottomNav />
+      </main>
+    );
+  }
+
+  return (
+    <main className="flex-1 p-4 max-w-lg mx-auto min-h-screen pb-24 space-y-4">
+      <div className="pt-2">
+        <h1 className="text-xl font-bold text-primary">修炼记录</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">共 {total} 条修炼轨迹</p>
+      </div>
+
+      {events.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground">
+          <p className="text-4xl mb-3">📜</p>
+          <p>修炼之路方才开始……</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {events.map(event => {
+            const isLong = event.narrative.length > 150;
+            const isExp = expanded[event.id];
+            return (
+              <div key={event.id} className="bg-card rounded-xl p-4 border border-border">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className={`text-xs ${typeLabel(event.type).cls}`}>{typeLabel(event.type).text}</Badge>
+                    <span className="text-sm font-medium text-foreground">{event.title}</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0 ml-2">{fmt(event.createdAt)}</span>
+                </div>
+                <div className={`text-sm text-foreground leading-relaxed ${!isExp && isLong ? "line-clamp-3" : ""}`}>
+                  {event.narrative}
+                </div>
+                {isLong && (
+                  <button onClick={() => setExpanded(prev => ({ ...prev, [event.id]: !prev[event.id] }))}
+                    className="text-primary text-xs hover:underline mt-1">
+                    {isExp ? "▲ 收起" : "▼ 展开全文"}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+
+          {hasMore && (
+            <Button variant="outline" className="w-full border-border text-foreground h-11" onClick={loadMore} disabled={loadingMore}>
+              {loadingMore ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              {loadingMore ? "加载中…" : "加载更多"}
+            </Button>
+          )}
+
+          {!hasMore && events.length > 0 && (
+            <p className="text-center text-xs text-muted-foreground py-2">已加载全部记录</p>
+          )}
+        </div>
+      )}
+
+      <BottomNav />
+    </main>
+  );
+}

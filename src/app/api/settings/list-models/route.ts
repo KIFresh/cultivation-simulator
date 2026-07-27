@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isPrivateOrLocalUrl, apiError } from "@/lib/auth-helpers";
 
 export async function POST(request: NextRequest) {
   try {
@@ -6,17 +7,22 @@ export async function POST(request: NextRequest) {
     const { baseUrl, apiKey, type } = body;
 
     if (!type) {
-      return NextResponse.json({ error: "缺少供应方类型" }, { status: 400 });
+      return apiError("缺少供应方类型");
+    }
+
+    // SSRF 防护：禁止内网地址
+    if (baseUrl && isPrivateOrLocalUrl(baseUrl)) {
+      return apiError("禁止访问内网地址");
     }
 
     if (type === "ollama") {
       if (!baseUrl) {
-        return NextResponse.json({ error: "Ollama 需要填写接口地址" }, { status: 400 });
+        return apiError("Ollama 需要填写接口地址");
       }
       const url = baseUrl.replace(/\/+$/, "") + "/api/tags";
-      const resp = await fetch(url, { method: "GET" });
+      const resp = await fetch(url, { method: "GET", signal: AbortSignal.timeout(10000) });
       if (!resp.ok) {
-        return NextResponse.json({ error: `Ollama 返回错误: ${resp.status}` }, { status: 502 });
+        return NextResponse.json({ error: "Ollama 返回错误" }, { status: 502 });
       }
       const data = await resp.json();
       const models: string[] = (data.models || []).map((m: { name: string }) => m.name);
@@ -28,15 +34,15 @@ export async function POST(request: NextRequest) {
 
     // OpenAI-compatible（包括 Anthropic 兼容接口等）
     if (!baseUrl) {
-      return NextResponse.json({ error: "请填写接口地址" }, { status: 400 });
+      return apiError("请填写接口地址");
     }
     if (!apiKey) {
-      return NextResponse.json({ error: "请填写 API Key" }, { status: 400 });
+      return apiError("请填写 API Key");
     }
 
     // 检查是否是 Anthropic 原生 API
     if (baseUrl.includes("api.anthropic.com")) {
-      return NextResponse.json({ error: "Anthropic 原生 API 不支持模型列表查询，请手动输入模型 ID" }, { status: 400 });
+      return apiError("Anthropic 原生 API 不支持模型列表查询，请手动输入模型 ID");
     }
 
     // 智能拼接 /v1/models：baseUrl 可能已含 /v1
@@ -58,7 +64,7 @@ export async function POST(request: NextRequest) {
       else if (status === 404) hint = "（接口地址不正确，请检查 baseUrl）";
       else if (status === 429) hint = "（请求过于频繁，请稍后重试）";
       return NextResponse.json({
-        error: `查询模型列表失败 (${status})${hint}${text ? ": " + text.slice(0, 200) : ""}`,
+        error: `查询模型列表失败${hint}`,
       }, { status: 502 });
     }
 
@@ -68,8 +74,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ models: [], warning: "该接口未返回模型列表" });
     }
     return NextResponse.json({ models });
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : "未知错误";
-    return NextResponse.json({ error: `连接失败: ${msg}` }, { status: 502 });
+  } catch {
+    return NextResponse.json({ error: "连接失败" }, { status: 502 });
   }
 }

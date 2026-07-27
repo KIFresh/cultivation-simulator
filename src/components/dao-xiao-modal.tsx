@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,7 +8,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 
 interface DaoXiaoSummary {
   age: number;
@@ -36,29 +34,11 @@ export default function DaoXiaoModal({
   onClose,
 }: DaoXiaoModalProps) {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
 
-  const handleReincarnate = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/cultivator", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reincarnate", userId }),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        toast.error(data.error || "轮回失败");
-        return;
-      }
-      toast.success("轮回转世，重新踏上仙途！");
-      onClose();
-      router.replace("/dashboard");
-    } catch {
-      toast.error("轮回失败");
-    } finally {
-      setLoading(false);
-    }
+  // 轮回系统已移除：原「轮回转世」按钮已拔除，仅保留关闭返回。
+  const handleClose = () => {
+    onClose();
+    router.replace("/dashboard");
   };
 
   return (
@@ -82,12 +62,8 @@ export default function DaoXiaoModal({
           <p className="text-xs text-muted-foreground">
             下一世将获得「前世记忆」天赋加成
           </p>
-          <Button
-            className="w-full"
-            onClick={handleReincarnate}
-            disabled={loading}
-          >
-            {loading ? "轮回中..." : "🔄 轮回转世"}
+          <Button className="w-full" onClick={handleClose}>
+            返回洞府
           </Button>
         </div>
       </DialogContent>

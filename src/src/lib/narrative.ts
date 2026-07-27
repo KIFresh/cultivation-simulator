@@ -1,0 +1,592 @@
+// ============================================================
+// AI 叙事引擎 — 多供应方自动切换
+// ============================================================
+
+import { SpiritualRoot, formatRealmLevel } from "./cultivation-data";
+import { getWorldAIPrompt } from "./worlds-data";
+
+// ============================================================
+// 供应方配置
+// ============================================================
+
+interface ProviderConfig {
+  priority: number;
+  type: "anthropic" | "openai" | "ollama";
+  apiKey?: string;
+  model: string;
+  baseUrl?: string;
+}
+
+let runtimeSettings: Record<string, string> | null = null;
+
+export async function syncProviderConfig(): Promise<void> {
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    const settings = await prisma.appSetting.findMany();
+    runtimeSettings = {};
+    settings.forEach((s) => { runtimeSettings![s.key] = s.value; });
+  } catch (e) {
+    console.error("同步 AI 供应方配置失败:", e);
+    runtimeSettings = null;
+  }
+}
+
+function loadProviders(): ProviderConfig[] {
+  const providers: ProviderConfig[] = [];
+  for (let i = 1; i <= 3; i++) {
+    const type = runtimeSettings?.[`AI_PROVIDER_${i}`] || process.env[`AI_PROVIDER_${i}`] as string;
+    if (!type) continue;
+    const apiKey = runtimeSettings?.[`AI_PROVIDER_${i}_KEY`] || process.env[`AI_PROVIDER_${i}_KEY`] || undefined;
+    const model = runtimeSettings?.[`AI_PROVIDER_${i}_MODEL`] || process.env[`AI_PROVIDER_${i}_MODEL`] || "";
+    const baseUrl = runtimeSettings?.[`AI_PROVIDER_${i}_BASE_URL`] || process.env[`AI_PROVIDER_${i}_BASE_URL`] || undefined;
+    if ((type === "anthropic" || type === "openai") && !apiKey) continue;
+    if (type === "ollama" && !baseUrl) continue;
+    providers.push({ priority: i, type: type as ProviderConfig["type"], apiKey, model, baseUrl });
+  }
+  return providers;
+}
+
+async function callAI(params: { systemPrompt: string; userPrompt: string; maxTokens?: number; temperature?: number }): Promise<string> {
+  // 每次调用都同步配置，确保用户最新保存的 AI 供应方生效
+  await syncProviderConfig().catch((e) => {
+    console.error("callAI: syncProviderConfig 失败", e);
+  });
+  const providers = loadProviders();
+  if (providers.length === 0) throw new Error("NO_PROVIDER_CONFIGURED");
+
+  for (const provider of providers) {
+    try {
+      const model = provider.model;
+      const temperature = params.temperature ?? 0.8;
+      const maxTokens = params.maxTokens ?? 500;
+
+      switch (provider.type) {
+        case "anthropic": {
+          const Anthropic = (await import("@anthropic-ai/sdk")).default;
+          const client = new Anthropic({ apiKey: provider.apiKey });
+          const resp = await client.messages.create({
+            model, max_tokens: maxTokens, system: params.systemPrompt,
+            messages: [{ role: "user", content: params.userPrompt }], temperature,
+          });
+          return (resp.content as Array<{ type: string; text?: string }>).filter((c) => c.type === "text").map((c) => c.text || "").join("");
+        }
+        case "openai": {
+          const OpenAI = (await import("openai")).default;
+          const client = new OpenAI({ apiKey: provider.apiKey, ...(provider.baseUrl ? { baseURL: provider.baseUrl } : {}) });
+          const resp = await client.chat.completions.create({
+            model, max_tokens: maxTokens, temperature,
+            messages: [{ role: "system", content: params.systemPrompt }, { role: "user", content: params.userPrompt }],
+          });
+          return resp.choices[0]?.message?.content || "";
+        }
+        case "ollama": {
+          const baseUrl = (provider.baseUrl || "http://localhost:11434").replace(/\/$/, "");
+          const resp = await fetch(`${baseUrl}/api/chat`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ model, stream: false, options: { temperature, num_predict: maxTokens }, messages: [{ role: "system", content: params.systemPrompt }, { role: "user", content: params.userPrompt }] }),
+          });
+          if (!resp.ok) throw new Error(`Ollama error: ${resp.status}`);
+          const data = await resp.json();
+          return data.message?.content || "";
+        }
+      }
+    } catch (e) { console.warn(`Provider ${provider.type} failed:`, (e as Error).message); continue; }
+  }
+  throw new Error("ALL_PROVIDERS_FAILED");
+}
+
+function extractJson<T>(text: string, fallback: T): T {
+  // 1. 直接解析（AI 返回纯净 JSON 时）
+  try { return JSON.parse(text); } catch {}
+
+  // 2. 从 markdown 代码块中提取 ```json {...} ```（支持无闭合的情况）
+  try {
+    const m = text.match(/```(?:json)?\s*(\{[\s\S]*?\})(?:\s*```|$)/);
+    if (m) return JSON.parse(m[1]);
+  } catch {}
+
+  // 3. 括号计数法：提取第一个完整 JSON 对象（跳过字符串内的 {}）
+  try {
+    let depth = 0;
+    let start = -1;
+    let inString = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (ch === '"' && (i === 0 || text[i - 1] !== '\\')) { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === '{') { if (depth === 0) start = i; depth++; }
+      else if (ch === '}') { depth--; if (depth === 0 && start >= 0) return JSON.parse(text.slice(start, i + 1)); }
+    }
+  } catch {}
+
+  return fallback;
+}
+
+/**
+ * 将一条事件追加到剧情概要中。
+ * 追加格式：【标题】叙事前60字…
+ * 纯字符串操作，无 AI 调用。
+ */
+export function appendToSummary(currentSummary: string | null, event: { title: string; narrative: string }): string {
+  const truncated = event.narrative.slice(0, 60);
+  const suffix = event.narrative.length > 60 ? '…' : '';
+  const summaryLine = `【${event.title}】${truncated}${suffix}`;
+  if (!currentSummary) return summaryLine;
+  return currentSummary + '\n' + summaryLine;
+}
+
+/**
+ * 判断剧情概要是否超过压缩阈值（1000 中文字符）。
+ * 纯字符串长度判断，无 AI 调用。
+ */
+export function shouldCompress(summary: string): boolean {
+  const text = summary.replace(/\n/g, '');
+  return text.length > 1000;
+}
+
+// ============================================================
+// System Prompt
+// ============================================================
+
+const SYSTEM_PROMPT_BASE = `你是一个修仙世界的叙事引擎，用你自己的语言自然地写仙侠故事。
+
+世界观体系：
+- 世界类型：玩家选择的世界决定叙事基调
+- 灵根体系：五行（金木水火土）× 品级（上品1.6x/中品1.3x/下品1.0x）
+- 基础属性：根骨(肉身)、灵性(法术)、悟性(领悟)、气运(机缘)、魅力(社交)、心性(道心)
+
+写作风格：
+- 仙侠文言风，自然流畅
+- 叙事简洁有力，200-400字为宜
+- 角色年龄要合理，年轻角色阅历有限
+- 16岁前无超凡力量（地球世界）
+
+输出JSON格式。`;
+
+function buildSystemPrompt(worldId?: string): string {
+  const worldPrompt = worldId ? getWorldAIPrompt(worldId) : "";
+  if (worldPrompt) {
+    return `${SYSTEM_PROMPT_BASE}
+
+${worldPrompt}`;
+  }
+  return SYSTEM_PROMPT_BASE;
+}
+
+// ============================================================
+// 叙事生成函数
+// ============================================================
+
+export interface StoryEntry {
+  id: string;
+  title: string;
+  summary: string;
+  important: boolean;
+  createdAt: string;
+}
+
+/**
+ * 从条目数组生成组合文本，用于注入 AI prompt。
+ * 纯字符串操作，无 AI 调用。
+ */
+export function buildSummaryFromEntries(entries: StoryEntry[]): string {
+  if (entries.length === 0) return '';
+  return entries.map(e =>
+    `${e.important ? '⭐ ' : ''}【${e.title}】${e.summary}`
+  ).join('\n');
+}
+
+/**
+ * 创建一条新的记忆条目。
+ * @param truncate - 默认 true，截断 summary 到 60 字；压缩条目传 false
+ */
+export function createEntry(title: string, summary: string, truncate = true, aiSummary?: string): StoryEntry {
+  return {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+    title,
+    summary: aiSummary
+        ? aiSummary.slice(0, 120) + (aiSummary.length > 120 ? '\u2026' : '')
+        : truncate
+          ? summary.slice(0, 60) + (summary.length > 60 ? '\u2026' : '')
+          : summary,
+    important: false,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+/** 心境类型 */
+export type MoodType = "燃" | "静" | "险" | "悟" | "奇";
+
+/** 叙事类型标识 */
+export type NarrativeType =
+  | "DAILY_CULTIVATION"
+  | "BREAKTHROUGH"
+  | "ENCOUNTER"
+  | "NPC_DIALOGUE"
+  | "ACTION"
+  | "YEAR_ADVANCE"
+  | "FAMILY_DIALOGUE"
+  | "BIRTH"
+  | "COMBAT";
+
+/** 所有叙事共享的基础字段 */
+export interface NarrativeBase {
+  type: NarrativeType;
+  title: string;
+  narrative: string;
+  mood: MoodType;
+  hint?: string;
+  summary: string;
+}
+
+/** 奇遇选项 */
+export interface EncounterChoice {
+  text: string;
+  risk: "low" | "medium" | "high";
+  hint: string;
+}
+
+/** 奇遇叙事 — 包含多选项 */
+export interface EncounterNarrative extends NarrativeBase {
+  type: "ENCOUNTER";
+  choices: [EncounterChoice, EncounterChoice, EncounterChoice];
+}
+
+/** NPC 对话叙事 */
+export interface NPCDialogueNarrative extends NarrativeBase {
+  type: "NPC_DIALOGUE";
+  npcMood: string;
+  reward?: { type: string; description: string };
+}
+
+/** 家庭对话叙事 */
+export interface FamilyDialogueNarrative extends NarrativeBase {
+  type: "FAMILY_DIALOGUE";
+  intimacyDelta: number;
+  npcMood: string;
+  actionHint?: string;
+}
+
+/** 通用叙事（日常/突破/行动/年志/出生） */
+export interface RegularNarrative extends NarrativeBase {
+  type: Exclude<NarrativeType, "ENCOUNTER" | "NPC_DIALOGUE" | "FAMILY_DIALOGUE">;
+}
+
+/** 统一的叙事结果类型 */
+export type UnifiedNarrative =
+  | RegularNarrative
+  | EncounterNarrative
+  | NPCDialogueNarrative
+  | FamilyDialogueNarrative;
+
+/** @deprecated 使用 RegularNarrative 替代 */
+export type NarrativeResult = RegularNarrative;
+
+
+/** 生成日常修炼叙事 */
+export async function generateDailyCultivationNarrative(params: {
+  cultivatorName: string; spiritualRoot: SpiritualRoot; realm: string; realmLevel: number; taskType: string; taskDescription?: string; cultivationExp: number;
+  storySummary?: string;
+}): Promise<NarrativeResult> {
+  const taskNames: Record<string, string> = { STUDY: "悟道", EXERCISE: "锻体", SLEEP: "静修", MEDITATE: "打坐", CUSTOM: "历练" };
+  let prompt = `生成一段修仙小说的日常修炼叙事。
+
+【修炼者信息】道号：${params.cultivatorName}，灵根：${params.spiritualRoot}，境界：${params.realm} ${formatRealmLevel(params.realm, params.realmLevel)}，修炼值：${params.cultivationExp}
+【今日修炼】方式：${taskNames[params.taskType] || "修炼"}${params.taskDescription ? `，描述：${params.taskDescription}` : ""}
+
+要求：150-250字，体现灵根和境界特点
+
+返回JSON：{"type":"DAILY_CULTIVATION","title":"标题","narrative":"正文","mood":"静/悟/燃","hint":"提示"}`;
+
+  if (params.storySummary) {
+    prompt += `\n\n【已发生的剧情】\n${params.storySummary}\n\n请基于以上已发生的剧情，继续写接下来的故事。`;
+  }
+
+  try {
+    const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 800, temperature: 0.8 });
+    return extractJson(text, { type: "DAILY_CULTIVATION", title: "日常修炼", narrative: `${params.cultivatorName}盘膝而坐，默默运转功法……`, mood: "静", hint: "持之以恒", summary: `${params.cultivatorName}潜心修炼。` });
+  } catch { console.error("AI生成失败"); return { type: "DAILY_CULTIVATION", title: "日常修炼", narrative: `${params.cultivatorName}静心修炼，灵力又精纯了几分。`, mood: "静", hint: "持之以恒", summary: `${params.cultivatorName}静心修炼。` }; }
+}
+
+/** 生成境界突破叙事 */
+export async function generateBreakthroughNarrative(params: {
+  cultivatorName: string; spiritualRoot: SpiritualRoot; fromRealm: string; fromLevel: number; toRealm: string; toLevel: number; totalExp: number; breakthroughCount: number;
+  storySummary?: string;
+}): Promise<NarrativeResult> {
+  const isNewRealm = params.fromRealm !== params.toRealm;
+  const scene = isNewRealm ? `突破大境界：从 ${params.fromRealm} 到 ${params.toRealm}！` : `${params.fromRealm} ${formatRealmLevel(params.fromRealm, params.fromLevel)} → ${formatRealmLevel(params.fromRealm, params.toLevel)}`;
+  let prompt = `生成一段修仙小说的境界突破叙事。
+
+【修炼者】${params.cultivatorName}，灵根${params.spiritualRoot}，第${params.breakthroughCount + 1}次突破，累计修炼${params.totalExp}
+【突破】${scene}
+
+要求：${isNewRealm ? "300-500字，天地异象" : "200-300字，灵力增长"}
+返回JSON：{"type":"BREAKTHROUGH","title":"标题","narrative":"正文","mood":"燃","hint":"建议"}`;
+
+  if (params.storySummary) {
+    prompt += `\n\n【已发生的剧情】\n${params.storySummary}\n\n请基于以上已发生的剧情，继续写接下来的故事。`;
+  }
+
+  try {
+    const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 1000, temperature: 0.9 });
+    return extractJson(text, { type: "BREAKTHROUGH", title: `${params.toRealm}突破！`, narrative: `天地灵气涌入${params.cultivatorName}体内！成功踏入${params.toRealm}！`, mood: "燃", hint: "恭喜突破", summary: `${params.cultivatorName}成功突破至${params.toRealm}。` });
+  } catch { console.error("AI生成失败"); return { type: "BREAKTHROUGH", title: `突破！${params.toRealm}`, narrative: `${params.cultivatorName}终于突破！灵力暴涨！`, mood: "燃", hint: "大道在前", summary: `${params.cultivatorName}突破${params.toRealm}。` }; }
+}
+
+/** 生成随机奇遇叙事 */
+export async function generateEncounterNarrative(params: {
+  cultivatorName: string; spiritualRoot: SpiritualRoot; realm: string; realmLevel: number;
+  storySummary?: string;
+}): Promise<EncounterNarrative> {
+  let prompt = `生成一段修仙世界的奇遇事件。
+
+【修炼者】${params.cultivatorName}，灵根${params.spiritualRoot}，境界${params.realm} ${formatRealmLevel(params.realm, params.realmLevel)}
+
+要求：200-300字，给出3个选项（低/中/高风险）
+返回JSON：{"type":"ENCOUNTER","title":"标题","narrative":"场景","choices":[{"text":"选项","risk":"low/medium/high","hint":"提示"}],"mood":"奇/险","summary":"30字内概述"}`;
+
+  if (params.storySummary) {
+    prompt += `\n\n【已发生的剧情】\n${params.storySummary}\n\n请基于以上已发生的剧情，继续写接下来的故事。`;
+  }
+
+  try {
+    const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 800, temperature: 0.9 });
+    return extractJson(text, { type: "ENCOUNTER", title: "意外发现", narrative: `${params.cultivatorName}在修炼途中发现了一处洞府遗迹……`, choices: [{ text: "小心探查", risk: "low", hint: "稳扎稳打" }, { text: "深入探索", risk: "medium", hint: "风险与机遇并存" }, { text: "全力闯入", risk: "high", hint: "富贵险中求" }], mood: "奇", summary: `${params.cultivatorName}发现一处洞府遗迹。` });
+  } catch { console.error("奇遇生成失败"); return { type: "ENCOUNTER", title: "意外发现", narrative: `${params.cultivatorName}发现了一处洞府遗迹……`, choices: [{ text: "小心探查", risk: "low", hint: "稳扎稳打" }, { text: "深入探索", risk: "medium", hint: "风险与机遇" }, { text: "全力闯入", risk: "high", hint: "富贵险中求" }], mood: "奇", summary: `${params.cultivatorName}发现一处洞府遗迹。` }; }
+}
+
+/** 生成 NPC 对话 */
+export async function generateNPCDialogue(params: {
+  npcName: string; npcPersonality: string; npcRealm: string; cultivatorName: string; cultivatorRealm: string; historySummary?: string;
+}): Promise<NPCDialogueNarrative> {
+  const prompt = `生成一段修仙世界NPC对话。
+
+【NPC】${params.npcName}，性格${params.npcPersonality}，境界${params.npcRealm}
+【玩家】${params.cultivatorName}，境界${params.cultivatorRealm}${params.historySummary ? `，过往：${params.historySummary}` : ""}
+
+要求：200-300字，对话贴合NPC性格，可能给指点/礼物/任务
+返回JSON：{"type":"NPC_DIALOGUE","title":"与${params.npcName}的对话","narrative":"对话内容","mood":"？","npcMood":"友善/冷淡/严厉","reward":{...}或null","summary":"30字内概述"}`;
+
+  try {
+    const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 800, temperature: 0.8 });
+    return extractJson(text, { type: "NPC_DIALOGUE", title: `与${params.npcName}的对话`, narrative: `${params.npcName}看了${params.cultivatorName}一眼，微微点头。`, mood: "奇", npcMood: "友善", summary: `与${params.npcName}交谈。` });
+  } catch { console.error("NPC对话失败"); return { type: "NPC_DIALOGUE", title: `与${params.npcName}的对话`, narrative: `${params.npcName}正在闭关，不便打扰。`, mood: "静", npcMood: "冷淡", summary: `${params.npcName}不便打扰。` }; }
+}
+
+/** 生成行动叙事 */
+export async function generateActionNarrative(params: {
+  cultivatorName: string; spiritualRoot: string; realm: string; realmLevel: number;
+  age: number; worldId?: string; actionName: string; actionDescription: string;
+  freeInput?: string; expGained: number; isAwakened: boolean; awakenEvent: boolean;
+  storySummary?: string;
+}): Promise<NarrativeResult> {
+  const realmStr = params.realm === "凡人" ? "凡人" : `${params.realm} ${formatRealmLevel(params.realm, params.realmLevel)}`;
+  const ageContext = params.age <= 3 ? "幼儿" : params.age <= 6 ? "孩童" : params.age <= 12 ? "少年" : params.age <= 15 ? "即将成年的少年" : "修炼者";
+  let prompt = `写一段修仙小说的行动叙事。
+
+【角色】${params.cultivatorName}，${params.age}岁${ageContext}，灵根${params.spiritualRoot}，境界${realmStr}
+${params.isAwakened ? "" : "- 尚未觉醒，仍为凡人"}
+${params.awakenEvent ? "- 觉醒时刻！" : ""}
+【行动】${params.actionName}：${params.actionDescription}
+${params.freeInput ? `玩家描述：${params.freeInput}` : ""}
+获得修炼值：${params.expGained}
+
+要求：150-300字，符合年龄认知，未觉醒角色不能出现超凡元素
+返回JSON：{"type":"ACTION","title":"标题","narrative":"正文","mood":"静/悟/燃/险/奇","hint":"修炼提示"}`;
+
+  if (params.storySummary) {
+    prompt += `\n\n【已发生的剧情】\n${params.storySummary}\n\n请基于以上已发生的剧情，继续写接下来的故事。`;
+  }
+
+  try {
+    const text = await callAI({ systemPrompt: buildSystemPrompt(params.worldId), userPrompt: prompt, maxTokens: 800, temperature: 0.85 });
+    const result: RegularNarrative = extractJson(text, { type: "ACTION", title: params.actionName, narrative: `${params.cultivatorName}${params.actionName}。${params.actionDescription}`, mood: "悟", hint: "继续修炼", summary: `${params.cultivatorName}${params.actionName}。` });
+    if (!result.narrative || !result.narrative.trim()) {
+      result.narrative = `${params.cultivatorName}${params.actionName}，有所感悟。`;
+    }
+    return result;
+  } catch (e) {
+    console.error("行动叙事AI生成失败:", e);
+    return { type: "ACTION", title: params.actionName, narrative: `${params.cultivatorName}${params.actionName}，有所感悟。`, mood: "静", hint: "道法自然", summary: `${params.cultivatorName}${params.actionName}。` };
+  }
+}
+
+/** 生成年志叙事 */
+export async function generateYearAdvanceNarrative(params: {
+  cultivatorName: string; spiritualRoot: string; realm: string; realmLevel: number;
+  oldAge: number; newAge: number; totalExp: number; worldId?: string; extraContext?: string;
+  storySummary?: string;
+}): Promise<NarrativeResult> {
+  const realmStr = params.realm === "凡人" ? "凡人" : `${params.realm} ${formatRealmLevel(params.realm, params.realmLevel)}`;
+  let prompt = `写一段修仙小说的时间推进叙事。
+
+【角色】${params.cultivatorName}，${params.oldAge}岁→${params.newAge}岁，灵根${params.spiritualRoot}，境界${realmStr}，累计修炼${params.totalExp}
+${params.extraContext ? `\n【背景】${params.extraContext}` : ""}
+
+要求：100-200字，总结一年成长，未觉醒角色不能出现超凡元素
+返回JSON：{"type":"YEAR_ADVANCE","title":"标题","narrative":"正文","mood":"静/悟/燃/奇","hint":"展望"}`;
+
+  if (params.storySummary) {
+    prompt += `\n\n【已发生的剧情】\n${params.storySummary}\n\n请基于以上已发生的剧情，继续写接下来的故事。`;
+  }
+
+  try {
+    const text = await callAI({ systemPrompt: buildSystemPrompt(params.worldId), userPrompt: prompt, maxTokens: 600, temperature: 0.8 });
+    return extractJson(text, { type: "YEAR_ADVANCE", title: `${params.cultivatorName}的第${params.newAge}年`, narrative: `时光荏苒，${params.cultivatorName}又长大了一岁。`, mood: "静", hint: "岁月不居", summary: `${params.cultivatorName}又长大了一岁。` });
+  } catch { console.error("AI生成失败"); return { type: "YEAR_ADVANCE", title: `${params.cultivatorName}的第${params.newAge}年`, narrative: `时光荏苒，${params.cultivatorName}又长大了一岁。`, mood: "静", hint: "岁月不居", summary: `${params.cultivatorName}又长大了一岁。` }; }
+}
+
+/** 生成家庭对话 */
+export async function generateFamilyDialogue(params: {
+  familyMemberName: string; familyMemberRelation: string; familyMemberAge: number;
+  intimacy: number; cultivatorName: string; cultivatorAge: number; cultivatorRealm: string; cultivatorRealmLevel: number;
+  playerMessage: string; dialogueHistory: { role: "player" | "npc"; content: string }[];
+  worldId?: string;
+  storySummary?: string;
+}): Promise<FamilyDialogueNarrative> {
+  const recentHistory = params.dialogueHistory.slice(-5).map((d) => `${d.role === "player" ? "主角" : params.familyMemberRelation}：${d.content}`).join("\n");
+  let prompt = `生成一段家庭日常对话。
+
+【NPC】${params.familyMemberName}（${params.familyMemberRelation}），${params.familyMemberAge}岁，亲密度${params.intimacy}/100
+【主角】${params.cultivatorName}，${params.cultivatorAge}岁，境界${params.cultivatorRealm}
+【玩家说】${params.playerMessage}
+${recentHistory ? `【最近对话】\n${recentHistory}` : ""}
+
+要求：50-120字，口语化，亲密度高时亲切低时冷淡
+返回JSON：{"type":"FAMILY_DIALOGUE","title":"家庭对话","narrative":"对话内容","mood":"静","intimacyDelta":-5~5,"npcMood":"开心/生气/平淡/担忧","actionHint":"NPC可能行动","summary":"30字内概述"}`;
+
+  if (params.storySummary) {
+    prompt += `\n\n【已发生的剧情】\n${params.storySummary}\n\n请基于以上已发生的剧情，继续写接下来的故事。`;
+  }
+
+  try {
+    const text = await callAI({ systemPrompt: buildSystemPrompt(params.worldId), userPrompt: prompt, maxTokens: 500, temperature: 0.85 });
+    return extractJson(text, { type: "FAMILY_DIALOGUE", title: "家庭对话", narrative: `${params.familyMemberRelation}看了你一眼，点了点头。`, mood: "静", intimacyDelta: 0, npcMood: "平淡", summary: `与${params.familyMemberRelation}交谈。` });
+  } catch { console.error("AI生成失败"); return { type: "FAMILY_DIALOGUE", title: "家庭对话", narrative: `${params.familyMemberRelation}正在忙，没听清你说什么。`, mood: "静", intimacyDelta: 0, npcMood: "平淡", summary: `${params.familyMemberRelation}正在忙。` }; }
+}
+
+/** 生成出生叙事 */
+export async function generateBirthNarrative(params: {
+  cultivatorName: string; spiritualRoot: string; worldName?: string; identityName?: string;
+  age?: number; worldId?: string; family?: { relation: string; name: string; age: number; alive: boolean }[];
+  storySummary?: string;
+  birthTier?: string;
+}): Promise<NarrativeResult> {
+  const familyStr = params.family && params.family.length > 0
+    ? `\n\n【家庭成员】\n${params.family.map((m) => `- ${m.relation}：${m.name}，${m.age}岁，${m.alive ? "健在" : "已故"}`).join("\n")}`
+    : "";
+  let prompt = `写一段修仙小说风格的出生叙事，自然地描写主角的诞生。
+
+${params.cultivatorName}，${params.age || 1}岁，${params.spiritualRoot}，${params.identityName || "未知"}，${params.worldName || "修仙世界"}${familyStr}
+先天资质：${params.birthTier || "普通"}
+
+注意：家庭成员姓名已列出，叙事时直接称呼即可。不要复述或解释世界设定，直接讲故事。
+
+输出JSON格式：
+{"type":"BIRTH","title":"标题(10字内)","narrative":"叙事正文(200-350字)","mood":"悟/奇/静/燃","hint":"寄语(10-20字)","summary":"30字内概述"}`;
+
+  if (params.storySummary) {
+    prompt += `\n\n【已发生的剧情】\n${params.storySummary}\n\n请基于以上已发生的剧情，继续写接下来的故事。`;
+  }
+
+  try {
+    const text = await callAI({ systemPrompt: buildSystemPrompt(params.worldId), userPrompt: prompt, maxTokens: 1000, temperature: 0.85 });
+    const result: RegularNarrative = extractJson(text, { type: "BIRTH", title: `${params.cultivatorName}出世`, narrative: "", mood: "奇", hint: "", summary: "" });
+    if (!result.narrative || !result.narrative.trim()) {
+      const snippet = text.length > 400 ? text.slice(0, 400) + "..." : text;
+      throw new Error(`出生叙事AI返回内容为空。AI原始响应(前400字): ${snippet.replace(/\n/g, " ")}`);
+    }
+    // 如果叙事未达到 200 字，且原始 AI 响应有更多内容，尝试从原始文本中提取
+    if (result.narrative.length < 200 && text.length > 200) {
+      const cleaned = text.replace(/```[\s\S]*?```/g, '').replace(/\{[\s\S]*\}/g, '').replace(/[""''「」『』]/g, '').trim();
+      if (cleaned.length > result.narrative.length) {
+        result.narrative = cleaned.slice(0, 800);
+      }
+    }
+    return result;
+  } catch (e) {
+    console.error("出生叙事AI生成失败:", e);
+    const detail = (e as Error).message || String(e);
+    throw new Error(`出生叙事AI生成失败: ${detail}`);
+  }
+}
+
+/**
+ * 调用 AI 将剧情概要压缩到 500 字以内。
+ * 接收 StoryEntry[]，区分重要/普通条目。
+ * 压缩失败返回普通条目的文本拼接。
+ */
+export async function compressStorySummary(
+  entries: StoryEntry[],
+  cultivatorName: string
+): Promise<string> {
+  const importantEntries = entries.filter(e => e.important);
+  const normalEntries = entries.filter(e => !e.important);
+
+  let prompt = `你是一个修仙小说的编辑。将以下剧情概要压缩到500字以内。
+
+【修炼者】${cultivatorName}
+
+`;
+
+  if (importantEntries.length > 0) {
+    prompt += `重要事件（必须保留）：\n${importantEntries.map(e => `⭐ 【${e.title}】${e.summary}`).join('\n')}\n\n`;
+  }
+  if (normalEntries.length > 0) {
+    prompt += `其他事件（可精简合并）：\n${normalEntries.map(e => `【${e.title}】${e.summary}`).join('\n')}\n\n`;
+  }
+
+  prompt += `要求：重要事件必须完整保留，其他事件可合并或精简。直接输出压缩后的纯文本，不要 JSON 格式。`;
+
+  try {
+    const text = await callAI({
+      systemPrompt: "你是一个熟练的文本编辑。",
+      userPrompt: prompt,
+      maxTokens: 1024,
+      temperature: 0.3,
+    });
+    return text.slice(0, 500);
+  } catch {
+    return [...importantEntries.map(e => `⭐ 【${e.title}】${e.summary}`), ...normalEntries.map(e => `【${e.title}】${e.summary}`)].join('\n');
+  }
+}
+
+// ============================================================
+// 战斗叙事
+// ============================================================
+
+/** 生成战斗叙事 */
+export async function generateCombatNarrative(params: {
+  cultivatorName: string;
+  enemyName: string;
+  result: "win" | "lose";
+  style: "overwhelm" | "hard_fought" | "underdog" | "comedy" | "crushed";
+  playerRealm: string;
+  enemyRealm: string;
+}): Promise<string> {
+  const styleMap: Record<string, string> = {
+    overwhelm: `${params.cultivatorName}随手一挥，剑气纵横，${params.enemyName}当场灰飞烟灭。`,
+    hard_fought: `鏖战三百回合，${params.cultivatorName}抓住破绽一剑封喉，${params.enemyName}轰然倒地。`,
+    underdog: `绝境中${params.cultivatorName}引爆丹田潜能，一拳轰碎${params.enemyName}！`,
+    comedy: `${params.cultivatorName}被一块石头绊倒，${params.enemyName}一脸困惑地看着你。`,
+    crushed: `${params.cultivatorName}连${params.enemyName}的衣角都没碰到就被打飞出去。`,
+  };
+  const defaultText = styleMap[params.style] || `${params.cultivatorName}与${params.enemyName}展开了战斗。`;
+
+  const prompt = `写一段修仙小说的战斗叙事，不超过150字。
+
+【胜者】${params.result === "win" ? params.cultivatorName : params.enemyName}
+【败者】${params.result === "win" ? params.enemyName : params.cultivatorName}
+【风格】${params.style}
+【玩家境界】${params.playerRealm}
+【敌人境界】${params.enemyRealm}
+
+直接输出叙事文本，不要 JSON。`;
+
+  try {
+    const text = await callAI({ systemPrompt: "你是一个修仙小说的战斗描写作者。", userPrompt: prompt, maxTokens: 300, temperature: 0.8 });
+    return text.slice(0, 300) || defaultText;
+  } catch {
+    return defaultText;
+  }
+}

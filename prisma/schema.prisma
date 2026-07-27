@@ -7,95 +7,151 @@ datasource db {
   provider = "sqlite"
 }
 
-model User {
-  id            String    @id @default(cuid())
-  name          String    @unique
-  password      String?
-  email         String?   @unique
-  bilibiliId    String?   @unique
-  avatar        String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  cultivator    Cultivator?
+model AppSetting {
+  key   String @id
+  value String
 }
 
 model Cultivator {
-  id                String   @id @default(cuid())
-  userId            String   @unique
-  user              User     @relation(fields: [userId], references: [id])
-  name              String
-  spiritualRoot     String   @default("杂灵根")
-  realm             String   @default("凡人")
-  realmLevel        Int      @default(0)
-  cultivationExp    Int      @default(0)
-  totalExp          Int      @default(0)
-  stamina           Int      @default(20)
-  breakthroughCount Int      @default(0)
-  title             String?
-  worldId           String?
-  age               Int      @default(1)
-  location          String?
-  npcRelations      String?
-  inventory         String?
-  gold              Int      @default(50)
-  storySummary          String?   // 剧情概要，追加+压缩维护，null=未初始化
-  storySummaryUpdatedAt DateTime? // 最后更新（追加或压缩）时间
-  storyEntries          String?   // JSON 数组，逐条记忆
-  storyEntriesUpdatedAt DateTime? // 最后修改时间
-  maxAge              Int?
-  bonusAge            Int      @default(0)
-  breakthroughBuff    Int      @default(0) // 破境丹 buff：突破概率加成（0-100）
-  reincarnationCount  Int      @default(0)
-  talents             String?
-  injuryDebuff        Int      @default(0)  // 重伤 debuff：剩余行动次数，>0 时修炼效果减半
-  createdAt         DateTime @default(now())
-  events            GameEvent[]
-  techniques        CultivatorTechnique[]
+  id                    String                @id @default(cuid())
+  userId                String                @unique
+  name                  String
+  spiritualRoot         String                @default("杂灵根")
+  realm                 String                @default("凡人")
+  realmLevel            Int                   @default(0)
+  cultivationExp        Int                   @default(0)
+  totalExp              Int                   @default(0)
+  stamina               Int                   @default(20)
+  breakthroughCount     Int                   @default(0)
+  title                 String?
+  worldId               String?
+  age                   Int                   @default(1)
+  quarter               Int                   @default(1)
+  /// 预留字段，当前不参与任何业务结算。待后续设计确定后再启用。
+  quarterAccum          String?               @default("{}")
+  location              String?
+  npcRelations          String?
+  inventory             String?
+  gold                  Int                   @default(50)
+  storySummary          String?
+  storySummaryUpdatedAt DateTime?
+  storyEntries          String?
+  storyEntriesUpdatedAt DateTime?
+  maxAge                Int?
+  bonusAge              Int                   @default(0)
+  breakthroughBuff      Int                   @default(0)
+  reincarnationCount    Int                   @default(0)
+  talents               String?
+  inheritedTalent       String?
+  inheritedItems        String?
+  reincarnationMark     Int                   @default(0)
+  talentSlots           String?               @default("[]")
+  injuryDebuff          Int                   @default(0)
+  mindDemon             Int                   @default(0)
+  attributes            String?
+  attributeExp          String?               @default("{}")
+  subjectExp            String?               @default("{}")
+  unlockedLocations     String?
+  occupation            String?
+  gender                String?
+  schoolRank            Int                   @default(0)
+  unlockedFormulas      String?
+  toxicity              Int                   @default(0)
+  health                Int                   @default(100)
+  furnaceEquipped       String?
+  properties            String?
+  spiritStoneLow        Int                   @default(0)
+  spiritStoneMid        Int                   @default(0)
+  spiritStoneHigh       Int                   @default(0)
+  personality           String?
+  resistance            String                @default("{}")
+  physique              String?               @default("五行均衡体")
+  fate                  String?               @default("平命")
+  clique                String?
+  examResults           String?
+  milestones            String?
+  pet                   String?
+  classEnroll           String?
+  savings               Int?                  @default(0)
+  arcadeStats           String?
+  readingLog            String?
+  createdAt             DateTime              @default(now())
+  petState              String?               @default("[]")
+  user                  User                  @relation(fields: [userId], references: [id])
+  techniques            CultivatorTechnique[]
+  familyMembers         FamilyMember[]
+  events                GameEvent[]
+}
+
+model CultivatorTechnique {
+  id           String     @id @default(cuid())
+  cultivatorId String
+  techniqueId  String
+  equipSlot    Int?
+  level        Int        @default(1)
+  proficiency  Int        @default(0)
+  createdAt    DateTime   @default(now())
+  Cultivator   Cultivator @relation(fields: [cultivatorId], references: [id])
+
+  @@unique([cultivatorId, equipSlot])
+  @@unique([cultivatorId, techniqueId])
+  @@index([cultivatorId])
+}
+
+model FamilyMember {
+  id              String     @id @default(cuid())
+  cultivatorId    String
+  relation        String
+  name            String
+  age             Int
+  alive           Boolean    @default(true)
+  intimacy        Int        @default(50)
+  dialogueHistory String?
+  occupation      String?
+  incomeLevel     Int?
+  contribution    String?
+  savings         Int        @default(0)
+  Cultivator      Cultivator @relation(fields: [cultivatorId], references: [id], onDelete: Cascade)
+
+  @@unique([cultivatorId, relation, name])
+  @@index([cultivatorId])
 }
 
 model GameEvent {
-  id           String   @id @default(cuid())
+  id           String     @id @default(cuid())
   cultivatorId String
-  cultivator   Cultivator @relation(fields: [cultivatorId], references: [id])
-  type         String   @default("ACTION")
+  type         String     @default("ACTION")
   title        String
   narrative    String
   choices      String?
   chosenOption Int?
   reward       String?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime   @default(now())
+  Cultivator   Cultivator @relation(fields: [cultivatorId], references: [id])
 
   @@index([cultivatorId, createdAt])
 }
 
 model ShareCard {
-  id            String   @id @default(cuid())
-  cultivatorId  String
-  imageUrl      String
-  title         String
-  description   String
-  bilibiliUrl   String?
-  createdAt     DateTime @default(now())
+  id           String   @id @default(cuid())
+  cultivatorId String
+  imageUrl     String
+  title        String
+  description  String
+  bilibiliUrl  String?
+  createdAt    DateTime @default(now())
 
   @@index([cultivatorId])
 }
 
-model CultivatorTechnique {
-  id            String   @id @default(cuid())
-  cultivatorId  String
-  cultivator    Cultivator @relation(fields: [cultivatorId], references: [id])
-  techniqueId   String
-  equipSlot     Int?
-  level         Int        @default(1)
-  proficiency   Int        @default(0)
-  createdAt     DateTime   @default(now())
-
-  @@unique([cultivatorId, techniqueId])
-  @@unique([cultivatorId, equipSlot])
-  @@index([cultivatorId])
-}
-
-model AppSetting {
-  key    String @id
-  value  String
+model User {
+  id         String      @id @default(cuid())
+  name       String      @unique
+  email      String?     @unique
+  bilibiliId String?     @unique
+  avatar     String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @default(now())
+  password   String?
+  cultivator Cultivator?
 }

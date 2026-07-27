@@ -12,14 +12,16 @@ export interface CombatResult {
   style: "overwhelm" | "hard_fought" | "underdog" | "comedy" | "crushed";
   enemy: Enemy;
   loot?: { gold: number; exp: number; items?: string[] };
-  penalty?: { goldLoss: number; injuryDebuff: number; lifespanLoss: number; itemLoss?: string[]; daoXiao?: boolean };
+  penalty?: { goldLoss: number; injuryDebuff: number; lifespanLoss: number; itemLoss?: string[]; daoXiao?: boolean; mindDemonDelta?: number };
   narrative: string;
 }
 
 export interface PlayerCombatData {
-  cultivator: { id: string; name: string; realm: string; realmLevel: number; gold: number; reincarnationCount: number; injuryDebuff: number };
+  cultivator: { id: string; name: string; realm: string; realmLevel: number; gold: number; reincarnationCount: number; injuryDebuff: number; mindDemon: number };
   attributes: Record<string, number>;
   equippedItems: { itemId: string }[];
+  /** 完整背包物品列表（含数量和装备状态），用于战败扣物 */
+  inventory?: { itemId: string; quantity: number; equipped: boolean }[];
   techniqueRecords: { techniqueId: string; level: number }[];
 }
 
@@ -76,23 +78,46 @@ export function generateLoot(enemy: Enemy, playerLuck: number): { gold: number; 
   const items: string[] = [];
   const baseDropRate = enemy.rarity === "普通" ? 0.05 : enemy.rarity === "精英" ? 0.15 : 0.30;
   const luckRate = baseDropRate * (1 + (playerLuck || 0) * 0.1);
-  // 单次判定，最多掉落1个
-  if (Math.random() < luckRate) items.push("spirit_stone");
+  // 从敌人掉落池中随机选取
+  const pool = enemy.drops && enemy.drops.length > 0 ? enemy.drops : ["spirit_stone"];
+  if (Math.random() < luckRate) {
+    const picked = pool[Math.floor(Math.random() * pool.length)];
+    items.push(picked);
+  }
+  // 精英额外 10% 概率再掉一个，BOSS 额外 20% 概率再掉一个
+  if (enemy.rarity !== "普通" && Math.random() < (enemy.rarity === "BOSS" ? 0.20 : 0.10)) {
+    const picked = pool[Math.floor(Math.random() * pool.length)];
+    items.push(picked);
+  }
   return { gold, exp, items };
 }
 
 /**
  * 战败惩罚（按设计文档 §4）
- * ratio < 1  → 档0: 丢5-10%灵石 + 道心受损1次 (injuryDebuff=1)
- * 1 ≤ ratio < 2 → 档1: 丢20-50%灵石 + 丢1-2件物品 (无 injuryDebuff)
+ * ratio < 1  → 档0: 丢5-10%灵石 + 道心受损（+10 mindDemon）
+ * 1 ≤ ratio < 2 → 档1: 丢20-50%灵石 + 丢1-2件物品（非装备优先）
  * 2 ≤ ratio < 5 → 档2: 丢50-80%灵石 + 重伤3次 (injuryDebuff=3) + 扣5-10年寿元
  * ratio ≥ 5 → 档3: 道消
  */
-export function applyPenalty(ratio: number, playerGold: number): {
-  goldLoss: number; injuryDebuff: number; lifespanLoss: number; daoXiao: boolean; itemLoss?: string[]
+export function applyPenalty(ratio: number, playerGold: number, inventory?: { itemId: string; quantity: number; equipped: boolean }[]): {
+  goldLoss: number; injuryDebuff: number; lifespanLoss: number; daoXiao: boolean; itemLoss?: string[]; mindDemonDelta?: number;
 } {
-  if (ratio < 1) return { goldLoss: Math.floor(playerGold * (0.05 + Math.random() * 0.05)), injuryDebuff: 1, lifespanLoss: 0, daoXiao: false };
-  if (ratio < 2) return { goldLoss: Math.floor(playerGold * (0.2 + Math.random() * 0.3)), injuryDebuff: 0, lifespanLoss: 0, daoXiao: false, itemLoss: [] };
+  if (ratio < 1) return { goldLoss: Math.floor(playerGold * (0.05 + Math.random() * 0.05)), injuryDebuff: 0, lifespanLoss: 0, daoXiao: false, mindDemonDelta: 10 };
+  if (ratio < 2) {
+    // 从非装备背包中随机扣 1-2 件物品
+    const nonEquipped = (inventory || []).filter((i) => !i.equipped && i.quantity > 0);
+    const lossCount = 1 + Math.floor(Math.random() * 2); // 1 or 2
+    const itemLoss: string[] = [];
+    const shuffled = [...nonEquipped];
+    for (let i = shuffled.length - 1; i > 0; i--) { // Fisher-Yates shuffle
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    for (let i = 0; i < Math.min(lossCount, shuffled.length); i++) {
+      itemLoss.push(shuffled[i].itemId);
+    }
+    return { goldLoss: Math.floor(playerGold * (0.2 + Math.random() * 0.3)), injuryDebuff: 0, lifespanLoss: 0, daoXiao: false, itemLoss };
+  }
   if (ratio < 5) return { goldLoss: Math.floor(playerGold * (0.5 + Math.random() * 0.3)), injuryDebuff: 3, lifespanLoss: 5 + Math.floor(Math.random() * 5), daoXiao: false };
   return { goldLoss: Math.floor(playerGold * 0.8), injuryDebuff: 0, lifespanLoss: 0, daoXiao: true };
 }
@@ -120,12 +145,13 @@ export async function resolveCombat(
   locationId?: string
 ): Promise<CombatResult> {
   let enemy: Enemy | null = null;
+  const playerPower = calculateCombatPower(player);
   if (enemyId) {
     const { ENEMIES } = await import("./enemy-data");
     enemy = ENEMIES.find((e) => e.id === enemyId) || null;
   } else if (locationId) {
     const enemies = getEnemiesForLocation(locationId, player.cultivator.realm);
-    enemy = pickEnemy(enemies);
+    enemy = pickEnemy(enemies, playerPower);
   }
   if (!enemy) {
     return {
@@ -134,7 +160,6 @@ export async function resolveCombat(
       narrative: "四周一片宁静，并无敌人。",
     };
   }
-  const playerPower = calculateCombatPower(player);
   const { win, style } = resolveBattle(playerPower, enemy.combatPower);
   const ratio = enemy.combatPower / Math.max(1, playerPower);
   const pname = playerName(player);
@@ -155,7 +180,7 @@ export async function resolveCombat(
     const loot = generateLoot(enemy, player.attributes.luck || 0);
     return { win: true, style, enemy, loot, narrative };
   } else {
-    const penalty = applyPenalty(ratio, player.cultivator.gold);
+    const penalty = applyPenalty(ratio, player.cultivator.gold, player.inventory);
     return { win: false, style, enemy, penalty, narrative };
   }
 }

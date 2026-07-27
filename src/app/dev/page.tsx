@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Home, Trash2, Sparkles, Database, RefreshCw, Eye, EyeOff, Wrench } from "lucide-react";
+import TopNav from "@/components/top-nav";
+import { VermilionShell } from "@/components/vermilion";
 import { toast } from "sonner";
-import { Home, Trash2, Sparkles, Database, RefreshCw, Eye, EyeOff } from "lucide-react";
 
 export default function DevPage() {
   const router = useRouter();
@@ -56,10 +56,7 @@ export default function DevPage() {
     const base = Math.floor(budget / 6);
     const rem = budget % 6;
     attrKeys.forEach((k, i) => { attr[k] = base + (i < rem ? 1 : 0); });
-    // 生成家庭
-    const { generateEarthFamily } = await import("@/lib/family");
-    const family = generateEarthFamily(1, identity.id);
-    localStorage.setItem("family", JSON.stringify(family));
+    // 家庭由出生叙事生成，不预创建
     // 创建角色
     const res = await fetch("/api/cultivator", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userName: `dev_${Date.now()}`, cultivatorName: `测试_${Date.now()}`, spiritualRoot: root, worldId: "earth" }) });
     const data = await res.json();
@@ -73,7 +70,7 @@ export default function DevPage() {
       try {
         const r = await fetch("/api/narrative", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: data.user.id, type: "BIRTH", worldName: "地球", identityName, age: 1, worldId: "earth", family: family.members }),
+          body: JSON.stringify({ userId: data.user.id, type: "BIRTH", worldName: "地球", identityName, age: 1, worldId: "earth" }),
         });
         if (!r.ok) { const ed = await r.json().catch(() => ({})); throw new Error(ed.error || "出生叙事生成失败"); }
         return true;
@@ -121,108 +118,93 @@ export default function DevPage() {
   };
 
   return (
-    <main className="flex-1 min-h-screen bg-background pb-20">
-      <div className="max-w-lg mx-auto p-4 space-y-4">
-        {/* 顶部导航 */}
-        <div className="flex items-center justify-between">
+    <VermilionShell>
+      <TopNav />
+      <div className="main-container space-y-6">
+        <div className="flex items-center justify-between pt-2">
           <button
             onClick={() => router.push("/dashboard")}
-            className="flex items-center gap-1 text-muted-foreground hover:text-primary transition-colors text-sm"
+            className="flex items-center gap-1 text-sm text-[#7A1F18] hover:text-[#B83227] transition-colors"
           >
             <Home className="w-4 h-4" /> 返回
           </button>
-          <span className="text-xs font-bold text-orange-500 bg-orange-50 dark:bg-orange-950 px-2 py-0.5 rounded">
+          <span className="text-xs font-bold text-[#B83227] bg-[#FDF2F0] px-2 py-0.5 rounded border border-[#B83227]/30">
             DEV MODE
           </span>
         </div>
 
-        <h1 className="text-xl font-bold text-foreground">⚙️ 调试面板</h1>
+        <h1 className="font-calligraphy text-2xl font-bold text-[#7A1F18] flex items-center gap-2">
+          <Wrench className="w-6 h-6 text-[#D49B4B]" /> 调试面板
+        </h1>
 
         {/* 快速操作 */}
-        <Card className="border-border bg-card shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-foreground flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-orange-500" /> 快速操作
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={handleQuickCreate} className="bg-orange-500 hover:bg-orange-600 text-white">
-              <Sparkles className="w-3.5 h-3.5 mr-1" /> 快速生成角色
-            </Button>
-            <Button size="sm" variant="destructive" onClick={handleReset}>
-              <Trash2 className="w-3.5 h-3.5 mr-1" /> 重置所有数据
-            </Button>
-            <Button size="sm" variant="outline" className="border-border" onClick={handleClearLocal}>
-              <Trash2 className="w-3.5 h-3.5 mr-1" /> 清空 localStorage
-            </Button>
-            <Button size="sm" variant="outline" className="border-border" onClick={handleRefresh}>
-              <RefreshCw className="w-3.5 h-3.5 mr-1" /> 刷新
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="silk-card rounded-3xl p-6">
+          <h3 className="text-sm font-bold text-[#2C1E1E] flex items-center gap-2 pb-3 mb-3 border-b border-[#EADCD0]">
+            <Sparkles className="w-4 h-4 text-[#D49B4B]" /> 快速操作
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={handleQuickCreate} className="px-4 py-2 rounded-xl bg-[#B83227] hover:bg-[#7A1F18] text-white text-sm font-medium transition-colors flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5" /> 快速生成角色
+            </button>
+            <button onClick={handleReset} className="px-4 py-2 rounded-xl bg-red-50 text-red-600 border border-red-200 hover:bg-red-600 hover:text-white text-sm font-medium transition-colors flex items-center gap-1.5">
+              <Trash2 className="w-3.5 h-3.5" /> 重置所有数据
+            </button>
+            <button onClick={handleClearLocal} className="px-4 py-2 rounded-xl bg-white text-[#B83227] border border-[#B83227]/30 hover:bg-[#FDF2F0] text-sm font-medium transition-colors flex items-center gap-1.5">
+              <Trash2 className="w-3.5 h-3.5" /> 清空 localStorage
+            </button>
+            <button onClick={handleRefresh} className="px-4 py-2 rounded-xl bg-white text-[#B83227] border border-[#B83227]/30 hover:bg-[#FDF2F0] text-sm font-medium transition-colors flex items-center gap-1.5">
+              <RefreshCw className="w-3.5 h-3.5" /> 刷新
+            </button>
+          </div>
+        </div>
 
         {/* 数据库状态 */}
-        <Card className="border-border bg-card shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-foreground flex items-center gap-2">
-              <Database className="w-4 h-4 text-blue-500" /> 数据库状态
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {dbStatus ? (
-              <div className="text-xs space-y-1 text-muted-foreground">
-                <p>
-                  状态：{" "}
-                  <span
-                    className={
-                      dbStatus.status === "ok" ? "text-green-600 font-medium" : "text-red-600 font-medium"
-                    }
-                  >
-                    {dbStatus.status === "ok" ? "✅ 正常" : "❌ 异常"}
-                  </span>
-                </p>
-                <p>数据库：{dbStatus.db === "up" ? "✅ 已连接" : "❌ 断开"}</p>
-                {dbStatus.latencyMs !== undefined && <p>延迟：{dbStatus.latencyMs}ms</p>}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">检测中...</p>
-            )}
-          </CardContent>
-        </Card>
+        <div className="silk-card rounded-3xl p-6">
+          <h3 className="text-sm font-bold text-[#2C1E1E] flex items-center gap-2 pb-3 mb-3 border-b border-[#EADCD0]">
+            <Database className="w-4 h-4 text-blue-500" /> 数据库状态
+          </h3>
+          {dbStatus ? (
+            <div className="text-xs space-y-1 text-gray-500">
+              <p>
+                状态：{" "}
+                <span className={dbStatus.status === "ok" ? "text-emerald-600 font-medium" : "text-red-600 font-medium"}>
+                  {dbStatus.status === "ok" ? "✅ 正常" : "❌ 异常"}
+                </span>
+              </p>
+              <p>数据库：{dbStatus.db === "up" ? "✅ 已连接" : "❌ 断开"}</p>
+              {dbStatus.latencyMs !== undefined && <p>延迟：{dbStatus.latencyMs}ms</p>}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400">检测中...</p>
+          )}
+        </div>
 
         {/* localStorage 数据 */}
-        <Card className="border-border bg-card shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-foreground flex items-center gap-2 justify-between">
-              <span className="flex items-center gap-2">
-                <Database className="w-4 h-4 text-green-500" /> localStorage
-              </span>
-              <button
-                onClick={() => setShowValues(!showValues)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                {showValues ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-              </button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {Object.keys(localData).length === 0 ? (
-              <p className="text-xs text-muted-foreground">无数据</p>
-            ) : (
-              <div className="text-xs space-y-1 max-h-60 overflow-y-auto">
-                {Object.entries(localData).map(([key, value]) => (
-                  <div key={key} className="flex gap-2 border-b border-border/50 pb-1 last:border-0">
-                    <span className="font-medium text-foreground shrink-0 w-28 truncate">{key}</span>
-                    <span className="text-muted-foreground truncate">
-                      {showValues ? value : value.length > 50 ? `${value.slice(0, 50)}...` : value}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <div className="silk-card rounded-3xl p-6">
+          <h3 className="text-sm font-bold text-[#2C1E1E] flex items-center gap-2 justify-between pb-3 mb-3 border-b border-[#EADCD0]">
+            <span className="flex items-center gap-2">
+              <Database className="w-4 h-4 text-emerald-600" /> localStorage
+            </span>
+            <button onClick={() => setShowValues(!showValues)} className="text-gray-400 hover:text-[#2C1E1E] transition-colors">
+              {showValues ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+            </button>
+          </h3>
+          {Object.keys(localData).length === 0 ? (
+            <p className="text-xs text-gray-400">无数据</p>
+          ) : (
+            <div className="text-xs space-y-1 max-h-60 overflow-y-auto">
+              {Object.entries(localData).map(([key, value]) => (
+                <div key={key} className="flex gap-2 border-b border-[#EADCD0]/50 pb-1 last:border-0">
+                  <span className="font-medium text-[#2C1E1E] shrink-0 w-28 truncate">{key}</span>
+                  <span className="text-gray-500 truncate">
+                    {showValues ? value : value.length > 50 ? `${value.slice(0, 50)}...` : value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </main>
+    </VermilionShell>
   );
 }

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { calcTravelCostByMode, type TravelModeId } from "@/lib";
 
 // POST — 旅行：扣除体力/金币，更新位置
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { userId, locationId, staminaCost, goldCost, useTaxi } = body;
+    const { userId, locationId, staminaCost, goldCost, useTaxi, travelMode } = body;
 
     if (!userId || !locationId) {
       return NextResponse.json({ error: "缺少必填参数" }, { status: 400 });
@@ -20,8 +21,11 @@ export async function POST(request: NextRequest) {
     }
 
     const c = user.cultivator;
-    const sCost = Math.max(0, Number(staminaCost) || 0);
-    const gCost = Math.max(0, Number(goldCost) || 0);
+    // service 端权威计价：以出行方式为准（兼容旧 useTaxi 参数）
+    const mode: TravelModeId = travelMode || (useTaxi ? "taxi" : "walk");
+    const { staminaCost: sCostCalc, goldCost: gCostCalc } = calcTravelCostByMode(c.location || "home", locationId, mode);
+    const sCost = Math.max(0, Number(staminaCost) || sCostCalc);
+    const gCost = Math.max(0, Number(goldCost) || gCostCalc);
 
     if (c.stamina < sCost) {
       return NextResponse.json({ error: "行动力不足" }, { status: 400 });
@@ -44,7 +48,7 @@ export async function POST(request: NextRequest) {
       locationId,
       staminaCost: sCost,
       goldCost: gCost,
-      useTaxi,
+      travelMode: mode,
     });
   } catch (error) {
     console.error("旅行失败:", error);

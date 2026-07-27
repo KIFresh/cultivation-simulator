@@ -1,0 +1,287 @@
+
+
+========== SALVAGED TAIL: src/lib/stream-client.ts (offset=4096, len=3017) ==========
+整的行）
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return result;
+}
+
+/** 从 SSE error 事件或 HTTP 错误体提取结构化 narrativeError */
+function extractNarrativeError(source: unknown): NarrativeErrorPayload | null {
+  const e = source as any;
+  if (e?.error?.narrativeError) return e.error.narrativeError as NarrativeErrorPayload;
+  if (typeof e?.error === "string") return { type: "STREAM", code: "STREAM_ERROR", message: e.error, gameEventId: null };
+  if (e?.narrativeError) return e.narrativeError as NarrativeErrorPayload;
+  return null;
+}
+
+/**
+ * 流式叙事预览清洗：
+ *   1) 剥离开头的代码栅栏 / 函数标签 / 思考标签 及其结尾闭合
+ *   2) 检测剩余文本是否为 JSON 对象；若是，提取 narr / narrative 字段值作为展示文本
+ *
+ * 设计要点：
+ * - 在「上一累积值 + 新块」整体重洗，而非逐块清洗——这样即使开头的栅栏被网络分块切断
+ *   （如首块为 ```json、次块才是 \n{...），栅栏补全后整串重洗即可去掉，不会残留前缀。
+ * - 仅剥「开头」与「结尾」的标签；正文中间的同类字符不受影响。
+ * - 落库叙事由 extractJson 的括号计数法单独处理（只取 {…} 内），与此处解耦。
+ * - JSON 提取：AI 模型常输出 {"type":"ACTION","narr":"...","mood":"静"} 格式的流式文本，
+ *   逐 token 拼接后用户会看到原始 JSON 骨架。本步骤在 JSON 可解析时提取 narr/narrative 字段，
+ *   让流式预览直接展示可读叙事正文。JSON 不完整时（流中途）静默回退到已清洗文本。
+ */
+const LEADING_FENCE = /^\s*```[a-zA-Z]*\s*(?:\n|(?=\{))|^\s*~~~[a-zA-Z]*\s*(?:\n|(?=\{))/;
+const LEADING_TAG = /^\s*<(?:function_calls?|function|tool_call|tool_use|think|thinking)\b[^>]*>\s*/i;
+const TRAILING_FENCE = /\s*(?:```|~~~)\s*$/;
+const TRAILING_TAG = /\s*<\/(?:function_calls?|function|tool_call|tool_use|think|thinking)>\s*$/i;
+
+/** 尝试从类 JSON 文本中提取 narr / narrative 字段；失败返回 null */
+function tryExtractNarrativeFromJson(text: string): string | null {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith('{')) return null;
+  try {
+    const obj = JSON.parse(trimmed);
+    if (obj && typeof obj === 'object') {
+      const narr = obj.narr ?? obj.narrative ?? obj.content ?? null;
+      if (typeof narr === 'string' && narr.trim().length > 0) return narr;
+    }
+  } catch { /* JSON 不完整或非法，静默回退 */ }
+  return null;
+}
+
+export function cleanNarrativeStream(raw: string): string {
+  if (!raw) return raw;
+  let s = raw;
+  // 反复剥离开头标签（可能嵌套：标签后又紧跟栅栏）
+  for (let i = 0; i < 8; i++) {
+    const next = s.replace(LEADING_FENCE, "").replace(LEADING_TAG, "");
+    if (next === s) break;
+    s = next;
+  }
+  s = s.replace(TRAILING_FENCE, "").replace(TRAILING_TAG, "");
+  // 尝试从 JSON 对象中提取可读叙事文本
+  const extracted = tryExtractNarrativeFromJson(s);
+  if (extracted !== null) return extracted;
+  return s;
+}
+
+/**
+ * 简化的 hook 风格：管理叙事文本的状态
+ */
+export function createStreamState() {
+  let accumulatedText = "";
+  const listeners = new Set<(text: string) => void>();
+
+  return {
+    get text() {
+      return accumulatedText;
+    },
+    subscribe(fn: (text: string) => void) {
+      listeners.add(fn);
+      return () => listeners.delete(fn);
+    },
+    append(chunk: string) {
+      accumulatedText += chunk;
+      listeners.forEach((fn) => fn(accumulatedText));
+    },
+    reset() {
+      accumulatedText = "";
+      listeners.forEach((fn) => fn(""));
+    },
+  };
+}
+
+
+========== SALVAGED TAIL: src/app/dashboard/hooks/use-cultivator.ts (offset=4096, len=736) ==========
+istory[0]);
+              }
+            }
+          })
+          .catch(() => {});
+      }
+    } catch (err) {
+      logger.error("加载角色失败:", err);
+    } finally {
+      setLoading(false);
+      fetch("/api/warmup").catch(() => {});
+    }
+  }, [userId]);
+
+  const refreshCultivator = useCallback(() => {
+    loadCultivator();
+  }, [loadCultivator]);
+
+  useEffect(() => {
+    if (userId) loadCultivator();
+  }, [userId, loadCultivator]);
+
+  return {
+    cultivator,
+    loading,
+    narrative,
+    narrativeHistory,
+    attributes,
+    inventory,
+    maxAge,
+    remaining,
+    memoryEntries,
+    setCultivator,
+    setNarrative,
+    setAttributes,
+    loadCultivator,
+    refreshCultivator,
+  };
+}
+
+
+========== SALVAGED TAIL: src/app/api/narrative/__tests__/route.test.ts (offset=4096, len=1133) ==========
+  body: JSON.stringify({ userId: 'user1', type: 'DAILY_CULTIVATION' }),
+          });
+          const res = await POST(req);
+      expect(res.status).toBe(200);
+      expect(res.headers.get('Content-Type')).toContain('event-stream');
+    });
+
+    it('突破类型成功返回突破叙事', async () => {
+      mockBreakthrough.mockResolvedValue({
+        type: 'BREAKTHROUGH', title: '突破', narrative: '成功突破', mood: '燃',
+        hint: '恭喜', summary: '突破总结',
+      });
+      const res = await POST(makeRequest({ userId: 'user1', type: 'BREAKTHROUGH' }));
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.narrative).toBeDefined();
+    });
+
+    it('流式请求返回 SSE 响应', async () => {
+          const req = new NextRequest(new URL('http://test/api/narrative?stream=true'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: 'user1', type: 'DAILY_CULTIVATION' }),
+          });
+          const res = await POST(req);
+      expect(res.status).toBe(200);
+      expect(res.headers.get('Content-Type')).toContain('event-stream');
+    });
+  });
+});
+
+========== SALVAGED TAIL: src/lib/__tests__/cultivation-data.test.ts (offset=12288, len=4653) ==========
+expect(ACTION_ATTR_MAP['MEDITATE']).toBeDefined();
+      expect(ACTION_ATTR_MAP['STUDY']).toBeDefined();
+      expect(ACTION_ATTR_MAP['FREE']).toBeDefined();
+      expect(ACTION_ATTR_MAP['LISTEN_TEACHER']).toBeDefined();
+    });
+  });
+
+  describe('expToNextLevel', () => {
+    it('level 1 -> 100', () => {
+      expect(expToNextLevel(1)).toBe(100);
+    });
+    it('level 2 -> 400', () => {
+      expect(expToNextLevel(2)).toBe(400);
+    });
+  });
+
+  describe('calculateAttributeExp', () => {
+    it('returns exp gain for MEDITATE', () => {
+      const result = calculateAttributeExp('MEDITATE', {}, 30);
+      expect(result.attrResults['spirit']).toBeDefined();
+      expect(result.attrResults['spirit'].expGained).toBeGreaterThan(0);
+    });
+    it('uses root=1 fallback for unknown action', () => {
+          const result = calculateAttributeExp('UNKNOWN', {}, 10);
+          expect(result.attrResults['root']).toBeDefined();
+          expect(result.attrResults['root'].expGained).toBeGreaterThan(0);
+        });
+  });
+
+  describe('getAvailableActions (age gate for LISTEN_TEACHER)', () => {
+      it('does not include cultivation-only actions for kindergarten age at home', () => {
+        const actions = getAvailableActions('earth', 5, 'home', '凡人');
+        expect(actions.some(a => a.id === 'LISTEN_TEACHER')).toBe(false);
+        expect(actions.some(a => a.category === 'cultivate')).toBe(false);
+        // at home, kindergarteners should still get social/free actions
+        expect(actions.some(a => ['TALK', 'WANDER', 'FREE'].includes(a.id))).toBe(true);
+      });
+  });
+});
+
+describe('地点专属行动补全', () => {
+  // 16 条地点专属行动：actionId -> 归属地点
+  const LOCATION_ACTIONS: Record<string, string> = {
+    PARK_SWING: 'park', PARK_KITE: 'park',
+    KINDER_NAP: 'kindergarten', KINDER_TOY: 'kindergarten',
+    LIB_READ: 'library', LIB_BORROW: 'library',
+    CLINIC_CHECK: 'clinic', CLINIC_CONSULT: 'clinic', CLINIC_TREAT: 'clinic',
+    FURN_PICK: 'store_furniture', FURN_TRY: 'store_furniture',
+    MALL_SHOP: 'mall', MALL_FOOD: 'mall',
+    DOWNTOWN_STROLL: 'downtown', DOWNTOWN_SHOW: 'downtown', CITY_DINE: 'downtown',
+  };
+
+  it('16 条地点行动都存在于 ACTIONS 且 allowedLocations 指向唯一归属地点', () => {
+    for (const [actionId, loc] of Object.entries(LOCATION_ACTIONS)) {
+      const a = ACTIONS.find(x => x.id === actionId);
+      expect(a, `missing action ${actionId}`).toBeDefined();
+      expect(a!.allowedLocations).toEqual([loc]);
+    }
+  });
+
+  it('ACTION_ATTR_MAP 覆盖全部 16 条地点行动，且权重和为 1', () => {
+    for (const actionId of Object.keys(LOCATION_ACTIONS)) {
+      const w = ACTION_ATTR_MAP[actionId];
+      expect(w, `missing attr map for ${actionId}`).toBeDefined();
+      const sum = Object.values(w).reduce((s, v) => s + v, 0);
+      expect(sum).toBeCloseTo(1, 5);
+    }
+  });
+
+  it('金币消耗行动字段正确（看病/美食广场/下馆子）', () => {
+    const treat = ACTIONS.find(a => a.id === 'CLINIC_TREAT')!;
+    expect(treat.goldCost).toBe(20);
+    expect(treat.healthGain).toBe(15);
+    expect(treat.allowedLocations).toEqual(['clinic']);
+
+    const food = ACTIONS.find(a => a.id === 'MALL_FOOD')!;
+    expect(food.goldCost).toBe(15);
+
+    const dine = ACTIONS.find(a => a.id === 'CITY_DINE')!;
+    expect(dine.goldCost).toBe(25);
+    expect(dine.allowedLocations).toEqual(['downtown']);
+  });
+
+  it('在归属地点能拿到专属行动，其它地点拿不到（空壳地点不再为空）', () => {
+    // 公园（age 5）
+    const parkActs = getAvailableActions('earth', 5, 'park', '凡人').map(a => a.id);
+    expect(parkActs).toContain('PARK_SWING');
+    expect(parkActs).toContain('PARK_KITE');
+    // 同年龄在家不应出现公园专属行动
+    const homeActs = getAvailableActions('earth', 5, 'home', '凡人').map(a => a.id);
+    expect(homeActs).not.toContain('PARK_SWING');
+    // 图书馆（age 8）
+    const libActs = getAvailableActions('earth', 8, 'library', '凡人').map(a => a.id);
+    expect(libActs).toContain('LIB_READ');
+    expect(libActs).toContain('LIB_BORROW');
+    // 诊所（age 8）含看病抓药
+    const clinicActs = getAvailableActions('earth', 8, 'clinic', '凡人').map(a => a.id);
+    expect(clinicActs).toContain('CLINIC_CHECK');
+    expect(clinicActs).toContain('CLINIC_TREAT');
+    // 市区（age 14）含下馆子
+    const dtActs = getAvailableActions('earth', 14, 'downtown', '凡人').map(a => a.id);
+    expect(dtActs).toContain('DOWNTOWN_STROLL');
+    expect(dtActs).toContain('DOWNTOWN_SHOW');
+    expect(dtActs).toContain('CITY_DINE');
+  });
+
+  it('年龄未达解锁门槛时地点专属行动被屏蔽', () => {
+    // 图书馆 minAgeEarth 6，3 岁时在 library 不应出现 LIB_READ
+    const acts = getAvailableActions('earth', 3, 'library', '凡人').map(a => a.id);
+    expect(acts).not.toContain('LIB_READ');
+  });
+});
+

@@ -1,0 +1,6 @@
+# pack-refs with: peeled fully-peeled sorted 
+3a4236298b80947c2330533a7db4a9cbe0c4231a refs/remotes/origin/feat/combat-system
+dfa0728cdd8c169469e28cdbe138c5a5b883b874 refs/remotes/origin/feat/lifespan-reincarnation
+cac0c89f72b4ec09680963e8c7ab0d61a59196ec refs/remotes/origin/feat/memory-visualization
+735f413b7b46e9d14fabd362efeb23aaf51d4957 refs/remotes/origin/feat/narrative-schema-unification
+47c320f269bde88fc0977c2ed4c94724ce66fa6d refs/remotes/origin/master

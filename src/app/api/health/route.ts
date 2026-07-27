@@ -15,13 +15,13 @@ export async function GET() {
       latencyMs: Date.now() - started,
       time: new Date().toISOString(),
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       {
         status: "error",
         db: "down",
         latencyMs: Date.now() - started,
-        message: error instanceof Error ? error.message : "unknown",
+        message: "数据库连接异常",
         time: new Date().toISOString(),
       },
       { status: 503 }

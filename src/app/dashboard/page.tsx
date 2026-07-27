@@ -2,24 +2,23 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Sparkles, Zap, Send, SkipForward, Sword, ScrollText, Home } from "lucide-react";
-import BottomNav from "@/components/bottom-nav";
+import { Zap, Sparkles, Send, SkipForward, Sword, ScrollText, Coins, MapPin } from "lucide-react";
+import Link from "next/link";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import {
   getAvailableActions, getActionById, formatRealmLevel, MORTAL_REALM, isAwakened,
   canBreakthrough, getRootInfo, getStarterInventory, getItemById,
   getEquippedItems, getBackpackItems, getSchoolStage, getSchoolGrade,
   getDefaultOccupation, getUnlockedLocations, ATTR_INFO,
-  calcTravelCost, calculateMaxStamina, getNPCsAtLocation,
+  calculateMaxStamina, getNPCsAtLocation,
 } from "@/lib";
 import type { Action, InventoryItem, NPC } from "@/lib";
 import { toast } from "sonner";
+import { consumeNarrativeStream } from "@/lib/sse-client";
 import MemoryPanel from "@/components/memory-panel";
 import DaoXiaoModal from "@/components/dao-xiao-modal";
 import TechniquePanel from "@/components/technique-panel";
+import TopNav from "@/components/top-nav";
 
 interface CultivatorData {
   id: string; name: string; spiritualRoot: string; realm: string;
@@ -45,6 +44,7 @@ export default function DashboardPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [narrative, setNarrative] = useState<NarrativeDisplay | null>(null);
   const [narrativeHistory, setNarrativeHistory] = useState<NarrativeDisplay[]>([]);
+  const [streamingText, setStreamingText] = useState<string | null>(null);
   const [availableActions, setAvailableActions] = useState<Action[]>([]);
   const [canBreak, setCanBreak] = useState(false);
   const [awakenEvent, setAwakenEvent] = useState<{ title: string; narrative: string } | null>(null);
@@ -53,7 +53,6 @@ export default function DashboardPage() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [occupation, setOccupation] = useState("");
   const [schoolRank, setSchoolRank] = useState("普通");
-  const [currentLoc, setCurrentLoc] = useState("home");
   const [unlockedLocs, setUnlockedLocs] = useState<string[]>([]);
   const [activeActionId, setActiveActionId] = useState<string | null>(null);
   const [actionInput, setActionInput] = useState("");
@@ -69,6 +68,7 @@ export default function DashboardPage() {
   const [warnEarly, setWarnEarly] = useState(false);
   const [remaining, setRemaining] = useState(0);
   const [maxAge, setMaxAge] = useState<number | null>(null);
+  const currentLoc = cultivator?.location || "home";
   const currentNPCs = cultivator ? getNPCsAtLocation(currentLoc) : [];
   const attributesRef = useRef(attributes);
   attributesRef.current = attributes;
@@ -84,8 +84,6 @@ export default function DashboardPage() {
       if (occ) setOccupation(occ);
       const sr = localStorage.getItem("schoolRank");
       if (sr) setSchoolRank(sr);
-      const loc = localStorage.getItem("currentLocation");
-      if (loc) setCurrentLoc(loc);
       const uls = localStorage.getItem("unlockedLocations");
       if (uls) setUnlockedLocs(JSON.parse(uls));
     } catch {}
@@ -183,57 +181,92 @@ export default function DashboardPage() {
 
   const performAction = async (actionId: string, input?: string) => {
     if (!userId || !cultivator || actionLoading) return;
-    setActionLoading(true); setActiveActionId(null); setActionInput("");
+    setActionLoading(true); setActiveActionId(null); setActionInput(""); setStreamingText("");
     try {
       let familyData = null;
       try { const raw = localStorage.getItem("family"); if (raw) familyData = JSON.parse(raw); } catch {}
-      const res = await fetch("/api/action", {
+      const res = await fetch("/api/action?stream=true", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, actionId, freeInput: input || undefined, worldId: cultivator.worldId, family: familyData, attributes }),
       });
-      const data = await res.json();
-      if (!res.ok) { toast.error(data.error || "行动失败"); return; }
-      if (data.updatedFamily) localStorage.setItem("family", JSON.stringify(data.updatedFamily));
-      if (data.intimacyChanges) data.intimacyChanges.forEach((c: any) => {
-        if (c.delta > 0) toast(`💕 与${c.relation}${c.name} 亲近${c.delta}`, { duration: 3000 });
-        else if (c.delta < 0) toast(`💔 与${c.relation}${c.name} 疏远${Math.abs(c.delta)}`, { duration: 3000 });
-      });
-      const newN: NarrativeDisplay = { title: data.narrative.title, narrative: data.narrative.narrative, mood: data.narrative.mood, hint: data.narrative.hint };
-      setNarrative(newN); setNarrativeExpanded(false); setNarrativeHistory((prev) => [newN, ...prev].slice(0, 50));
-      if (data.cultivator) {
-        setCultivator(data.cultivator);
-        const c = data.cultivator;
-        if (c.storyEntries) {
-          try { const parsed = typeof c.storyEntries === "string" ? JSON.parse(c.storyEntries) : c.storyEntries; setMemoryEntries(Array.isArray(parsed) ? parsed : []); } catch {}
-        }
-        if (isAwakened(c.realm)) setCanBreak(canBreakthrough(c.realm, c.realmLevel, c.cultivationExp, c.spiritualRoot, c.breakthroughBuff || 0));
-        setAvailableActions(getAvailableActions(c.worldId || "earth", c.age, currentLoc));
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || "行动失败");
+        return;
       }
-      if (data.awakenEvent) { setAwakenEvent(data.awakenEvent); toast.success("🎉 灵气觉醒！", { duration: 5000 }); }
-      if (data.expGained) toast.success(`修炼值 +${data.expGained}`, { duration: 2000 });
-      if (data.techniqueEvents && data.techniqueEvents.length > 0) {
-        data.techniqueEvents.forEach((te: any) => {
-          const profMsg = te.eventNarrative ? te.eventNarrative : `${te.icon} ${te.techniqueName} 熟练度 +${te.profGained}`;
-          toast(profMsg, { duration: 3000 });
-          if (te.leveledUp) toast.success(`⚡ ${te.icon} ${te.techniqueName} 升级！`, { duration: 4000 });
+      const ct = res.headers.get("content-type") || "";
+      if (ct.includes("text/event-stream")) {
+        // 流式叙事：逐段回填，不暴露 JSON 骨架
+        await consumeNarrativeStream(res, {
+          onChunk: (c) => setStreamingText((prev) => (prev || "") + c),
+          onDone: (d: any) => {
+            if (!d) return;
+            const data = d;
+            const newN: NarrativeDisplay = { title: data.narrative.title, narrative: data.narrative.narrative, mood: data.narrative.mood, hint: data.narrative.hint };
+            setNarrative(newN); setNarrativeExpanded(false); setNarrativeHistory((prev) => [newN, ...prev].slice(0, 50));
+            if (data.cultivator) {
+              setCultivator(data.cultivator);
+              const c = data.cultivator;
+              if (c.storyEntries) {
+                try { const parsed = typeof c.storyEntries === "string" ? JSON.parse(c.storyEntries) : c.storyEntries; setMemoryEntries(Array.isArray(parsed) ? parsed : []); } catch {}
+              }
+              if (isAwakened(c.realm)) setCanBreak(canBreakthrough(c.realm, c.realmLevel, c.cultivationExp, c.spiritualRoot, c.breakthroughBuff || 0));
+              setAvailableActions(getAvailableActions(c.worldId || "earth", c.age, currentLoc));
+            }
+            if (data.awakenEvent) { setAwakenEvent(data.awakenEvent); toast.success("🎉 灵气觉醒！", { duration: 5000 }); }
+            if (data.expGained) toast.success(`修炼值 +${data.expGained}`, { duration: 2000 });
+            if (data.techniqueEvents && data.techniqueEvents.length > 0) {
+              data.techniqueEvents.forEach((te: any) => {
+                const profMsg = te.eventNarrative ? te.eventNarrative : `${te.icon} ${te.techniqueName} 熟练度 +${te.profGained}`;
+                toast(profMsg, { duration: 3000 });
+                if (te.leveledUp) toast.success(`⚡ ${te.icon} ${te.techniqueName} 升级！`, { duration: 4000 });
+              });
+            }
+          },
+          onError: (e: any) => { toast.error(e?.message || "行动叙事生成失败，请重试"); },
         });
+      } else {
+        const data = await res.json();
+        if (data.updatedFamily) localStorage.setItem("family", JSON.stringify(data.updatedFamily));
+        if (data.intimacyChanges) data.intimacyChanges.forEach((c: any) => {
+          if (c.delta > 0) toast(`💕 与${c.relation}${c.name} 亲近${c.delta}`, { duration: 3000 });
+          else if (c.delta < 0) toast(`💔 与${c.relation}${c.name} 疏远${Math.abs(c.delta)}`, { duration: 3000 });
+        });
+        const newN: NarrativeDisplay = { title: data.narrative.title, narrative: data.narrative.narrative, mood: data.narrative.mood, hint: data.narrative.hint };
+        setNarrative(newN); setNarrativeExpanded(false); setNarrativeHistory((prev) => [newN, ...prev].slice(0, 50));
+        if (data.cultivator) {
+          setCultivator(data.cultivator);
+          const c = data.cultivator;
+          if (c.storyEntries) {
+            try { const parsed = typeof c.storyEntries === "string" ? JSON.parse(c.storyEntries) : c.storyEntries; setMemoryEntries(Array.isArray(parsed) ? parsed : []); } catch {}
+          }
+          if (isAwakened(c.realm)) setCanBreak(canBreakthrough(c.realm, c.realmLevel, c.cultivationExp, c.spiritualRoot, c.breakthroughBuff || 0));
+          setAvailableActions(getAvailableActions(c.worldId || "earth", c.age, currentLoc));
+        }
+        if (data.awakenEvent) { setAwakenEvent(data.awakenEvent); toast.success("🎉 灵气觉醒！", { duration: 5000 }); }
+        if (data.expGained) toast.success(`修炼值 +${data.expGained}`, { duration: 2000 });
+        if (data.techniqueEvents && data.techniqueEvents.length > 0) {
+          data.techniqueEvents.forEach((te: any) => {
+            const profMsg = te.eventNarrative ? te.eventNarrative : `${te.icon} ${te.techniqueName} 熟练度 +${te.profGained}`;
+            toast(profMsg, { duration: 3000 });
+            if (te.leveledUp) toast.success(`⚡ ${te.icon} ${te.techniqueName} 升级！`, { duration: 4000 });
+          });
+        }
       }
     } catch (err) { console.error("行动失败:", err); toast.error("行动失败，请重试"); }
-    finally { setActionLoading(false); }
+    finally { setStreamingText(null); setActionLoading(false); }
   };
 
-  const advanceYear = async () => {
+  const advanceSeason = async () => {
     if (!userId || !cultivator || advancing) return;
     setAdvancing(true);
     try {
-      let familyData = null;
-      try { const raw = localStorage.getItem("family"); if (raw) familyData = JSON.parse(raw); } catch {}
-      const res = await fetch("/api/advance-year", {
+      const res = await fetch("/api/advance-quarter", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, worldId: cultivator.worldId, family: familyData, attributes, schoolRank, occupation }),
+        body: JSON.stringify({ userId, worldId: cultivator.worldId, attributes, schoolRank, occupation }),
       });
       const data = await res.json();
-      if (!res.ok) { toast.error(data.error || "时间推进失败"); return; }
+      if (!res.ok) { toast.error(data.error || "季节推进失败"); return; }
       if (data.daoXiao) {
         setDaoXiao({ summary: data.summary, name: cultivator.name });
         return;
@@ -252,22 +285,16 @@ export default function DashboardPage() {
         setRemaining(data.remaining);
         setMaxAge(data.maxAge);
       }
-      if (data.updatedFamily) localStorage.setItem("family", JSON.stringify(data.updatedFamily));
-      if (data.intimacyChanges) {
-        const bad = data.intimacyChanges.filter((c: any) => c.delta < 0);
-        if (bad.length > 0) toast(bad.map((c: any) => `💔 ${c.relation}${c.name} 疏远${Math.abs(c.delta)}`).join(" "), { duration: 4000 });
-      }
       if (data.newAttributes) { setAttributes(data.newAttributes); localStorage.setItem("attributes", JSON.stringify(data.newAttributes)); }
       if (data.schoolRank) { setSchoolRank(data.schoolRank); localStorage.setItem("schoolRank", data.schoolRank); }
       if (data.occupation) { setOccupation(data.occupation); localStorage.setItem("occupation", data.occupation); }
       if (data.examResult) toast.success(`📝 ${data.examResult.description}`, { duration: 5000 });
       const newLocs = getUnlockedLocations(data.cultivator.age, isAwakened(data.cultivator.realm), unlockedLocs);
       localStorage.setItem("unlockedLocations", JSON.stringify(newLocs.map((l: any) => l.id)));
-      const yearN: NarrativeDisplay = { title: data.narrative.title, narrative: data.narrative.narrative, mood: data.narrative.mood };
-      setNarrative(yearN); setNarrativeExpanded(false); setNarrativeHistory((prev) => [yearN, ...prev].slice(0, 50));
-      toast.success(`🎊 ${data.cultivator.name} ${data.newAge}岁！`, { duration: 3000 });
+      // 季节推进不生成叙事（按需求删除）
+      toast.success(`🌿 ${data.cultivator.name} ${data.yearWrapped ? `${data.newAge}岁` : `第${data.quarter}季`}`, { duration: 3000 });
       if (data.awakenEvent) { setAwakenEvent(data.awakenEvent); toast.success("🎉 灵气觉醒！", { duration: 5000 }); }
-    } catch (err) { console.error("时间推进失败:", err); toast.error("时间推进失败"); }
+    } catch (err) { console.error("季节推进失败:", err); toast.error("季节推进失败"); }
     finally { setAdvancing(false); }
   };
 
@@ -288,53 +315,6 @@ export default function DashboardPage() {
     } catch (err) { console.error("突破失败:", err); toast.error("突破失败"); }
   };
 
-  const switchLocation = (locId: string, useTaxi = false) => {
-    if (!cultivator) return;
-    const target = locs.find((l) => l.id === locId);
-    if (!target || locId === currentLoc) return;
-    const cost = calcTravelCost(currentLoc, locId);
-    const taxiStaminaCost = Math.max(1, Math.floor(cost / 3));
-    const taxiGoldCost = cost * 3;
-    const currentGold = cultivator.gold ?? 50;
-
-    if (!useTaxi) {
-      if (cultivator.stamina >= cost) {
-        const walk = window.confirm(`前往「${target.name}」\n步行：${cost}行动力\n打车：${taxiStaminaCost}行动力+${taxiGoldCost}金币\n\n确定=步行  取消=打车`);
-        if (!walk) {
-          if (currentGold >= taxiGoldCost && cultivator.stamina >= taxiStaminaCost) {
-            switchLocation(locId, true);
-          } else {
-            toast.error(currentGold < taxiGoldCost ? `金币不足！需要${taxiGoldCost}` : `行动力不足！需要${taxiStaminaCost}`);
-          }
-          return;
-        }
-      } else {
-        if (currentGold >= taxiGoldCost && cultivator.stamina >= taxiStaminaCost) {
-          if (window.confirm(`行动力不足（需要${cost}/${cultivator.stamina}）\n打车前往需${taxiStaminaCost}行动力+${taxiGoldCost}金币，是否打车？`)) {
-            switchLocation(locId, true);
-          }
-          return;
-        }
-        toast.error(`行动力不足！需要${cost}点`);
-        return;
-      }
-    }
-
-    const finalStamina = cultivator.stamina - (useTaxi ? taxiStaminaCost : cost);
-    const finalGold = useTaxi ? currentGold - taxiGoldCost : currentGold;
-    setCultivator({ ...cultivator, stamina: finalStamina, gold: finalGold, location: locId });
-    setCurrentLoc(locId);
-    localStorage.setItem("currentLocation", locId);
-    toast.success(`📍 ${useTaxi ? "打车到" : "来到"}${target.name}${useTaxi ? `(-${taxiGoldCost}金)` : ""}`, { duration: 1500 });
-
-    // 持久化旅行消耗到后端
-    if (userId) {
-      fetch("/api/travel", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, locationId: locId, staminaCost: useTaxi ? taxiStaminaCost : cost, goldCost: useTaxi ? taxiGoldCost : 0, useTaxi }),
-      }).catch((err) => console.error("旅行持久化失败:", err));
-    }
-  };
 
   const sendNpcMessage = async (msg: string) => {
     if (!userId || !cultivator || !npcChat || cultivator.stamina < 1) return;
@@ -362,7 +342,7 @@ export default function DashboardPage() {
     else performAction(actionId);
   };
 
-  const moodColor = { "燃": "text-red-600", "悟": "text-amber-600", "静": "text-blue-600", "奇": "text-purple-600", "险": "text-orange-600" }[narrative?.mood || "静"] || "text-stone-600";
+  const moodColor = { "燃": "text-[#B83227]", "悟": "text-[#D49B4B]", "静": "text-blue-600", "奇": "text-purple-600", "险": "text-orange-600" }[narrative?.mood || "静"] || "text-stone-600";
   const currentLocName = locs.find((l) => l.id === currentLoc)?.name || "";
   const totalItems = getEquippedItems(inventory).length + getBackpackItems(inventory).length;
 
@@ -404,10 +384,7 @@ export default function DashboardPage() {
     const base = Math.floor(budget / 6);
     const rem = budget % 6;
     attrKeys.forEach((k, i) => { attr[k] = base + (i < rem ? 1 : 0); });
-    // 生成家庭
-    const { generateEarthFamily } = await import("@/lib/family");
-    const family = generateEarthFamily(1, identity.id);
-    localStorage.setItem("family", JSON.stringify(family));
+    // 家庭由出生叙事生成，不预创建
     // 创建角色
     const res = await fetch("/api/cultivator", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userName: `dev_${Date.now()}`, cultivatorName: `测试_${Date.now()}`, spiritualRoot: root, worldId: "earth" }) });
     const data = await res.json();
@@ -421,9 +398,13 @@ export default function DashboardPage() {
       try {
         const r = await fetch("/api/narrative", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: data.user.id, type: "BIRTH", worldName: "地球", identityName, age: 1, worldId: "earth", family: family.members }),
+          body: JSON.stringify({ userId: data.user.id, type: "BIRTH", worldName: "地球", identityName, age: 1, worldId: "earth" }),
         });
         if (!r.ok) { const ed = await r.json().catch(() => ({})); throw new Error(ed.error || "出生叙事生成失败"); }
+        const birthData = await r.json().catch(() => ({}));
+        if (birthData.suggestedName || birthData.cultivator?.name) {
+          localStorage.setItem("cultivatorName", birthData.cultivator?.name || birthData.suggestedName);
+        }
         return true;
       } catch (err) {
         console.error("出生叙事生成失败:", err);
@@ -445,314 +426,348 @@ export default function DashboardPage() {
     window.location.href = "/";
   };
 
-  if (loading) return <main className="flex-1 flex items-center justify-center min-h-screen bg-transparent"><p className="text-muted-foreground">加载中...</p></main>;
-  if (!cultivator) return <main className="flex-1 flex flex-col items-center justify-center min-h-screen bg-transparent p-4"><p className="text-muted-foreground mb-4">尚未创建修炼者</p><div className="flex gap-2">{devMode ? <><Button onClick={handleQuickCreate}>快速生成</Button><Button variant="outline" className="border-border" onClick={handleReset}>重置数据</Button></> : <Button onClick={() => router.push("/create")}>创建角色</Button>}</div></main>;
+  if (loading) return (
+    <main className="flex-1 flex items-center justify-center min-h-screen bg-[#FAF7F3]" style={{ fontFamily: "'Noto Serif SC','Songti SC','STSong','SimSun','宋体',Georgia,serif" }}>
+      <p className="text-[#8a7a72]">加载中…</p>
+    </main>
+  );
+  if (!cultivator) return (
+    <main className="flex-1 flex flex-col items-center justify-center min-h-screen bg-[#FAF7F3] p-4" style={{ fontFamily: "'Noto Serif SC','Songti SC','STSong','SimSun','宋体',Georgia,serif" }}>
+      <p className="text-[#8a7a72] mb-4">尚未创建修炼者</p>
+      <div className="flex gap-2">
+        {devMode ? (
+          <>
+            <button onClick={handleQuickCreate} className="px-4 py-2 rounded-xl bg-[#B83227] text-white text-sm font-medium tracking-widest shadow-sm hover:bg-[#7A1F18] transition-colors">快速生成</button>
+            <button onClick={handleReset} className="px-4 py-2 rounded-xl border border-[#EADCD0] bg-white text-[#2C1E1E] text-sm font-medium hover:border-[#B83227] transition-colors">重置数据</button>
+          </>
+        ) : (
+          <button onClick={() => router.push("/create")} className="px-4 py-2 rounded-xl bg-[#B83227] text-white text-sm font-medium tracking-widest shadow-sm hover:bg-[#7A1F18] transition-colors">创建角色</button>
+        )}
+      </div>
+    </main>
+  );
 
   return (
-    <main className="flex-1 flex flex-col min-h-screen bg-transparent pb-20">
-      <div className="relative z-10 max-w-lg w-full mx-auto p-4 space-y-2">
+    <main
+      className="min-h-screen bg-[#FAF7F3] text-[#2C1E1E]"
+      style={{ fontFamily: "'Noto Serif SC','Songti SC','STSong','SimSun','宋体',Georgia,serif" }}
+    >
+      <TopNav />
 
-        {/* 顶栏 */}
-        <div className="flex items-center py-1 border-b border-border">
-          <button onClick={() => router.push("/")} className="flex items-center gap-1 text-muted-foreground hover:text-primary transition-colors text-sm">
-          {devMode && <span className="ml-auto text-xs text-orange-500 font-bold">DEV MODE</span>}
-            <Home className="w-4 h-4" /> 返回
-          </button>
-        </div>
+      <div className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* 左栏：命脉道基 */}
+        <section className="lg:col-span-5 space-y-6">
+          <div className="silk-card rounded-3xl p-8 relative overflow-hidden">
+            {/* 朱砂盖印章 */}
+            <div className="absolute top-6 right-8 text-center select-none">
+              <div className="seal-mark border-2 border-[#B83227] text-[#B83227] px-3 py-1 text-sm font-bold calligraphy bg-white inline-block rounded-sm">
+                {realmLabel}
+              </div>
+              <div className="text-[10px] text-amber-900/60 mt-1 font-mono">{cultivator.age} 岁</div>
+            </div>
 
-        {/* 角色状态 */}
-        <Card className="border-border bg-card shadow-md">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-foreground text-lg font-bold">{cultivator.name}</CardTitle>
-                <p className="text-muted-foreground text-xs">{getRootInfo(cultivator.spiritualRoot).name}</p>
+            {/* 基本信息 */}
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold calligraphy mb-1 tracking-wider text-[#7A1F18]">{cultivator.name}</h2>
+              <div className="flex items-center space-x-3 text-xs">
+                <span className="text-[#D49B4B] font-bold">{getRootInfo(cultivator.spiritualRoot).name}</span>
+                <span className="text-gray-300">|</span>
+                <span className="text-gray-500">{displayOccupation === "婴儿" ? "🍼" : displayOccupation === "学生" ? "📚" : "👤"} {displayOccupation}</span>
               </div>
-              <div className="text-right">
-                <p className="text-primary font-bold text-base">{realmLabel}</p>
-                <p className="text-muted-foreground text-xs">{cultivator.age}岁</p>
+              <div className="flex items-center space-x-2 mt-1 text-[11px] text-gray-400">
+                {schoolStage && <span>📖 {schoolStage.name}{schoolGrade}年级{schoolRank !== "普通" ? `（${schoolRank}）` : ""}</span>}
+                {currentLocName && <span>📍 {currentLocName}</span>}
               </div>
             </div>
-            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-              <span>{displayOccupation === "婴儿" ? "🍼" : displayOccupation === "学生" ? "📚" : "👤"} {displayOccupation}</span>
-              {schoolStage && <span>📖 {schoolStage.name}{schoolGrade}年级{schoolRank !== "普通" ? `（${schoolRank}）` : ""}</span>}
-              {currentLocName && <span>📍 {currentLocName}</span>}
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {isAwake && (
-              <div>
-                <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                  <span>修炼值</span><span>{cultivator.cultivationExp}</span>
+
+            {/* 核心资源 */}
+            <div className="space-y-6 border-t border-b border-[#EADCD0] py-6 mb-6">
+              {isAwake && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>修炼值</span><span className="font-mono font-bold text-[#7A1F18]">{cultivator.cultivationExp}</span>
+                  </div>
+                  <div className="h-2.5 w-full bg-[#F3EBE1] rounded-full overflow-hidden border border-[#EADCD0]">
+                    <div className="vermilion-progress-solid h-full transition-all duration-300" style={{ width: `${Math.min(100, (cultivator.cultivationExp / 100) * 100)}%` }} />
+                  </div>
                 </div>
-                <div className="w-full bg-secondary rounded-full h-1">
-                  <div className="bg-[#5A7A6A] h-1 rounded-full transition-all" style={{ width: `${Math.min(100, (cultivator.cultivationExp / 100) * 100)}%` }} />
+              )}
+
+              {/* 行动力 */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-end">
+                  <span className="text-xs font-bold text-gray-500"><Zap className="w-3 h-3 inline mr-1 text-[#D49B4B]" /> 行动力</span>
+                  <span className="font-mono text-sm font-bold text-[#7A1F18]">{cultivator.stamina} / {maxStamina}</span>
+                </div>
+                <div className="h-2.5 w-full bg-[#F3EBE1] rounded-full overflow-hidden border border-[#EADCD0]">
+                  <div className="vermilion-progress-solid h-full transition-all duration-300" style={{ width: `${(cultivator.stamina / maxStamina) * 100}%` }} />
                 </div>
               </div>
-            )}
-            <div className="flex items-center gap-2 text-sm">
-              <Zap className="w-4 h-4 text-primary" />
-              <span className="text-foreground">行动力</span>
-              <div className="flex-1 bg-secondary rounded-full h-1.5">
-                <div className="bg-primary h-1.5 rounded-full transition-all" style={{ width: `${(cultivator.stamina / maxStamina) * 100}%` }} />
-              </div>
-              <span className="text-muted-foreground text-xs">{cultivator.stamina}/{maxStamina}</span>
-            </div>
-            {maxAge !== null && maxAge > 0 && (
-              <div className="text-xs text-muted-foreground">
-                <span>寿元：{cultivator.age} / {maxAge >= 999999 ? "∞" : maxAge} 岁</span>
-                <div className="w-full h-1.5 bg-muted rounded-full mt-1 overflow-hidden">
-                  <div className={`h-full rounded-full transition-all ${
-                    remaining <= 5 ? "bg-red-500" : remaining < maxAge * 0.1 ? "bg-yellow-500" : "bg-green-500"
-                  }`} style={{ width: `${Math.max(0, (remaining / maxAge) * 100)}%` }} />
+
+              {/* 寿元 */}
+              {maxAge !== null && maxAge > 0 && (
+                <div className="space-y-1">
+                  <span className="text-xs font-bold text-gray-500">寿元：{cultivator.age} / {maxAge >= 999999 ? "∞" : maxAge} 岁</span>
+                  <div className="w-full h-2 bg-[#F3EBE1] rounded-full overflow-hidden border border-[#EADCD0]">
+                    <div className={`h-full rounded-full transition-all ${
+                      remaining <= 5 ? "bg-red-500" : remaining < maxAge * 0.1 ? "bg-[#D49B4B]" : "bg-[#7FA97F]"
+                    }`} style={{ width: `${Math.max(0, (remaining / maxAge) * 100)}%` }} />
+                  </div>
+                  <span className="text-[10px] text-gray-400">剩余 {Math.max(0, remaining)} 年</span>
                 </div>
-                <span className="text-[10px]">剩余 {Math.max(0, remaining)} 年</span>
+              )}
+
+              {/* 金币存余 */}
+              <div className="flex justify-between items-center p-3 bg-[#FAF4EB] rounded-2xl border border-[#D49B4B]/40">
+                <span className="text-xs font-bold text-amber-900/80"><Coins className="w-3.5 h-3.5 inline mr-1 text-[#D49B4B]" /> 金币存余</span>
+                <span className="font-mono font-bold text-lg text-[#7A1F18]">{cultivator.gold ?? 50}</span>
               </div>
-            )}
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-muted-foreground">💰 金币</span>
-              <span className="text-foreground font-medium">{cultivator.gold ?? 50}</span>
             </div>
+
+            {/* 六大基础属性框 */}
+            <div className="grid grid-cols-3 gap-3">
+              {ATTR_INFO.map((a) => (
+                <div key={a.key} className="bg-white p-3 rounded-2xl border border-[#EADCD0] text-center hover:border-[#B83227] transition-colors group shadow-sm">
+                  <p className="text-[10px] text-gray-400 group-hover:text-[#B83227] transition-colors">{a.label}</p>
+                  <p className="font-mono font-bold text-sm text-[#2C1E1E]">{Math.round(attributes[a.key] || 0)}</p>
+                </div>
+              ))}
+            </div>
+
             {inventory.some((i) => i.itemId === "phone") && (
               <button onClick={() => router.push("/phone")}
-                className="w-full flex items-center gap-2 text-xs bg-primary/10 text-primary border border-primary/20 rounded-lg px-3 py-2 hover:bg-primary/20 transition-colors">
+                className="mt-4 w-full flex items-center gap-2 text-xs bg-[#FDF2F0] text-[#7A1F18] border border-[#B83227]/20 rounded-lg px-3 py-2 hover:bg-[#B83227]/10 transition-colors">
                 📱 打开手机
               </button>
             )}
-            <TooltipProvider delay={0}>
-            <div className="flex flex-wrap gap-1">
-              {ATTR_INFO.map((a) => (
-                <Tooltip key={a.key}>
-                  <TooltipTrigger render={<span className="inline-flex items-center gap-1 text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded cursor-help" />}>
-                    {a.icon}{a.label}{Math.round(attributes[a.key] || 0)}
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="bg-white text-foreground border border-border text-xs max-w-56 shadow-md">
-                    <p className="font-medium">{a.icon} {a.label}</p>
-                    <p className="text-muted-foreground mt-0.5">{a.description}</p>
-                  </TooltipContent>
-                </Tooltip>
-              ))}
-            </div>
-            </TooltipProvider>
-            {isAwake && <p className="text-muted-foreground text-xs">累计修炼值：{cultivator.totalExp}</p>}
-          </CardContent>
-        </Card>
-
-        {/* 地点栏 */}
-        {locs.length > 1 && (
-          <div className="flex gap-1 overflow-x-auto py-1">
-            {locs.map((loc) => {
-              const cost = currentLoc !== loc.id ? calcTravelCost(currentLoc, loc.id) : 0;
-              return (
-                <button key={loc.id} onClick={() => switchLocation(loc.id)}
-                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded text-xs whitespace-nowrap transition-colors border ${
-                    currentLoc === loc.id ? "bg-primary/10 text-primary border-primary/30" : "bg-card text-muted-foreground border-border hover:border-primary/30"
-                  }`}>
-                  {loc.icon}{loc.name}{cost > 0 && <span className="text-[9px]">({cost})</span>}
-                </button>
-              );
-            })}
+            {isAwake && <p className="text-gray-400 text-xs mt-3">累计修炼值：{cultivator.totalExp}</p>}
           </div>
-        )}
+        </section>
 
-        {/* 附近的人 */}
-        {currentNPCs.length > 0 && (
-          <div className="space-y-1">
-            <p className="text-xs text-muted-foreground flex items-center gap-1">👥 附近的人</p>
-            <div className="flex gap-1 overflow-x-auto">
-              {currentNPCs.map((npc) => (
-                <button key={npc.name} onClick={() => { setNpcChat(npc); setNpcChatHistory([]); setNpcMessage(""); }}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs whitespace-nowrap border border-border bg-card hover:bg-muted transition-colors">
-                  <span>{npc.avatar}</span>
-                  <span className="text-foreground">{npc.name}</span>
-                  <span className="text-muted-foreground">{npc.realm}</span>
-                </button>
-              ))}
+        {/* 右栏：境域 · 剧情 · 抉择 */}
+        <section className="lg:col-span-7 space-y-6">
+          {/* 觉醒事件 */}
+          {awakenEvent && (
+            <div className="silk-card border-[#B83227]/40 bg-[#FDF2F0] rounded-3xl p-6">
+              <p className="text-[#B83227] font-bold text-lg mb-2">{awakenEvent.title}</p>
+              <p className="text-[#2C1E1E] text-sm whitespace-pre-wrap">{awakenEvent.narrative}</p>
+              <button onClick={() => setAwakenEvent(null)} className="mt-3 w-full py-2.5 rounded-xl bg-[#B83227] text-white text-sm font-medium tracking-widest shadow-sm hover:bg-[#7A1F18] transition-colors">踏入仙途</button>
+            </div>
+          )}
+
+          {/* 境域与人脉 */}
+          <div className="silk-card rounded-3xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <MapPin className="w-4 h-4 text-[#B83227]" />
+                <h3 className="text-sm font-bold text-amber-950/80">当前境域：<span>{currentLocName}</span></h3>
+              </div>
+            </div>
+
+            {currentNPCs.length > 0 && (
+              <div className="flex flex-wrap gap-3 items-center text-xs">
+                <span className="text-gray-400">附近的人：</span>
+                <div className="flex flex-wrap gap-2">
+                  {currentNPCs.map((npc) => (
+                    <button key={npc.name} onClick={() => { setNpcChat(npc); setNpcChatHistory([]); setNpcMessage(""); }}
+                      className="bg-[#FDF2F0] text-[#7A1F18] px-3 py-1.5 rounded-xl border border-[#B83227]/20 flex items-center space-x-2 cursor-pointer hover:scale-105 transition-transform">
+                      <span>{npc.avatar}</span>
+                      <span className="font-bold">{npc.name} {isAwake && npc.realm ? <span className="font-normal opacity-70 text-[9px]">({npc.realm})</span> : null}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 物品包袱 */}
+            <div className="mt-4 pt-4 border-t border-[#EADCD0]">
+              <button onClick={() => setShowItems(!showItems)}
+                className="w-full flex justify-between items-center text-xs text-gray-500 hover:text-[#B83227] transition-colors">
+                <span className="font-bold">🎒 物品包袱 ({totalItems}件)</span>
+                <span className={`transition-transform ${showItems ? "rotate-180" : ""}`}>▾</span>
+              </button>
+              {showItems && (
+                <TooltipProvider delay={0}>
+                  <div className="mt-3 p-3 text-[11px] text-gray-400 bg-[#FAF4EB] rounded-xl border border-[#EADCD0] flex flex-wrap gap-1">
+                    {getEquippedItems(inventory).map((inv) => {
+                      const item = getItemById(inv.itemId); if (!item) return null;
+                      return (
+                        <Tooltip key={inv.itemId}>
+                          <TooltipTrigger render={<span className="inline-flex items-center gap-1 text-[10px] bg-[#F0E8D8] text-[#8B7355] px-1.5 py-0.5 rounded border border-[#D8C8B0] m-0.5 cursor-help" />}>{item.icon}{item.name}</TooltipTrigger>
+                          <TooltipContent side="top" className="bg-white text-[#2C1E1E] border border-[#EADCD0] text-xs max-w-48 shadow-md"><p className="font-medium">{item.icon} {item.name}</p><p className="text-gray-400 mt-0.5">{item.description}</p>{item.effect && <p className="text-[#D49B4B] mt-0.5">✨ {item.effect}</p>}</TooltipContent>
+                        </Tooltip>
+                      );
+                    })}
+                    {getBackpackItems(inventory).map((inv) => {
+                      const item = getItemById(inv.itemId); if (!item) return null;
+                      return (
+                        <Tooltip key={inv.itemId}>
+                          <TooltipTrigger render={<span className="inline-flex items-center gap-1 text-[10px] bg-[#FAF4EB] text-gray-500 px-1.5 py-0.5 rounded m-0.5 cursor-help" />}>{item.icon}{item.name}{inv.quantity > 1 ? `×${inv.quantity}` : ""}</TooltipTrigger>
+                          <TooltipContent side="top" className="bg-white text-[#2C1E1E] border border-[#EADCD0] text-xs max-w-48 shadow-md"><p className="font-medium">{item.icon} {item.name}</p><p className="text-gray-400 mt-0.5">{item.description}</p>{item.effect && <p className="text-[#D49B4B] mt-0.5">✨ {item.effect}</p>}
+                          {(item as any).useEffect && <button onClick={() => handleUseItem(inv.itemId)} className="mt-1 w-full text-xs bg-[#B83227] text-white rounded px-2 py-0.5 hover:bg-[#7A1F18]">{(item as any).useLabel || "使用"}</button>}
+                          </TooltipContent>
+                        </Tooltip>
+                      );
+                    })}
+                    {totalItems === 0 && <span className="text-gray-400">袖里乾坤空空如也，尚无灵材入账。</span>}
+                  </div>
+                </TooltipProvider>
+              )}
             </div>
           </div>
-        )}
 
-        {/* NPC 对话弹窗 */}
-        {npcChat && (
-          <Card className="border-primary/30 bg-card shadow-md">
-            <CardHeader className="pb-1 flex flex-row items-center justify-between">
-              <CardTitle className="text-xs text-foreground">{npcChat.avatar} 与{npcChat.name}交谈</CardTitle>
-              <button onClick={() => setNpcChat(null)} className="text-muted-foreground hover:text-primary text-xs">✕</button>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="max-h-24 overflow-y-auto space-y-1 text-xs text-foreground">
-                {npcChatHistory.length === 0 && <p className="text-muted-foreground italic">{npcChat.greeting}</p>}
-                {npcChatHistory.map((h, i) => (
-                  <p key={i} className={h.role === "player" ? "text-right text-primary" : "text-foreground"}>{h.content}</p>
+          {/* NPC 对话弹窗 */}
+          {npcChat && (
+            <div className="silk-card rounded-3xl p-6">
+              <div className="flex flex-row items-center justify-between pb-2">
+                <p className="text-xs text-[#2C1E1E] font-bold">{npcChat.avatar} 与{npcChat.name}交谈</p>
+                <button onClick={() => setNpcChat(null)} className="text-gray-400 hover:text-[#B83227] text-xs">✕</button>
+              </div>
+              <div className="space-y-2">
+                <div className="max-h-24 overflow-y-auto space-y-1 text-xs text-[#2C1E1E]">
+                  {npcChatHistory.length === 0 && <p className="text-gray-400 italic">{npcChat.greeting}</p>}
+                  {npcChatHistory.map((h, i) => (
+                    <p key={i} className={h.role === "player" ? "text-right text-[#B83227]" : "text-[#2C1E1E]"}>{h.content}</p>
+                  ))}
+                </div>
+                <div className="flex gap-1">
+                  <input value={npcMessage} onChange={(e) => setNpcMessage(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && npcMessage.trim() && cultivator && cultivator.stamina >= 1) sendNpcMessage(npcMessage); }}
+                    placeholder="说点什么...（消耗1行动力）" className="flex-1 h-7 text-[11px] bg-white border border-[#EADCD0] text-[#2C1E1E] rounded-lg px-2 focus:outline-none focus:border-[#B83227]" />
+                  <button className="h-7 w-7 bg-[#B83227] hover:bg-[#7A1F18] shrink-0 text-white rounded-lg flex items-center justify-center disabled:opacity-50"
+                    disabled={!npcMessage.trim() || !cultivator || cultivator.stamina < 1}
+                    onClick={() => sendNpcMessage(npcMessage)}>
+                    <Send className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 主线剧情与抉择 */}
+          {(narrative || streamingText !== null) && (
+            <div className="silk-card rounded-3xl p-8">
+              <div className="flex items-center space-x-3 mb-6 pb-4 border-b border-[#EADCD0]">
+                <div className="w-8 h-8 rounded-full bg-[#FDF2F0] flex items-center justify-center text-[#B83227]">
+                  <ScrollText className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="calligraphy text-xl font-bold tracking-widest text-[#2C1E1E]">{streamingText !== null ? "✍️ 叙事流转中…" : narrative?.title}</h3>
+                  <p className="text-[10px] text-[#D49B4B] font-bold uppercase tracking-widest">{streamingText !== null ? "Streaming" : "Main Event"}</p>
+                </div>
+              </div>
+
+              <div className="relative group">
+                {streamingText !== null ? (
+                  <p className="text-sm leading-relaxed text-amber-950/80 tracking-wide whitespace-pre-wrap">
+                    {streamingText}<span className="inline-block w-1.5 h-4 ml-0.5 align-middle bg-[#B83227] animate-pulse" />
+                  </p>
+                ) : (
+                  <p className={`text-sm leading-relaxed text-amber-950/80 tracking-wide ${!narrativeExpanded && (narrative?.narrative?.length || 0) > 150 ? "line-clamp-4" : ""}`}>
+                    {narrative?.narrative}
+                  </p>
+                )}
+                {streamingText === null && (narrative?.narrative?.length || 0) > 150 && (
+                  <button onClick={() => setNarrativeExpanded(!narrativeExpanded)} className="mt-3 text-xs text-[#B83227] font-bold flex items-center space-x-1 hover:underline">
+                    <span>{narrativeExpanded ? "▲ 收起全文" : "▼ 展开全文"}</span>
+                  </button>
+                )}
+              </div>
+
+              {streamingText === null && narrative?.hint && <p className="text-gray-400 text-xs italic mt-3">💡 {narrative.hint}</p>}
+
+              {/* 抉择按钮 */}
+              <div className="mt-8">
+                <p className="text-[10px] font-bold text-gray-400 tracking-widest mb-4 flex items-center">
+                  <span className="w-4 h-[1px] bg-red-300 mr-2"></span> 当下抉择
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {availableActions.filter((a) => a.id !== "FREE").slice(0, 6).map((action) => {
+                    const isActive = activeActionId === action.id;
+                    const cant = cultivator.stamina < action.actionPointCost;
+                    return (
+                      <div key={action.id} className="flex flex-col gap-1">
+                        <button
+                          disabled={actionLoading || cant}
+                          onClick={() => handleActionClick(action.id)}
+                          className={`group p-4 bg-white border border-[#EADCD0] rounded-2xl hover:border-[#B83227] hover:bg-[#FDF2F0] transition-all text-left flex items-center justify-between shadow-sm ${cant ? "opacity-40" : isActive ? "border-[#B83227] bg-[#FDF2F0]" : ""}`}>
+                          <div className="flex items-center space-x-3">
+                            <div className="w-9 h-9 rounded-xl bg-[#FAF4EB] group-hover:bg-[#B83227] group-hover:text-white flex items-center justify-center transition-colors text-amber-900/70">
+                              <span className="text-base leading-none">{action.icon}</span>
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-bold text-[#2C1E1E]">{action.name}</h4>
+                              <p className="text-[9px] text-gray-400 mt-0.5">尝试行动</p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-mono font-bold text-[#D49B4B]">-{action.actionPointCost}</span>
+                        </button>
+                        {isActive && (
+                          <div className="flex gap-1 animate-in slide-in-from-top-1 fade-in duration-150">
+                            <input placeholder="描述你想怎么做…" value={actionInput} onChange={(e) => setActionInput(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === "Enter") handleSubmitWithInput(action.id); }}
+                              className="flex-1 h-7 text-[11px] bg-white border border-[#EADCD0] text-[#2C1E1E] rounded-lg px-2 focus:outline-none focus:border-[#B83227]" disabled={actionLoading} autoFocus />
+                            <button className="h-7 w-7 bg-[#B83227] hover:bg-[#7A1F18] shrink-0 text-white rounded-lg flex items-center justify-center disabled:opacity-50" disabled={actionLoading} onClick={() => handleSubmitWithInput(action.id)}>
+                              <Send className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {availableActions.filter((a) => a.id !== "FREE").length === 0 && (
+                  <p className="text-gray-400 text-xs text-center py-2">当前无可用的行动</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 功能按钮 */}
+          <div className="flex gap-2">
+            {canBreak && (
+              <button className="flex-1 bg-[#B83227] hover:bg-[#7A1F18] text-white h-12 text-base rounded-xl shadow-sm transition-colors flex items-center justify-center" onClick={handleBreakthrough}>
+                <Sword className="w-4 h-4 mr-2" />境界突破
+              </button>
+            )}
+            <button className="flex-1 border border-[#EADCD0] bg-white hover:bg-[#FDF2F0] text-[#2C1E1E] h-12 text-base rounded-xl transition-colors flex items-center justify-center" onClick={advanceSeason} disabled={advancing}>
+              <SkipForward className="w-4 h-4 mr-2 text-[#B83227]" />推进季节
+            </button>
+          </div>
+
+          {/* 叙事历史 */}
+          {narrativeHistory.length > 1 && (
+            <div className="silk-card rounded-3xl p-6">
+              <p className="text-gray-400 text-xs font-bold flex items-center gap-1 mb-3"><ScrollText className="w-3 h-3" />最近记录</p>
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {narrativeHistory.slice(0, 5).map((n, i) => (
+                  <p key={i} className="text-gray-400 text-xs border-b border-[#EADCD0] pb-1 last:border-0">{n.title}</p>
                 ))}
               </div>
-              <div className="flex gap-1">
-                <Input value={npcMessage} onChange={(e) => setNpcMessage(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && npcMessage.trim() && cultivator && cultivator.stamina >= 1) sendNpcMessage(npcMessage); }}
-                  placeholder="说点什么...（消耗1行动力）" className="flex-1 h-7 text-[11px] bg-white border-border text-foreground" />
-                <Button size="icon" className="h-7 w-7 bg-primary hover:bg-[#B33A2A] shrink-0 text-white"
-                  disabled={!npcMessage.trim() || !cultivator || cultivator.stamina < 1}
-                  onClick={() => sendNpcMessage(npcMessage)}>
-                  <Send className="w-3 h-3" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* 物品栏（折叠） */}
-        <button onClick={() => setShowItems(!showItems)}
-          className="flex items-center gap-2 w-full text-xs text-muted-foreground bg-card border border-border rounded-lg px-3 py-2 hover:bg-muted transition-colors">
-          🎒 物品 ({totalItems}件) <span className="ml-auto">{showItems ? "▲" : "▼"}</span>
-        </button>
-        {showItems && (
-          <TooltipProvider delay={0}>
-          <Card className="border-border bg-card shadow-md">
-            <CardContent className="p-2">
-              {getEquippedItems(inventory).map((inv) => {
-                const item = getItemById(inv.itemId); if (!item) return null;
-                return (
-                  <Tooltip key={inv.itemId}>
-                    <TooltipTrigger render={<span className="inline-flex items-center gap-1 text-[10px] bg-[#F0E8D8] text-[#8B7355] px-1.5 py-0.5 rounded border border-[#D8C8B0] m-0.5 cursor-help" />}>{item.icon}{item.name}</TooltipTrigger>
-                    <TooltipContent side="top" className="bg-white text-foreground border border-border text-xs max-w-48 shadow-md"><p className="font-medium">{item.icon} {item.name}</p><p className="text-muted-foreground mt-0.5">{item.description}</p>{item.effect && <p className="text-amber-600 mt-0.5">✨ {item.effect}</p>}</TooltipContent>
-                  </Tooltip>
-                );
-              })}
-              {getBackpackItems(inventory).map((inv) => {
-                const item = getItemById(inv.itemId); if (!item) return null;
-                return (
-                  <Tooltip key={inv.itemId}>
-                    <TooltipTrigger render={<span className="inline-flex items-center gap-1 text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded m-0.5 cursor-help" />}>{item.icon}{item.name}{inv.quantity > 1 ? `×${inv.quantity}` : ""}</TooltipTrigger>
-                    <TooltipContent side="top" className="bg-white text-foreground border border-border text-xs max-w-48 shadow-md"><p className="font-medium">{item.icon} {item.name}</p><p className="text-muted-foreground mt-0.5">{item.description}</p>{item.effect && <p className="text-amber-600 mt-0.5">✨ {item.effect}</p>}
-                    {(item as any).useEffect && <button onClick={() => handleUseItem(inv.itemId)} className="mt-1 w-full text-xs bg-primary text-white rounded px-2 py-0.5 hover:bg-primary/90">{(item as any).useLabel || "使用"}</button>}
-                    </TooltipContent>
-                  </Tooltip>
-                );
-              })}
-              {totalItems === 0 && <span className="text-xs text-muted-foreground">背包为空</span>}
-            </CardContent>
-          </Card>
-          </TooltipProvider>
-        )}
-
-        {/* 觉醒事件 */}
-        {awakenEvent && (
-          <Card className="border-primary/40 bg-primary/5">
-            <CardContent className="p-4">
-              <p className="text-primary font-bold text-lg mb-2">{awakenEvent.title}</p>
-              <p className="text-foreground text-sm whitespace-pre-wrap">{awakenEvent.narrative}</p>
-              <Button className="mt-3 w-full bg-primary hover:bg-[#B33A2A] text-white" onClick={() => setAwakenEvent(null)}>踏入仙途</Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* 叙事 */}
-        {narrative && (
-          <Card className="border-border bg-card shadow-md">
-            <CardContent className="p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <span className={`text-lg ${moodColor}`}>{narrative.mood === "燃" ? "🔥" : narrative.mood === "悟" ? "💡" : narrative.mood === "静" ? "🌊" : narrative.mood === "奇" ? "✨" : "⚡"}</span>
-                <p className={`font-semibold ${moodColor}`}>{narrative.title}</p>
-              </div>
-              <div className={`text-foreground text-sm leading-relaxed whitespace-pre-wrap ${!narrativeExpanded && narrative.narrative.length > 150 ? "line-clamp-3" : ""}`}>
-                {narrative.narrative}
-              </div>
-              {narrative.narrative.length > 150 && (
-                <button onClick={() => setNarrativeExpanded(!narrativeExpanded)} className="text-primary text-xs hover:underline">
-                  {narrativeExpanded ? "▲ 收起" : "▼ 展开全文"}
-                </button>
-              )}
-              {narrative.hint && <p className="text-muted-foreground text-xs italic">💡 {narrative.hint}</p>}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* 行动面板 */}
-        <Card className="border-border bg-card shadow-md">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-foreground text-sm flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-primary" /> 行动
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="grid grid-cols-2 gap-2">
-              {availableActions.filter((a) => a.id !== "FREE").slice(0, 6).map((action) => {
-                const isActive = activeActionId === action.id;
-                return (
-                  <div key={action.id} className="flex flex-col gap-1">
-                    <Button variant="outline"
-                      className={`h-auto py-2 px-2 flex flex-col items-center gap-0.5 border-border bg-white overflow-hidden ${
-                        cultivator.stamina < action.actionPointCost ? "opacity-40" : isActive ? "border-primary bg-primary/5" : "hover:border-primary/50"
-                      }`}
-                      disabled={actionLoading || cultivator.stamina < action.actionPointCost}
-                      onClick={() => handleActionClick(action.id)}>
-                      <span className="text-base leading-none">{action.icon}</span>
-                      <span className="text-[11px] text-foreground truncate w-full text-center">{action.name}</span>
-                      <span className="text-[9px] text-muted-foreground">-{action.actionPointCost}</span>
-                    </Button>
-                    {isActive && (
-                      <div className="flex gap-1 animate-in slide-in-from-top-1 fade-in duration-150">
-                        <Input placeholder="描述你想怎么做…" value={actionInput} onChange={(e) => setActionInput(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === "Enter") handleSubmitWithInput(action.id); }}
-                          className="flex-1 h-7 text-[11px] bg-white border-border text-foreground" disabled={actionLoading} autoFocus />
-                        <Button size="icon" className="h-7 w-7 bg-primary hover:bg-[#B33A2A] shrink-0 text-white" disabled={actionLoading} onClick={() => handleSubmitWithInput(action.id)}>
-                          <Send className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
             </div>
-            {availableActions.filter((a) => a.id !== "FREE").length === 0 && (
-              <p className="text-muted-foreground text-xs text-center py-2">当前无可用的行动</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* 功能按钮 */}
-        <div className="flex gap-2">
-          {canBreak && (
-            <Button className="flex-1 bg-primary hover:bg-[#B33A2A] text-white h-12 text-base" onClick={handleBreakthrough}>
-              <Sword className="w-4 h-4 mr-2" />境界突破
-            </Button>
           )}
-          <Button variant="outline" className="flex-1 border-border bg-white hover:bg-muted text-foreground h-12 text-base" onClick={advanceYear} disabled={advancing}>
-            <SkipForward className="w-4 h-4 mr-2 text-primary" />推进年份
-          </Button>
-        </div>
 
-        {/* 叙事历史 */}
-        {narrativeHistory.length > 1 && (
-          <Card className="border-border bg-card shadow-md">
-            <CardHeader className="pb-1">
-              <CardTitle className="text-muted-foreground text-xs flex items-center gap-1"><ScrollText className="w-3 h-3" />最近记录</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1 max-h-32 overflow-y-auto">
-              {narrativeHistory.slice(0, 5).map((n, i) => (
-                <p key={i} className="text-muted-foreground text-xs border-b border-muted pb-1 last:border-0">{n.title}</p>
-              ))}
-            </CardContent>
-          </Card>
-        )}
+          <MemoryPanel
+            cultivatorId={userId!}
+            entries={memoryEntries}
+            onEntriesChange={setMemoryEntries}
+          />
 
-        <MemoryPanel
-          cultivatorId={userId!}
-          entries={memoryEntries}
-          onEntriesChange={setMemoryEntries}
-        />
-
-        <button onClick={() => setTechniquePanelOpen(true)}
-          className="w-full flex items-center gap-2 text-xs bg-card border border-border rounded-lg px-3 py-2 hover:bg-muted transition-colors text-foreground">
-          📖 功法
-        </button>
+          {isAwake && (
+            <button onClick={() => setTechniquePanelOpen(true)}
+              className="w-full flex items-center gap-2 text-xs bg-white border border-[#EADCD0] rounded-lg px-3 py-2 hover:bg-[#FDF2F0] hover:border-[#B83227] transition-colors text-[#2C1E1E]">
+              📖 功法
+            </button>
+          )}
+        </section>
       </div>
+
+
       <TechniquePanel
         cultivatorId={userId!}
         open={techniquePanelOpen}
         onOpenChange={setTechniquePanelOpen}
       />
-      <BottomNav />
 
       {daoXiao && (
         <DaoXiaoModal
@@ -766,20 +781,54 @@ export default function DashboardPage() {
 
       {warnEarly && (
         <div className="fixed bottom-20 left-4 right-4 max-w-lg mx-auto z-50">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 shadow-lg">
-            <p className="text-red-700 text-sm font-medium">⚠️ 大限将至</p>
-            <p className="text-red-600 text-xs mt-1">
+          <div className="bg-[#FDF2F0] border border-[#B83227]/30 rounded-lg p-3 shadow-lg">
+            <p className="text-[#B83227] text-sm font-medium">⚠️ 大限将至</p>
+            <p className="text-[#7A1F18] text-xs mt-1">
               仅剩 {remaining} 年寿元。突破境界可延年益寿。
             </p>
             <button
               onClick={() => setWarnEarly(false)}
-              className="text-red-500 text-xs underline mt-1"
+              className="text-[#B83227] text-xs underline mt-1"
             >
               知晓了
             </button>
           </div>
         </div>
       )}
+
+      <style jsx>{`
+        .silk-card {
+          background-color: #FFFFFF;
+          border: 1px solid #EADCD0;
+          box-shadow: 0 4px 20px -2px rgba(122, 31, 24, 0.05);
+          transition: all 0.25s ease;
+        }
+        .silk-card:hover {
+          box-shadow: 0 8px 25px -2px rgba(122, 31, 24, 0.1);
+          border-color: rgba(184, 50, 39, 0.35);
+        }
+        .vermilion-progress-solid { background-color: #B83227; }
+        .nav-tag {
+          transition: all 0.2s ease;
+        }
+        .nav-tag.active {
+          background-color: #B83227 !important;
+          color: #FFFFFF !important;
+          border-color: #B83227 !important;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 10px rgba(184, 50, 39, 0.25);
+        }
+        .calligraphy {
+          font-family: 'Ma Shan Zheng', 'STKaiti', 'KaiTi', '楷体', '华文行楷', cursive, serif;
+        }
+        @keyframes sealDrop {
+          0% { transform: scale(1.4) rotate(8deg); opacity: 0; }
+          100% { transform: scale(1) rotate(-3deg); opacity: 0.95; }
+        }
+        .seal-mark {
+          animation: sealDrop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.2) forwards;
+        }
+      `}</style>
     </main>
   );
 }

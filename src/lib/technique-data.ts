@@ -133,6 +133,21 @@ export const TECHNIQUES: Record<string, Technique> = {
  * - while 循环处理单次大额跳多级
  * - 升到满级时 proficiency 清 0
  */
+export function calcTechniqueProficiency(
+  actionType: 'action' | 'combat' | 'study',
+  realmName: string
+): number {
+  // 基础熟练度：凡人 10，炼气期 12，筑基期 15，未知境界回退凡人
+  const baseMap: Record<string, number> = { '凡人': 10, '炼气期': 12, '筑基期': 15 };
+  const base = baseMap[realmName] ?? 10;
+  // 战斗 ×3，修炼 ×2，日常动作 ×1
+  const multiplier = actionType === 'combat' ? 3 : actionType === 'study' ? 2 : 1;
+  return base * multiplier;
+}
+
+/**
+ * 增加功法熟练度，自动处理升级晋级。
+ */
 export function addProficiency(
   currentLevel: number,
   currentProf: number,

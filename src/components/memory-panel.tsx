@@ -31,6 +31,13 @@ export default function MemoryPanel({ cultivatorId, entries, onEntriesChange }: 
     `${e.important ? "⭐ " : ""}【${e.title}】${e.summary}`
   ).join("\n");
 
+  // 显示用：按 createdAt 最新→最旧排序，不修改原数组
+  const sortedEntries = [...entries].sort((a, b) => {
+    if (a.createdAt < b.createdAt) return 1;
+    if (a.createdAt > b.createdAt) return -1;
+    return 0;
+  });
+
   const saveEntries = async (newEntries: StoryEntry[]) => {
     try {
       const res = await fetch("/api/cultivator", {
@@ -125,7 +132,7 @@ export default function MemoryPanel({ cultivatorId, entries, onEntriesChange }: 
 
       {!collapsed && (
         <div className="px-3 pb-3 space-y-2">
-          {entries.map((entry) => (
+          {sortedEntries.map((entry) => (
             <div key={entry.id} className="flex items-center gap-2 text-sm py-1 border-b border-muted last:border-0">
               <button
                 onClick={() => toggleImportant(entry.id)}

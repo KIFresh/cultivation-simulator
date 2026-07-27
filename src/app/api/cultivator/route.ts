@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { SPIRITUAL_ROOTS, type SpiritualRoot } from "@/lib";
 import { hashPassword } from "@/lib/auth";
+import { signSession, SESSION_COOKIE_NAME } from "@/lib/session";
+
+/** 登录/注册成功后向响应写入 HttpOnly 签名会话 cookie */
+function setSessionCookie(response: NextResponse, userId: string): NextResponse {
+  response.cookies.set(SESSION_COOKIE_NAME, signSession(userId), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30, // 30 天
+  });
+  return response;
+}
 
 // POST — 创建修炼者 + 记忆操作
 export async function POST(request: NextRequest) {
@@ -61,58 +74,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, entries: newEntries });
     }
 
-    // 轮回转世
-    if (action === "reincarnate") {
-      if (!rest.userId) {
-        return NextResponse.json({ error: "缺少 userId" }, { status: 400 });
-      }
-
-      const cultivator = await prisma.cultivator.findUnique({
-        where: { userId: rest.userId },
-      });
-      if (!cultivator) {
-        return NextResponse.json({ error: "修炼者不存在" }, { status: 404 });
-      }
-
-      const newCount = (cultivator.reincarnationCount || 0) + 1;
-
-      const updated = await prisma.cultivator.update({
-        where: { userId: rest.userId },
-        data: {
-          realm: "凡人",
-          realmLevel: 0,
-          cultivationExp: 0,
-          totalExp: 0,
-          stamina: 20,
-          breakthroughCount: 0,
-          age: 1,
-          gold: 50,
-          location: null,
-          inventory: null,
-          npcRelations: null,
-          title: null,
-          maxAge: null,
-          bonusAge: 0,
-          storyEntries: "[]",
-          storyEntriesUpdatedAt: new Date(),
-          reincarnationCount: newCount,
-          talents: JSON.stringify(["前世记忆"]),
-          injuryDebuff: 0,
-        },
-      });
-
-      // 轮回时清理功法
-      await prisma.cultivatorTechnique.deleteMany({
-        where: { cultivatorId: cultivator.id },
-      }).catch(() => {});
-
-      return NextResponse.json({
-        success: true,
-        cultivator: updated,
-        reincarnationCount: newCount,
-      });
-    }
-
     const { cultivatorName, spiritualRoot, password, worldId } = body;
     const userName = body.userName;
 
@@ -164,7 +125,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      return NextResponse.json({ user });
+      return setSessionCookie(NextResponse.json({ user }), user.id);
     }
 
     // 新建用户路径：必须有 userName
@@ -201,7 +162,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({ user });
+    return setSessionCookie(NextResponse.json({ user }), user.id);
   } catch (error) {
     console.error("创建修炼者失败:", error);
     return NextResponse.json({ error: "创建失败，请重试" }, { status: 500 });

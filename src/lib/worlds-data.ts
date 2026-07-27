@@ -11,6 +11,7 @@ export interface World {
   description: string;
   playerDescription: string;
   aiPrompt: string;
+  locations?: { id: string; name: string }[];
 }
 
 export const WORLDS: World[] = [
@@ -53,4 +54,9 @@ export function getWorldById(id: string): World | undefined {
 export function getWorldAIPrompt(id?: string): string {
   if (!id) return "";
   return WORLDS.find((w) => w.id === id)?.aiPrompt ?? "";
+}
+
+/** 返回所有世界观列表 */
+export function getWorlds(): World[] {
+  return WORLDS;
 }

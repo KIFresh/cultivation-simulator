@@ -8,6 +8,8 @@ import { ArrowLeft, Coins } from "lucide-react";
 import { getItemById } from "@/lib";
 import { toast } from "sonner";
 
+import TopNav from "@/components/top-nav";
+
 interface ShopItemData { itemId: string; price: number; category: string; item: { id: string; name: string; icon: string; description: string; effect?: string } }
 
 export default function ShopPage() {
@@ -41,6 +43,7 @@ export default function ShopPage() {
 
   return (
     <main className="flex-1 min-h-screen bg-background pb-20">
+      <TopNav />
       <div className="max-w-lg mx-auto p-4 space-y-4">
         <div className="flex items-center justify-between">
           <button onClick={() => router.back()} className="flex items-center gap-1 text-muted-foreground hover:text-primary text-sm"><ArrowLeft className="w-4 h-4" /> 返回</button>
