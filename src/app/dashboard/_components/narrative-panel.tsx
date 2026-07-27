@@ -8,7 +8,7 @@ interface NarrativePanelProps {
   narrative: NarrativeDisplay | null;
   streamingText: string | null;
   availableActions: any[];
-  activeActionId: string;
+  activeActionId: string | null;
   actionLoading: boolean;
   actionInput: string;
   cultivator: any;

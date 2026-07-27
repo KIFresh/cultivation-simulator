@@ -2,14 +2,14 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Zap, Sparkles, Send, SkipForward, Sword, ScrollText, Coins, MapPin } from "lucide-react";
+import { Sparkles, Send, SkipForward, Sword, ScrollText, MapPin } from "lucide-react";
 import Link from "next/link";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import {
   getAvailableActions, getActionById, formatRealmLevel, MORTAL_REALM, isAwakened,
   canBreakthrough, getRootInfo, getStarterInventory, getItemById,
   getEquippedItems, getBackpackItems, getSchoolStage, getSchoolGrade,
-  getDefaultOccupation, getUnlockedLocations, ATTR_INFO,
+  getDefaultOccupation, getUnlockedLocations,
   calculateMaxStamina, getNPCsAtLocation,
 } from "@/lib";
 import type { Action, InventoryItem, NPC } from "@/lib";
@@ -19,6 +19,9 @@ import DaoXiaoModal from "@/components/dao-xiao-modal";
 import TechniquePanel from "@/components/technique-panel";
 import TopNav from "@/components/top-nav";
 import { useDashboardActions } from "@/app/dashboard/hooks/use-dashboard-actions";
+import { StatusGauge } from "@/app/dashboard/_components/status-gauge";
+import { AttributeGrid } from "@/app/dashboard/_components/attribute-grid";
+import { NarrativePanel } from "@/app/dashboard/_components/narrative-panel";
 import type { CultivatorData, NarrativeDisplay } from "@/app/dashboard/types";
 
 export default function DashboardPage() {
@@ -371,56 +374,16 @@ export default function DashboardPage() {
             {/* 核心资源 */}
             <div className="space-y-6 border-t border-b border-[#EADCD0] py-6 mb-6">
               {isAwake && (
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>修炼值</span><span className="font-mono font-bold text-[#7A1F18]">{cultivator.cultivationExp}</span>
-                  </div>
-                  <div className="h-2.5 w-full bg-[#F3EBE1] rounded-full overflow-hidden border border-[#EADCD0]">
-                    <div className="vermilion-progress-solid h-full transition-all duration-300" style={{ width: `${Math.min(100, (cultivator.cultivationExp / 100) * 100)}%` }} />
-                  </div>
-                </div>
+                <StatusGauge label="修炼值" value={cultivator.cultivationExp} max={100} hint="累计修炼值" />
               )}
-
-              {/* 行动力 */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-end">
-                  <span className="text-xs font-bold text-gray-500"><Zap className="w-3 h-3 inline mr-1 text-[#D49B4B]" /> 行动力</span>
-                  <span className="font-mono text-sm font-bold text-[#7A1F18]">{cultivator.stamina} / {maxStamina}</span>
-                </div>
-                <div className="h-2.5 w-full bg-[#F3EBE1] rounded-full overflow-hidden border border-[#EADCD0]">
-                  <div className="vermilion-progress-solid h-full transition-all duration-300" style={{ width: `${(cultivator.stamina / maxStamina) * 100}%` }} />
-                </div>
-              </div>
-
-              {/* 寿元 */}
+              <StatusGauge label="行动力" value={cultivator.stamina} max={maxStamina} hint={`${cultivator.stamina} / ${maxStamina}`} />
               {maxAge !== null && maxAge > 0 && (
-                <div className="space-y-1">
-                  <span className="text-xs font-bold text-gray-500">寿元：{cultivator.age} / {maxAge >= 999999 ? "∞" : maxAge} 岁</span>
-                  <div className="w-full h-2 bg-[#F3EBE1] rounded-full overflow-hidden border border-[#EADCD0]">
-                    <div className={`h-full rounded-full transition-all ${
-                      remaining <= 5 ? "bg-red-500" : remaining < maxAge * 0.1 ? "bg-[#D49B4B]" : "bg-[#7FA97F]"
-                    }`} style={{ width: `${Math.max(0, (remaining / maxAge) * 100)}%` }} />
-                  </div>
-                  <span className="text-[10px] text-gray-400">剩余 {Math.max(0, remaining)} 年</span>
-                </div>
+                <StatusGauge label="寿元" value={remaining} max={maxAge} hint={`剩余 ${Math.max(0, remaining)} 年`} />
               )}
-
-              {/* 金币存余 */}
-              <div className="flex justify-between items-center p-3 bg-[#FAF4EB] rounded-2xl border border-[#D49B4B]/40">
-                <span className="text-xs font-bold text-amber-900/80"><Coins className="w-3.5 h-3.5 inline mr-1 text-[#D49B4B]" /> 金币存余</span>
-                <span className="font-mono font-bold text-lg text-[#7A1F18]">{cultivator.gold ?? 50}</span>
-              </div>
+              <StatusGauge label="金币存余" value={cultivator.gold ?? 50} max={cultivator.gold ?? 50} hint="金币" />
             </div>
 
-            {/* 六大基础属性框 */}
-            <div className="grid grid-cols-3 gap-3">
-              {ATTR_INFO.map((a) => (
-                <div key={a.key} className="bg-white p-3 rounded-2xl border border-[#EADCD0] text-center hover:border-[#B83227] transition-colors group shadow-sm">
-                  <p className="text-[10px] text-gray-400 group-hover:text-[#B83227] transition-colors">{a.label}</p>
-                  <p className="font-mono font-bold text-sm text-[#2C1E1E]">{Math.round(attributes[a.key] || 0)}</p>
-                </div>
-              ))}
-            </div>
+            <AttributeGrid attributes={attributes} />
 
             {inventory.some((i) => i.itemId === "phone") && (
               <button onClick={() => router.push("/phone")}
@@ -533,83 +496,20 @@ export default function DashboardPage() {
           )}
 
           {/* 主线剧情与抉择 */}
-          {(narrative || streamingText !== null) && (
-            <div className="silk-card rounded-3xl p-8">
-              <div className="flex items-center space-x-3 mb-6 pb-4 border-b border-[#EADCD0]">
-                <div className="w-8 h-8 rounded-full bg-[#FDF2F0] flex items-center justify-center text-[#B83227]">
-                  <ScrollText className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="calligraphy text-xl font-bold tracking-widest text-[#2C1E1E]">{streamingText !== null ? "✍️ 叙事流转中…" : narrative?.title}</h3>
-                  <p className="text-[10px] text-[#D49B4B] font-bold uppercase tracking-widest">{streamingText !== null ? "Streaming" : "Main Event"}</p>
-                </div>
-              </div>
-
-              <div className="relative group">
-                {streamingText !== null ? (
-                  <p className="text-sm leading-relaxed text-amber-950/80 tracking-wide whitespace-pre-wrap">
-                    {streamingText}<span className="inline-block w-1.5 h-4 ml-0.5 align-middle bg-[#B83227] animate-pulse" />
-                  </p>
-                ) : (
-                  <p className={`text-sm leading-relaxed text-amber-950/80 tracking-wide ${!narrativeExpanded && (narrative?.narrative?.length || 0) > 150 ? "line-clamp-4" : ""}`}>
-                    {narrative?.narrative}
-                  </p>
-                )}
-                {streamingText === null && (narrative?.narrative?.length || 0) > 150 && (
-                  <button onClick={() => setNarrativeExpanded(!narrativeExpanded)} className="mt-3 text-xs text-[#B83227] font-bold flex items-center space-x-1 hover:underline">
-                    <span>{narrativeExpanded ? "▲ 收起全文" : "▼ 展开全文"}</span>
-                  </button>
-                )}
-              </div>
-
-              {streamingText === null && narrative?.hint && <p className="text-gray-400 text-xs italic mt-3">💡 {narrative.hint}</p>}
-
-              {/* 抉择按钮 */}
-              <div className="mt-8">
-                <p className="text-[10px] font-bold text-gray-400 tracking-widest mb-4 flex items-center">
-                  <span className="w-4 h-[1px] bg-red-300 mr-2"></span> 当下抉择
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {availableActions.filter((a) => a.id !== "FREE").slice(0, 6).map((action) => {
-                    const isActive = activeActionId === action.id;
-                    const cant = cultivator.stamina < action.actionPointCost;
-                    return (
-                      <div key={action.id} className="flex flex-col gap-1">
-                        <button
-                          disabled={actionLoading || cant}
-                          onClick={() => handleActionClick(action.id)}
-                          className={`group p-4 bg-white border border-[#EADCD0] rounded-2xl hover:border-[#B83227] hover:bg-[#FDF2F0] transition-all text-left flex items-center justify-between shadow-sm ${cant ? "opacity-40" : isActive ? "border-[#B83227] bg-[#FDF2F0]" : ""}`}>
-                          <div className="flex items-center space-x-3">
-                            <div className="w-9 h-9 rounded-xl bg-[#FAF4EB] group-hover:bg-[#B83227] group-hover:text-white flex items-center justify-center transition-colors text-amber-900/70">
-                              <span className="text-base leading-none">{action.icon}</span>
-                            </div>
-                            <div>
-                              <h4 className="text-xs font-bold text-[#2C1E1E]">{action.name}</h4>
-                              <p className="text-[9px] text-gray-400 mt-0.5">尝试行动</p>
-                            </div>
-                          </div>
-                          <span className="text-[10px] font-mono font-bold text-[#D49B4B]">-{action.actionPointCost}</span>
-                        </button>
-                        {isActive && (
-                          <div className="flex gap-1 animate-in slide-in-from-top-1 fade-in duration-150">
-                            <input placeholder="描述你想怎么做…" value={actionInput} onChange={(e) => setActionInput(e.target.value)}
-                              onKeyDown={(e) => { if (e.key === "Enter") handleSubmitWithInput(action.id); }}
-                              className="flex-1 h-7 text-[11px] bg-white border border-[#EADCD0] text-[#2C1E1E] rounded-lg px-2 focus:outline-none focus:border-[#B83227]" disabled={actionLoading} autoFocus />
-                            <button className="h-7 w-7 bg-[#B83227] hover:bg-[#7A1F18] shrink-0 text-white rounded-lg flex items-center justify-center disabled:opacity-50" disabled={actionLoading} onClick={() => handleSubmitWithInput(action.id)}>
-                              <Send className="w-3 h-3" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                {availableActions.filter((a) => a.id !== "FREE").length === 0 && (
-                  <p className="text-gray-400 text-xs text-center py-2">当前无可用的行动</p>
-                )}
-              </div>
-            </div>
-          )}
+          <NarrativePanel
+            narrative={narrative}
+            streamingText={streamingText}
+            availableActions={availableActions}
+            activeActionId={activeActionId}
+            actionLoading={actionLoading}
+            actionInput={actionInput}
+            cultivator={cultivator}
+            narrativeExpanded={narrativeExpanded}
+            onExpandToggle={() => setNarrativeExpanded(!narrativeExpanded)}
+            onActionClick={handleActionClick}
+            onActionSubmit={handleSubmitWithInput}
+            onActionInputChange={(value) => setActionInput(value)}
+          />
 
           {/* 功能按钮 */}
           <div className="flex gap-2">
