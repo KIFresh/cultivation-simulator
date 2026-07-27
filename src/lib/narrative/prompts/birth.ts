@@ -100,10 +100,6 @@ export function validateBirthConsistency(
     "弟弟": ["弟弟", "弟"],
     "妹妹": ["妹妹", "妹"],
   };
-  const colToCore: Record<string, string> = {};
-  for (const [core, cols] of Object.entries(relationSynonyms)) {
-    for (const c of cols) colToCore[c] = core;
-  }
 
   for (const [core, cols] of Object.entries(relationSynonyms)) {
     for (const col of cols) {

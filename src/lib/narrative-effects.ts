@@ -291,8 +291,7 @@ export function clampEffect(
  * 例如：两条 gold +10 分别钳制后各 +10（通过），但合计 +20 可能越界。
  * 聚合后按一条效果钳制，确保总量安全。
  *
- * 注意：当前在生产路由中尚未调用（效果由 AI 生成，单次叙事通常只有一条同类效果）。
- * 此函数为未来引入多条效果时的预留入口，届时应在 clampEffectsArray 前调用。
+ * 注意：clampEffectsArray 已调用此函数进行聚合，确保多条同类效果不会累计越界。
  */
 export function aggregateEffects(
   effects: NarrativeEffect[],

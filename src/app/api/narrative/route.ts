@@ -17,6 +17,7 @@ import { canBreakthrough, performBreakthrough } from "@/lib";
 import { TECHNIQUES, addProficiency, calculateTechniqueBonuses } from "@/lib/technique-data";
 import { streamNarrativeResult } from "@/lib/narrative-stream";
 import { applyEffects, clampEffectsArray, type NarrativeEffect, type ApplyContext } from "@/lib/narrative-effects";
+import { NARRATIVE_EFFECT_WHITELISTS } from "@/lib/narrative-schema";
 import { sanitizeAttributes } from "@/lib/utils";
 import { calculateMaxStamina } from "@/lib/cultivation-data";
 
@@ -211,10 +212,10 @@ export async function POST(request: NextRequest) {
         }
 
         // 效果白名单校验（DAILY: gold/stamina/attrExp/storyEntry/mood）
-        const deniedKinds = effects.filter((e) => !["gold", "stamina", "attrExp", "storyEntry", "mood"].includes(e.kind)).map((e) => e.kind);
+        const deniedKinds = effects.filter((e) => !NARRATIVE_EFFECT_WHITELISTS.DAILY_CULTIVATION.includes(e.kind)).map((e) => e.kind);
         if (deniedKinds.length > 0) {
           console.warn(`DAILY_CULTIVATION: 拒绝白名单外效果 kind: ${deniedKinds.join(", ")}`);
-          const allowed = effects.filter((e) => ["gold", "stamina", "attrExp", "storyEntry", "mood"].includes(e.kind));
+          const allowed = effects.filter((e) => NARRATIVE_EFFECT_WHITELISTS.DAILY_CULTIVATION.includes(e.kind));
           effects.length = 0;
           effects.push(...allowed);
         }
@@ -415,10 +416,10 @@ export async function POST(request: NextRequest) {
           }
 
           // 效果白名单校验（ENCOUNTER: gold/stamina/health/attrExp/storyEntry/mood）
-          const deniedKinds = effects.filter((e) => !["gold", "stamina", "health", "attrExp", "storyEntry", "mood"].includes(e.kind)).map((e) => e.kind);
+          const deniedKinds = effects.filter((e) => !NARRATIVE_EFFECT_WHITELISTS.ENCOUNTER.includes(e.kind)).map((e) => e.kind);
           if (deniedKinds.length > 0) {
             console.warn(`ENCOUNTER(有选择): 拒绝白名单外效果 kind: ${deniedKinds.join(", ")}`);
-            const allowed = effects.filter((e) => ["gold", "stamina", "health", "attrExp", "storyEntry", "mood"].includes(e.kind));
+            const allowed = effects.filter((e) => NARRATIVE_EFFECT_WHITELISTS.ENCOUNTER.includes(e.kind));
             effects.length = 0;
             effects.push(...allowed);
           }
@@ -478,10 +479,10 @@ export async function POST(request: NextRequest) {
         }
 
         // 效果白名单校验（ENCOUNTER: gold/stamina/health/attrExp/storyEntry/mood）
-        const deniedKinds = effects.filter((e) => !["gold", "stamina", "health", "attrExp", "storyEntry", "mood"].includes(e.kind)).map((e) => e.kind);
+        const deniedKinds = effects.filter((e) => !NARRATIVE_EFFECT_WHITELISTS.ENCOUNTER.includes(e.kind)).map((e) => e.kind);
         if (deniedKinds.length > 0) {
           console.warn(`ENCOUNTER(无选择): 拒绝白名单外效果 kind: ${deniedKinds.join(", ")}`);
-          const allowed = effects.filter((e) => ["gold", "stamina", "health", "attrExp", "storyEntry", "mood"].includes(e.kind));
+          const allowed = effects.filter((e) => NARRATIVE_EFFECT_WHITELISTS.ENCOUNTER.includes(e.kind));
           effects.length = 0;
           effects.push(...allowed);
         }

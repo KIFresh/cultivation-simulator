@@ -4,6 +4,7 @@
 
 import { SpiritualRoot, formatRealmLevel, LOCATIONS } from "./cultivation-data";
 import { getWorldAIPrompt } from "./worlds-data";
+import type { NarrativeEffect } from "./narrative-effects";
 
 // ============================================================
 // 供应方配置
@@ -441,7 +442,7 @@ export interface NarrativeBase {
   /** AI 提议的金币变动量（正=收入，负=支出），路由层会校验并钳制后落库 */
   goldChange?: number;
   /** AI 直接输出的效果数组（替代 goldChange/intimacyDelta 等旧字段） */
-  effects?: import("@/lib/narrative-effects").NarrativeEffect[];
+  effects?: NarrativeEffect[];
 }
 
 /** 奇遇选项 */

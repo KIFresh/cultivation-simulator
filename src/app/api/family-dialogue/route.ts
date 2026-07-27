@@ -6,6 +6,7 @@ import { requireCultivator, apiError } from "@/lib/auth-helpers";
 import { json } from "@/lib/json-helper";
 import { logger } from "@/lib/logger";
 import { applyEffects, clampEffectsArray, type NarrativeEffect, type ApplyContext } from "@/lib/narrative-effects";
+import { NARRATIVE_EFFECT_WHITELISTS } from "@/lib/narrative-schema";
 import { getGoldMaxGainByRealm } from "@/lib/gold";
 import { sanitizeAttributes } from "@/lib/utils";
 import { calculateMaxStamina } from "@/lib/cultivation-data";
@@ -91,10 +92,13 @@ export async function POST(request: NextRequest) {
         { kind: "stamina", delta: -apCost },
       ];
       if (result.effects && result.effects.length > 0) {
-        // 从 AI effects 中提取亲密/金币效果，体力消耗仍由服务端决定
+        // 从 AI effects 中提取白名单内效果，体力消耗仍由服务端决定
+        const FAMILY_WHITELIST = NARRATIVE_EFFECT_WHITELISTS.FAMILY_DIALOGUE;
         for (const e of result.effects) {
-          if (e.kind === "intimacy" || e.kind === "gold" || e.kind === "storyEntry" || e.kind === "mood") {
+          if (FAMILY_WHITELIST.includes(e.kind)) {
             effects.push(e);
+          } else {
+            console.warn(`FAMILY_DIALOGUE: 拒绝白名单外效果 kind: ${e.kind}`);
           }
         }
       } else {

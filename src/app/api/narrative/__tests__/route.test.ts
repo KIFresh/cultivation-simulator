@@ -52,10 +52,18 @@ vi.mock('@/lib/technique-data', () => ({
   calculateTechniqueBonuses: mockCalculateTechniqueBonuses,
 }));
 vi.mock('@/lib/narrative-stream', () => ({ streamNarrativeResult: mockStreamNarrativeResult }));
-vi.mock('@/lib/narrative-effects', () => ({
-  applyEffects: mockApplyEffects,
-  clampEffectsArray: mockClampEffectsArray,
-}));
+vi.mock('@/lib/narrative-effects', () => {
+  const { z } = require('zod');
+  return {
+    applyEffects: mockApplyEffects,
+    clampEffectsArray: mockClampEffectsArray,
+    NarrativeEffectSchema: z.object({
+      kind: z.string(),
+      delta: z.number(),
+      targetRelation: z.string().optional(),
+    }),
+  };
+});
 vi.mock('@/lib/utils', () => ({ sanitizeAttributes: mockSanitizeAttributes }));
 vi.mock('@/lib/cultivation-data', () => ({ calculateMaxStamina: mockCalculateMaxStamina }));
 vi.mock('@/lib/gold', () => ({ getGoldMaxGainByRealm: mockGetGoldMaxGainByRealm }));
