@@ -138,8 +138,12 @@ export default function DashboardPage() {
               {maxAge !== null && maxAge > 0 && (
                 <StatusGauge label="寿元" value={Math.max(0, remaining)} max={maxAge} hint={`剩余 ${Math.max(0, remaining)} 年`} />
               )}
-              <StatusGauge label="金币存余" value={cultivator.gold ?? 50} max={cultivator.gold ?? 50} hint="金币" />
-              <StatusGauge label="健康值" value={cultivator.health ?? 100} max={100} hint={`${cultivator.health ?? 100} / 100`} />
+              <div className="rounded-2xl border border-[#EADCD0] bg-white/80 p-3 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-gray-500">金币存余</span>
+                </div>
+                <p className="font-mono font-bold text-sm text-[#B83227]">{cultivator.gold ?? 50}</p>
+              </div>
             </div>
 
             <AttributeGrid attributes={attributes} />
