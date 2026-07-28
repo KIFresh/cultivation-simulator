@@ -79,6 +79,7 @@ vi.mock("@/lib/technique-data", () => ({
     fire_art: { name: "炎火术", icon: "🔥", upgradeProficiency: 150 },
   },
   calculateTechniqueBonuses: mockCalculateTechniqueBonuses,
+  calcTechniqueProficiency: vi.fn(() => 20),
   addProficiency: mockAddProficiency,
   triggerStudyEvent: mockTriggerStudyEvent,
   getDefaultStudyNarrative: mockGetDefaultStudyNarrative,

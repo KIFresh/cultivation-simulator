@@ -12,6 +12,7 @@ import {
 import {
   TECHNIQUES,
   calculateTechniqueBonuses,
+  calcTechniqueProficiency,
   addProficiency,
   getDefaultStudyNarrative,
   triggerStudyEvent,
@@ -366,11 +367,12 @@ export async function executeAction(
   let techniqueEvents: ActionResultData["techniqueEvents"] = [];
   if (actionId === "STUDY") {
     const insight = safeAttrs.insight ?? 0;
-    const baseProf = 5 + Math.floor(insight / 5);
+    const baseProf = calcTechniqueProficiency('study', cultivator.realm);
+    const insightBonus = Math.floor(insight / 3);
     for (const record of techniqueRecords) {
       const tech = TECHNIQUES[record.techniqueId];
       if (!tech) continue;
-      let profGained = baseProf;
+      let profGained = baseProf + insightBonus;
       let eventNarrative: string | undefined;
       const triggered = triggerStudyEvent(insight, tech.name);
       if (triggered) {

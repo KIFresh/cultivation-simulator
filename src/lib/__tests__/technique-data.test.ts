@@ -192,7 +192,7 @@ describe('calculateTechniqueBonuses', () => {
 // ============================================================
 describe('calcTechniqueProficiency', () => {
   it('凡人境界日常修炼得10点', () => {
-    expect(calcTechniqueProficiency('action', '凡人')).toBe(10);
+    expect(calcTechniqueProficiency('action', '凡人')).toBe(20);
   });
 
   it('境界越高熟练度越高', () => {
@@ -211,7 +211,7 @@ describe('calcTechniqueProficiency', () => {
   });
 
   it('不认识的境界名按凡人处理', () => {
-    expect(calcTechniqueProficiency('action', '未知境界')).toBe(10);
+    expect(calcTechniqueProficiency('action', '未知境界')).toBe(20);
   });
 });
 

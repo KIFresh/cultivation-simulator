@@ -137,12 +137,14 @@ export function calcTechniqueProficiency(
   actionType: 'action' | 'combat' | 'study',
   realmName: string
 ): number {
-  // 基础熟练度：凡人 10，炼气期 12，筑基期 15，未知境界回退凡人
-  const baseMap: Record<string, number> = { '凡人': 10, '炼气期': 12, '筑基期': 15 };
+  // 基础熟练度：境界越高理解越快
+  const baseMap: Record<string, number> = {
+    '凡人': 10, '炼气期': 14, '筑基期': 18, '结丹期': 22, '元婴期': 26, '化神期': 30,
+  };
   const base = baseMap[realmName] ?? 10;
   // 战斗 ×3，修炼 ×2，日常动作 ×1
   const multiplier = actionType === 'combat' ? 3 : actionType === 'study' ? 2 : 1;
-  return base * multiplier;
+  return base * multiplier * 2; // ×2 整体提速
 }
 
 /**
@@ -238,7 +240,7 @@ export function getDefaultStudyNarrative(techniqueName: string): string {
  * @returns 如果触发事件返回 StudyEvent，否则返回 null
  */
 export function triggerStudyEvent(insight: number, techniqueName: string): { event: StudyEvent; narrative: string } | null {
-  const baseChance = 0.2;
+  const baseChance = 0.3;
   const insightBonus = insight * 0.02;
   const totalChance = Math.min(baseChance + insightBonus, 0.95);
 
