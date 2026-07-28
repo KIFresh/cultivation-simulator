@@ -74,6 +74,20 @@ export const REALMS: Realm[] = [
 
 export const REALM_ORDER = ["凡人", ...REALMS.map((r) => r.name)];
 
+/** 安全获取境界索引，未知境界返回 -1 */
+export function getRealmIndex(realm: string): number {
+  return REALM_ORDER.indexOf(realm);
+}
+
+/** 安全判断当前境界是否满足最低要求 */
+export function isRealmSufficient(realm: string, minRealm: string): boolean {
+  const idx = getRealmIndex(realm);
+  const minIdx = getRealmIndex(minRealm);
+  if (minIdx < 0) return true;   // 未知门槛，保守放行
+  if (idx < 0) return false;     // 未知当前境界，保守拒绝
+  return idx >= minIdx;
+}
+
 /** 各境界基础寿元（年） */
 const BASE_LIFESPAN: Record<string, number> = {
   "凡人": 80,
@@ -164,12 +178,24 @@ export const ACTIONS: Action[] = [
 
 export function getAvailableActions(worldId: string, age: number, realm: string, locationId?: string): Action[] {
   if (worldId !== "earth") return ACTIONS;
-  const realmIndex = REALM_ORDER.indexOf(realm);
+  const realmIndex = getRealmIndex(realm);
   if (realmIndex < 0) {
     // 未知/无效境界：保守返回仅按年龄过滤的基础行动，避免越权
     return ACTIONS.filter((a) => age >= a.minAgeEarth && !a.minRealm);
   }
-  return ACTIONS.filter((a) => age >= a.minAgeEarth && (a.minRealm ? REALM_ORDER.indexOf(a.minRealm) <= realmIndex : true));
+  return ACTIONS.filter((a) => age >= a.minAgeEarth && (a.minRealm ? getRealmIndex(a.minRealm) <= realmIndex : true));
+}
+
+/** 带锁定信息的行动列表：年龄、地点符合但境界不足的行动仍返回，标注 locked 状态 */
+export function getActionsWithLockInfo(worldId: string, age: number, realm: string, locationId?: string): (Action & { locked?: boolean; requiredRealm?: string; lockReason?: string })[] {
+  if (worldId !== "earth") return ACTIONS.map((a) => ({ ...a }));
+  const realmIndex = getRealmIndex(realm);
+  return ACTIONS.filter((a) => age >= a.minAgeEarth).map((a) => {
+    if (!a.minRealm) return { ...a }; // 无境界门槛
+    if (realmIndex < 0) return { ...a, locked: true, requiredRealm: a.minRealm, lockReason: `未知境界` };
+    if (getRealmIndex(a.minRealm) > realmIndex) return { ...a, locked: true, requiredRealm: a.minRealm, lockReason: `需要 ${a.minRealm}` };
+    return { ...a };
+  });
 }
 export function getActionById(actionId: string): Action | undefined { return ACTIONS.find((a) => a.id === actionId); }
 
@@ -271,10 +297,10 @@ export const SHOP_ITEMS: ShopItem[] = [
 ];
 
 export function getShopItems(realm?: string): (ShopItem & { item: Item })[] {
-  const realmIndex = REALM_ORDER.indexOf(realm || "凡人");
+  const realmIndex = getRealmIndex(realm || "凡人");
   return SHOP_ITEMS.map((s) => ({ ...s, item: ITEMS[s.itemId] })).filter((s) => {
     if (!s.item) return false;
-    if (s.minRealm && REALM_ORDER.indexOf(s.minRealm) > realmIndex) return false;
+    if (s.minRealm && getRealmIndex(s.minRealm) > realmIndex) return false;
     return true;
   });
 }

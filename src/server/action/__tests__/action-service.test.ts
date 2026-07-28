@@ -43,6 +43,14 @@ vi.mock("@/lib", () => ({
   calculateMaxStamina: mockCalculateMaxStamina,
   getLocationActionBonus: mockGetLocationActionBonus,
   REALM_ORDER: ["凡人", "炼气期", "筑基期", "结丹期", "元婴期", "化神期"],
+  isRealmSufficient: (realm: string, minRealm: string) => {
+    const order = ["凡人", "炼气期", "筑基期", "结丹期", "元婴期", "化神期"];
+    const idx = order.indexOf(realm);
+    const minIdx = order.indexOf(minRealm);
+    if (minIdx < 0) return true;
+    if (idx < 0) return false;
+    return idx >= minIdx;
+  },
 }));
 
 vi.mock("@/lib/narrative", () => ({

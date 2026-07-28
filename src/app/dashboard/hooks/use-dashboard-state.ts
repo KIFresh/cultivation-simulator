@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { CultivatorData, NarrativeDisplay } from "../types";
 import { useDashboardActions } from "./use-dashboard-actions";
 import {
-  getAvailableActions,
+  getActionsWithLockInfo,
   getActionById,
   isAwakened,
   canBreakthrough,
@@ -120,7 +120,7 @@ export function useDashboardState() {
           setInventory([]);
           localStorage.setItem(STORAGE_KEYS.inventory, JSON.stringify([]));
         }
-        const actions = getAvailableActions(capped.worldId || "earth", capped.age, capped.realm);
+        const actions = getActionsWithLockInfo(capped.worldId || "earth", capped.age, capped.realm);
         setAvailableActions(actions);
         if (isAwakened(capped.realm)) {
           setCanBreak(canBreakthrough(capped.realm, capped.realmLevel, capped.cultivationExp, capped.spiritualRoot, capped.breakthroughBuff || 0));
@@ -199,7 +199,7 @@ export function useDashboardState() {
         if (isAwakened(c.realm)) {
           setCanBreak(canBreakthrough(c.realm, c.realmLevel, c.cultivationExp, c.spiritualRoot, c.breakthroughBuff || 0));
         }
-        setAvailableActions(getAvailableActions(c.worldId || "earth", c.age, c.realm, currentLoc));
+        setAvailableActions(getActionsWithLockInfo(c.worldId || "earth", c.age, c.realm, currentLoc));
       }
       if (awakenEvent) {
         setAwakenEvent(awakenEvent);
@@ -231,7 +231,7 @@ export function useDashboardState() {
         if (isAwakened(c.realm)) {
           setCanBreak(canBreakthrough(c.realm, c.realmLevel, c.cultivationExp, c.spiritualRoot, c.breakthroughBuff || 0));
         }
-        setAvailableActions(getAvailableActions(c.worldId || "earth", c.age, c.realm, currentLoc));
+        setAvailableActions(getActionsWithLockInfo(c.worldId || "earth", c.age, c.realm, currentLoc));
       }
       if (data.warnEarly) {
         setWarnEarly(true);

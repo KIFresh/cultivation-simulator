@@ -37,6 +37,9 @@ import {
   dbToSchoolRank,
   schoolRankToDb,
   ACTIONS,
+  getRealmIndex,
+  isRealmSufficient,
+  getActionsWithLockInfo,
 } from '../cultivation-data';
 
 describe('cultivation-data', () => {
@@ -377,6 +380,42 @@ describe('cultivation-data', () => {
     it('should return fallback for unknown', () => {
       expect(dbToSchoolRank(99)).toBe('普通');
       expect(schoolRankToDb('unknown' as any)).toBe(0);
+    });
+  });
+
+  describe('getRealmIndex', () => {
+    it('凡人返回 0', () => expect(getRealmIndex('凡人')).toBe(0));
+    it('炼气期返回 1', () => expect(getRealmIndex('炼气期')).toBe(1));
+    it('筑基期返回 2', () => expect(getRealmIndex('筑基期')).toBe(2));
+    it('未知境界返回 -1', () => expect(getRealmIndex('未知境界')).toBe(-1));
+  });
+
+  describe('isRealmSufficient', () => {
+    it('凡人满足凡人门槛', () => expect(isRealmSufficient('凡人', '凡人')).toBe(true));
+    it('炼气期满足凡人门槛', () => expect(isRealmSufficient('炼气期', '凡人')).toBe(true));
+    it('凡人不满足炼气期门槛', () => expect(isRealmSufficient('凡人', '炼气期')).toBe(false));
+    it('未知境界不满足门槛', () => expect(isRealmSufficient('未知', '炼气期')).toBe(false));
+    it('未知门槛保守放行', () => expect(isRealmSufficient('凡人', '未知')).toBe(true));
+  });
+
+  describe('getActionsWithLockInfo', () => {
+    it('earth 世界凡人返回行动，基础行动无锁定', () => {
+      const actions = getActionsWithLockInfo('earth', 16, '凡人');
+      expect(actions.length).toBeGreaterThan(0);
+      const unlocked = actions.filter((a) => !a.locked);
+      expect(unlocked.length).toBeGreaterThan(0);
+    });
+    it('筑基期行动对凡人标记 locked', () => {
+      const actions = getActionsWithLockInfo('earth', 16, '凡人');
+      const locked = actions.filter((a) => a.locked);
+      locked.forEach((a) => {
+        expect(a.lockReason).toContain('需要');
+        expect(a.requiredRealm).toBeDefined();
+      });
+    });
+    it('非 earth 世界返回全部行动无锁定', () => {
+      const actions = getActionsWithLockInfo('heaven', 16, '凡人');
+      expect(actions.every((a) => !a.locked)).toBe(true);
     });
   });
 });

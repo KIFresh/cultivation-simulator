@@ -7,7 +7,7 @@ import {
   isAwakened,
   calculateMaxStamina,
   getLocationActionBonus,
-  REALM_ORDER,
+  isRealmSufficient,
 } from "@/lib";
 import {
   TECHNIQUES,
@@ -117,8 +117,7 @@ export async function executeAction(
     return { status: "error", message: "年龄不足", code: 400 };
   }
 
-  const cultivatorRealmIndex = REALM_ORDER.indexOf(cultivator.realm);
-  if (action.minRealm && REALM_ORDER.indexOf(action.minRealm) > cultivatorRealmIndex) {
+  if (action.minRealm && !isRealmSufficient(cultivator.realm, action.minRealm)) {
     return {
       status: "error",
       message: `境界不足，需要${action.minRealm}`,

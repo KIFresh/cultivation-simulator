@@ -87,13 +87,16 @@ export function NarrativePanel({
           {availableActions.filter((a) => a.id !== "FREE").slice(0, 6).map((action) => {
             const isActive = activeActionId === action.id;
             const cant = cultivator.stamina < action.actionPointCost;
+            const isLocked = action.locked;
+            const lockReason = action.lockReason || "";
+            const disabled = actionLoading || cant || isLocked;
             return (
               <div key={action.id} className="flex flex-col gap-1">
                 <button
-                  disabled={actionLoading || cant}
+                  disabled={disabled}
                   onClick={() => onActionClick(action.id)}
                   className={`group flex items-center justify-between rounded-2xl border px-4 py-4 text-left shadow-sm transition-all hover:border-[#B83227] hover:bg-[#FDF2F0] ${
-                    cant ? "opacity-40" : isActive ? "border-[#B83227] bg-[#FDF2F0]" : "border-[#EADCD0] bg-white"
+                    cant ? "opacity-40" : isLocked ? "opacity-30" : isActive ? "border-[#B83227] bg-[#FDF2F0]" : "border-[#EADCD0] bg-white"
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -102,7 +105,7 @@ export function NarrativePanel({
                     </div>
                     <div>
                       <h4 className="text-xs font-bold text-[#2C1E1E]">{action.name}</h4>
-                      <p className="mt-0.5 text-[9px] text-gray-400">尝试行动</p>
+                      <p className="mt-0.5 text-[9px] text-gray-400">{isLocked ? lockReason : "尝试行动"}</p>
                     </div>
                   </div>
                   <span className="font-mono text-[10px] font-bold text-[#D49B4B]">-{action.actionPointCost}</span>
