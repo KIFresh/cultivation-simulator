@@ -127,6 +127,9 @@ export async function POST(request: NextRequest) {
         currentStamina: freshC.stamina,
         maxStamina: calculateMaxStamina(freshC.age, sanitizeAttributes(freshC.attributes) ?? undefined),
         maxGoldAbsDelta: maxGoldCap,
+        currentIntimacy: familyMember.intimacy,
+        maxIntimacy: 100,
+        maxIntimacyAbsDelta: 8,
       });
       const ctx: ApplyContext = {
         cultivatorId: c.id,

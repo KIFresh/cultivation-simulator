@@ -6,7 +6,7 @@
 //   2) 绝对值区间 [GOLD_MIN, GOLD_MAX]（防止金币变负或越上限）
 
 export const GOLD_MIN = 0;
-export const GOLD_MAX = 1_000_000;
+export const GOLD_MAX = 10_000_000;
 export const GOLD_MAX_GAIN_PER_EVENT = 10_000;
 
 /**
