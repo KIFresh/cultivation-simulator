@@ -39,6 +39,8 @@ export interface GameStore {
   narrativeRetrying: boolean;
   location: string | null;
   unlockedLocations: string[] | null;
+  /** 最近一次 action 完成的完整结果，供 dashboard 订阅处理 side-effect */
+  lastActionResult: Record<string, any> | null;
 
   setUserId: (id: string | null) => void;
   setCultivator: (data: Partial<CultivatorData> | null) => void;
@@ -50,6 +52,8 @@ export interface GameStore {
   useItem: (itemId: string, quantity?: number) => Promise<void>;
   retryNarrative: () => Promise<void>;
   setLocation: (loc: string) => Promise<void>;
+  setNarrative: (narrative: NarrativeDisplay | null) => void;
+  setLastActionResult: (result: Record<string, any> | null) => void;
 }
 
 function parseAttrs(raw: unknown): Record<string, number> {
@@ -142,7 +146,7 @@ function deriveStoreFields(raw: any) {
 /** 统一回填：处理道消 / 叙事 / 修炼者派生 / 突破门控 */
 function applyNarrativeResult(set: (partial: any) => void, data: any): void {
   if (data?.daoXiao) {
-    set({ actionLoading: false, streamingText: null, narrativeError: { message: "道消！修炼之路中断。", params: data.summary } });
+    set({ actionLoading: false, streamingText: null, lastActionResult: data, narrativeError: { message: "道消！修炼之路中断。", params: data.summary } });
     if (data.cultivator) set((s: any) => ({ ...deriveStoreFields(data.cultivator) }));
     return;
   }
@@ -151,6 +155,7 @@ function applyNarrativeResult(set: (partial: any) => void, data: any): void {
     ...derived,
     narrative: data.narrative ?? null,
     streamingText: null,
+    lastActionResult: data,
     actionLoading: false,
     canBreakthrough: typeof data.canBreakthrough === "boolean" ? data.canBreakthrough : derived.canBreakthrough,
   }));
@@ -170,6 +175,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   narrativeRetrying: false,
   location: null,
   unlockedLocations: null,
+  lastActionResult: null,
 
   setUserId: (id) => set({ userId: id }),
 
@@ -209,20 +215,27 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   performAction: async (actionId, input) => {
-    const { userId, cultivator } = get();
+    const { userId, cultivator, actionLoading } = get();
     if (!userId) throw new Error("未找到用户，请先创建修炼者");
+    if (actionLoading) return; // 拒绝重复请求
     set({ actionLoading: true, narrativeError: null, streamingText: "" });
+    let familyData: Record<string, any> | null = null;
+    try {
+      const raw = typeof window !== "undefined" ? window.localStorage.getItem("family") : null;
+      if (raw) familyData = JSON.parse(raw);
+    } catch {}
     const body = {
-      userId,
       actionId,
       freeInput: input,
+      worldId: cultivator?.worldId || "earth",
+      family: familyData,
       attributes: parseAttrs(cultivator?.attributes),
     };
     lastRequest = { endpoint: "/api/action?stream=true", body };
     try {
       const res = await fetch("/api/action?stream=true", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-user-id": userId },
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -242,8 +255,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   breakthrough: async (protector) => {
-    const { userId } = get();
+    const { userId, actionLoading } = get();
     if (!userId) throw new Error("未找到用户，请先创建修炼者");
+    if (actionLoading) return;
     set({ actionLoading: true, narrativeError: null, streamingText: "" });
     const body = { userId, protector };
     lastRequest = { endpoint: "/api/breakthrough?stream=true", body };
@@ -270,8 +284,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   advanceQuarter: async () => {
-    const { userId, cultivator } = get();
+    const { userId, cultivator, actionLoading } = get();
     if (!userId) throw new Error("未找到用户，请先创建修炼者");
+    if (actionLoading) return;
     set({ actionLoading: true, narrativeError: null });
     const body = {
       worldId: cultivator?.worldId || "earth",
@@ -302,8 +317,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   useItem: async (itemId, quantity = 1) => {
-    const { userId } = get();
+    const { userId, actionLoading } = get();
     if (!userId) throw new Error("未找到用户，请先创建修炼者");
+    if (actionLoading) return;
     set({ actionLoading: true, narrativeError: null });
     try {
       const res = await fetch("/api/cultivator/use-item", {
@@ -344,6 +360,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set({ narrativeRetrying: false });
     }
   },
+
+  setNarrative: (narrative) => set({ narrative }),
+
+  setLastActionResult: (result) => set({ lastActionResult: result }),
 
   setLocation: async (loc) => {
     const { userId, cultivator } = get();

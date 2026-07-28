@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react";
 import type { CultivatorData, NarrativeDisplay } from "@/app/dashboard/types";
-import { consumeNarrativeStream } from "@/lib/sse-client";
 import { toast } from "sonner";
 
 export interface UseDashboardActionsOptions {
@@ -26,7 +25,6 @@ export interface UseDashboardActionsOptions {
 }
 
 export interface UseDashboardActionsResult {
-  performAction: (actionId: string, input?: string) => Promise<void>;
   advanceSeason: () => Promise<void>;
   handleBreakthrough: () => Promise<void>;
   handleUseItem: (itemId: string) => Promise<void>;
@@ -49,7 +47,6 @@ export function useDashboardActions({
   onActionError,
   onActionSuccess,
 }: UseDashboardActionsOptions): UseDashboardActionsResult {
-  const [streamingText, setStreamingText] = useState<string | null>(null);
   const [, setActionInput] = useState("");
 
   const syncCultivator = useCallback(
@@ -76,65 +73,6 @@ export function useDashboardActions({
       });
     },
     [onNarrative],
-  );
-
-  const performAction = useCallback(
-    async (actionId: string, input?: string) => {
-      if (!userId || !cultivator || actionLoading) return;
-      let familyData: Record<string, any> | null = null;
-      try {
-        const raw = typeof window !== "undefined" ? window.localStorage.getItem("family") : null;
-        if (raw) familyData = JSON.parse(raw);
-      } catch {}
-
-      const res = await fetch("/api/action?stream=true", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-user-id": userId || "" },
-        body: JSON.stringify({
-          actionId,
-          freeInput: input || undefined,
-          worldId: cultivator.worldId,
-          family: familyData,
-          attributes,
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        onActionError?.(err.error || "行动失败");
-        return;
-      }
-
-      const ct = res.headers.get("content-type") || "";
-      if (ct.includes("text/event-stream")) {
-        await consumeNarrativeStream(res, {
-          onChunk: (c) => setStreamingText((prev) => (prev || "") + c),
-          onDone: (d) => {
-            setStreamingText(null);
-            if (!d) return;
-            applyNarrativeResponse(d);
-            if (d.cultivator) syncCultivator(d.cultivator);
-            onActionSuccess?.();
-          },
-          onError: (e) => {
-            setStreamingText(null);
-            onActionError?.(e?.message || "行动叙事生成失败，请重试");
-          },
-        });
-        return;
-      }
-
-      const data = await res.json();
-      setStreamingText(null);
-      if (data.updatedFamily) {
-        try {
-          window.localStorage.setItem("family", JSON.stringify(data.updatedFamily));
-        } catch {}
-      }
-      applyNarrativeResponse(data);
-      if (data.cultivator) syncCultivator(data.cultivator);
-      onActionSuccess?.();
-    },
-    [userId, cultivator, actionLoading, attributes, applyNarrativeResponse, syncCultivator, onActionError, onActionSuccess],
   );
 
   const advanceSeason = useCallback(async () => {
@@ -207,5 +145,5 @@ export function useDashboardActions({
     [userId, cultivator, syncCultivator],
   );
 
-  return { performAction, advanceSeason, handleBreakthrough, handleUseItem, sendNpcMessage, setActionInput };
+  return { advanceSeason, handleBreakthrough, handleUseItem, sendNpcMessage, setActionInput };
 }

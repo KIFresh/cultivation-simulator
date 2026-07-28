@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { CultivatorData, NarrativeDisplay } from "../types";
 import { useDashboardActions } from "./use-dashboard-actions";
+import { useGameStore } from "@/store";
 import {
   getActionsWithLockInfo,
   getActionById,
@@ -64,6 +65,79 @@ export function useDashboardState() {
   const [remaining, setRemaining] = useState(0);
   const [maxAge, setMaxAge] = useState<number | null>(null);
   const [cliqueInfo, setCliqueInfo] = useState<any>(null);
+
+  // ── 全局 store 订阅 ──
+  // 使用 store 的 streamingText 和 actionLoading 替代本地状态，确保页面切换不丢失
+  const storeStreamingText = useGameStore((s) => s.streamingText);
+  const storeActionLoading = useGameStore((s) => s.actionLoading);
+  const storeNarrative = useGameStore((s) => s.narrative);
+  const storeNarrativeError = useGameStore((s) => s.narrativeError);
+
+  // 同步 store 的 streamingText 到本地状态（NarrativePanel 从 props 读取）
+  useEffect(() => {
+    setStreamingText(storeStreamingText);
+  }, [storeStreamingText]);
+
+  // 同步 store 的 actionLoading
+  useEffect(() => {
+    setActionLoading(storeActionLoading);
+  }, [storeActionLoading]);
+
+  // 同步 store 的 narrative（来自非 action 路由的叙事）
+  useEffect(() => {
+    if (storeNarrative && storeNarrative !== narrative) {
+      setNarrative(storeNarrative);
+      setNarrativeExpanded(false);
+    }
+  }, [storeNarrative]);
+
+  // 同步 store 的 narrativeError → toast
+  useEffect(() => {
+    if (storeNarrativeError) {
+      toast.error(storeNarrativeError.message || "叙事生成失败");
+    }
+  }, [storeNarrativeError]);
+
+  // 订阅 store 的 lastActionResult 处理 action 完成后的 side-effect
+  const storeLastActionResult = useGameStore((s) => s.lastActionResult);
+  const prevLastActionResultRef = useRef<Record<string, any> | null>(null);
+  useEffect(() => {
+    const result = storeLastActionResult;
+    if (!result || result === prevLastActionResultRef.current) return;
+    prevLastActionResultRef.current = result;
+
+    // 从 result 中提取并处理 side-effect
+    const awakenEvent = result.awakenEvent;
+    const expGained = result.expGained;
+    const techniqueEvents = result.techniqueEvents;
+    const c = result.cultivator;
+
+    if (c) {
+      setCultivator(c);
+      if (c.storyEntries) {
+        try {
+          const parsed = typeof c.storyEntries === "string" ? JSON.parse(c.storyEntries) : c.storyEntries;
+          setMemoryEntries(Array.isArray(parsed) ? parsed : []);
+        } catch {}
+      }
+      if (isAwakened(c.realm)) {
+        setCanBreak(canBreakthrough(c.realm, c.realmLevel, c.cultivationExp, c.spiritualRoot, c.breakthroughBuff || 0));
+      }
+      setAvailableActions(getActionsWithLockInfo(c.worldId || "earth", c.age, c.realm, currentLoc));
+    }
+    if (awakenEvent) {
+      setAwakenEvent(awakenEvent);
+      toast.success("🎉 灵气觉醒！", { duration: 5000 });
+    }
+    if (expGained) toast.success(`修炼值 +${expGained}`, { duration: 2000 });
+    if (techniqueEvents && techniqueEvents.length > 0) {
+      techniqueEvents.forEach((te: any) => {
+        const profMsg = te.eventNarrative ? te.eventNarrative : `${te.icon} ${te.techniqueName} 熟练度 +${te.profGained}`;
+        toast(profMsg, { duration: 3000 });
+        if (te.leveledUp) toast.success(`⚡ ${te.icon} ${te.techniqueName} 升级！`, { duration: 4000 });
+      });
+    }
+  }, [storeLastActionResult]);
 
   const attributesRef = useRef(attributes);
   attributesRef.current = attributes;
@@ -293,7 +367,10 @@ export function useDashboardState() {
       toast.error(`体力不足（需要 ${cost}，当前 ${cultivator.stamina}）`, { duration: 2000 });
       return;
     }
-    if (activeActionId === actionId) actions.performAction(actionId);
+    if (activeActionId === actionId) {
+      setActiveActionId(null);
+      useGameStore.getState().performAction(actionId).catch(() => {});
+    }
     else {
       setActiveActionId(actionId);
       setActionInput("");
@@ -307,8 +384,8 @@ export function useDashboardState() {
       toast.error(`体力不足（需要 ${cost}，当前 ${cultivator.stamina}）`, { duration: 2000 });
       return;
     }
-    if (actionInput.trim()) actions.performAction(actionId, actionInput.trim());
-    else actions.performAction(actionId);
+    if (actionInput.trim()) useGameStore.getState().performAction(actionId, actionInput.trim()).catch(() => {});
+    else useGameStore.getState().performAction(actionId).catch(() => {});
   };
 
   const handleBreakthrough = () => actions.handleBreakthrough();
