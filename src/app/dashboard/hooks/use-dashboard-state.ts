@@ -94,24 +94,20 @@ export function useDashboardState() {
       const res = await fetch(`/api/cultivator?userId=${userId}`);
       const data = await res.json();
       if (data.user?.cultivator) {
-        const capped = {
-          ...data.user.cultivator,
-          stamina: Math.min(data.user.cultivator.stamina, calculateMaxStamina(data.user.cultivator.age, attributesRef.current)),
-        };
-        setCultivator(capped);
-        if (capped.storyEntries) {
+        setCultivator(data.user.cultivator);
+        if (data.user.cultivator.storyEntries) {
           try {
-            const parsed = typeof capped.storyEntries === "string" ? JSON.parse(capped.storyEntries) : capped.storyEntries;
+            const parsed = typeof data.user.cultivator.storyEntries === "string" ? JSON.parse(data.user.cultivator.storyEntries) : data.user.cultivator.storyEntries;
             setMemoryEntries(Array.isArray(parsed) ? parsed : []);
           } catch {}
         }
-        if (capped.maxAge) {
-          setMaxAge(capped.maxAge);
-          setRemaining(capped.maxAge - capped.age);
+        if (data.user.cultivator.maxAge) {
+          setMaxAge(data.user.cultivator.maxAge);
+          setRemaining(data.user.cultivator.maxAge - data.user.cultivator.age);
         }
-        if (capped.inventory) {
+        if (data.user.cultivator.inventory) {
           try {
-            const backendInv = JSON.parse(capped.inventory);
+            const backendInv = JSON.parse(data.user.cultivator.inventory);
             setInventory(Array.isArray(backendInv) ? backendInv : []);
             localStorage.setItem(STORAGE_KEYS.inventory, JSON.stringify(Array.isArray(backendInv) ? backendInv : []));
           } catch {
@@ -122,10 +118,10 @@ export function useDashboardState() {
           setInventory([]);
           localStorage.setItem(STORAGE_KEYS.inventory, JSON.stringify([]));
         }
-        const actions = getActionsWithLockInfo(capped.worldId || "earth", capped.age, capped.realm);
+        const actions = getActionsWithLockInfo(data.user.cultivator.worldId || "earth", data.user.cultivator.age, data.user.cultivator.realm);
         setAvailableActions(actions);
-        if (isAwakened(capped.realm)) {
-          setCanBreak(canBreakthrough(capped.realm, capped.realmLevel, capped.cultivationExp, capped.spiritualRoot, capped.breakthroughBuff || 0));
+        if (isAwakened(data.user.cultivator.realm)) {
+          setCanBreak(canBreakthrough(data.user.cultivator.realm, data.user.cultivator.realmLevel, data.user.cultivator.cultivationExp, data.user.cultivator.spiritualRoot, data.user.cultivator.breakthroughBuff || 0));
         }
         fetch(`/api/events?limit=50`)
           .then((r) => r.json())
