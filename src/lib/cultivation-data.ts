@@ -361,8 +361,9 @@ export const NPCS: NPC[] = [
 export function getNPCsAtLocation(locationId: string): NPC[] {
   return NPCS.filter((n) => n.locationId === locationId);
 }
-export function calculateSchoolRank(age: number, attributes: Record<string, number>): SchoolRank {
-  const score = (attributes.insight || 0) * 3 + (attributes.mind || 0) * 2 + (attributes.root || 0) + (attributes.spirit || 0) + (attributes.luck || 0) * 1.5 + (attributes.charm || 0) * 0.5;
+export function calculateSchoolRank(age: number, attributes: Record<string, number>, teacherBonus?: number): SchoolRank {
+  const baseScore = (attributes.insight || 0) * 3 + (attributes.mind || 0) * 2 + (attributes.root || 0) + (attributes.spirit || 0) + (attributes.luck || 0) * 1.5 + (attributes.charm || 0) * 0.5;
+  const score = baseScore + (teacherBonus ?? 0) * 10;
   const threshold = 15 * Math.min(1, age / 18);
   if (score >= threshold * 2) return "名校";
   if (score >= threshold) return "重点";

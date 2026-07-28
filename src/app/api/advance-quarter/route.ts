@@ -18,6 +18,9 @@ import {
 } from "@/lib";
 import { calculateMaxAge } from "@/lib/cultivation-data";
 import { requireCultivator, apiError } from "@/lib/auth-helpers";
+import { shouldGenerateClassmates, generateClassmates, type NpcRelationData } from "@/lib/classmate-data";
+import { shouldGenerateTeachers, generateTeachers, getTeacherRankBonus } from "@/lib/teacher";
+import { decideClique, getCliqueBonus, getCliqueInfo, type CliqueKey } from "@/lib/clique";
 
 /** 每季度自然消退的丹毒量（GDD: decayToxicity -3/季） */
 export const DETOX_PER_QUARTER = 3;
@@ -77,6 +80,8 @@ export async function POST(request: NextRequest) {
     let remaining = 0;
     let maxAge = cultivator.maxAge || 0;
     let newAttributes = savedAttrs;
+    let npcRelations: Record<string, NpcRelationData> = {};
+    let cliqueKey: CliqueKey | null = null;
 
     if (yearWrapped) {
       oldAge = cultivator.age;
@@ -102,10 +107,44 @@ export async function POST(request: NextRequest) {
       warnEarly = remaining <= 10 || remaining < maxAge * 0.1;
       newAttributes = calculateYearlyAttributeGrowth(oldAge, newAge, savedAttrs, currentSchoolRank);
 
-      // ── 升学 ──────────────────────────────────────────
+      // ── NPC 关系（同学 + 师长） ──────────────────────
+      try {
+        const raw = cultivator.npcRelations;
+        npcRelations = typeof raw === "string" && raw ? JSON.parse(raw) : {};
+      } catch { /* 解析失败保持空对象 */ }
+
+      // 同学生成（6-15 岁，仅一次）
+      if (cultivator.worldId === "earth") {
+        npcRelations = generateClassmates(newAge, npcRelations);
+      }
+
+      // 师长生成（6 岁入学时，仅一次）
+      if (cultivator.worldId === "earth") {
+        npcRelations = generateTeachers(newAge, npcRelations);
+      }
+
+      // 师长好感对学校档位的加权
+      const teacherBonus = getTeacherRankBonus(npcRelations);
+
+      // ── 小团体派系（6-15 岁，每年重新判定） ──────────
+      if (newAge >= 6 && newAge < 16) {
+        cliqueKey = decideClique(
+          { insight: newAttributes.insight || 0, root: newAttributes.root || 0 },
+          newAge,
+        );
+      }
+      const cliqueBonus = getCliqueBonus(cliqueKey);
+      // 将派系加成叠加到属性
+      for (const [key, val] of Object.entries(cliqueBonus)) {
+        if (newAttributes[key] !== undefined) {
+          newAttributes[key] = Math.round((newAttributes[key] + val) * 10) / 10;
+        }
+      }
+
+      // ── 升学（含师长加权） ──────────────────────────
       schoolStage = getSchoolStage(newAge);
       if ([6, 12, 15, 18].includes(newAge) && schoolStage) {
-        schoolRank = calculateSchoolRank(newAge, newAttributes);
+        schoolRank = calculateSchoolRank(newAge, newAttributes, teacherBonus);
         examResult = {
           passed: true,
           rank: schoolRank,
@@ -165,6 +204,14 @@ export async function POST(request: NextRequest) {
       updateData.occupation = occupation;
       // schoolRank 持久化（Int 类型）
       updateData.schoolRank = schoolRankToDb(schoolRank);
+      // NPC 关系持久化
+      if (cultivator.worldId === "earth") {
+        updateData.npcRelations = JSON.stringify(npcRelations);
+      }
+      // 小团体派系持久化
+      if (cliqueKey) {
+        updateData.clique = cliqueKey;
+      }
       // 觉醒时的境界变化
       if (newRealm !== cultivator.realm) {
         updateData.realm = newRealm;
@@ -226,6 +273,7 @@ export async function POST(request: NextRequest) {
         : null,
       occupation,
       examResult,
+      cliqueInfo: cliqueKey ? getCliqueInfo(cliqueKey) : null,
       warnEarly,
       remaining,
       maxAge,
