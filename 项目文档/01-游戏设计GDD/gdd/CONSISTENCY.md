@@ -40,8 +40,6 @@
 | C-03 | 🟡 | NPC_DIALOGUE 未接入路由 | 系统 GDD 列出了 NPC 对话类型 | 无路由入口，`narrative/route.ts` default 返回"未知叙事类型" | `narrative/route.ts:391-396` |
 | C-04 | 🟡 | FAMILY_DEATH/QUARTER_ADVANCE 未实现 | NarrativeType 包含这些类型 | 无对应生成函数和路由 case | `narrative-types.ts` 类型定义 |
 | C-09 | 🟡 | streamNarrativeResult 参数过窄 | SSE 流式应带效果数据 | 参数类型只有 `narrative: { narrative?: string }` 无效果字段 | `narrative-stream.ts:12-17` |
-| C-10 | 🟢 | 亲密度靠近极值无衰减 | — | `family-dialogue/route.ts` 无极值衰减 | `family-dialogue/route.ts:86` |
-| C-11 | 🟢 | GOLD_MAX 过小 | — | 1,000,000 对高阶玩家过小 | `gold.ts:9` |
 | C-13 | 🟢 | COMBAT 返回纯字符串 | 叙事应为结构化 JSON | `generateCombatNarrative` 返回 `Promise<string>` | `narrative.ts:1032` |
 
 ---
@@ -59,6 +57,8 @@
 | C-08 | NarrativeDisplay 效果字段缺失 | 2026-07-24 | 已精简为 `{title, narrative, mood, hint?}`，效果展示走独立效果系统 |
 | C-12 | 仪表板重复 NarrativeDisplay | 2026-07-24 | 仅在 `dashboard/types.ts:48` 定义一次 |
 | C-14 | narrative-effects.ts 新增 | 2026-07 | 已创建统一效果契约，被 family-dialogue 等路由使用 |
+| C-10 | 亲密度靠近极值无衰减 | 2026-07-28 | 已添加 `currentIntimacy/maxIntimacy/maxIntimacyAbsDelta` 到 `family-dialogue/route.ts` clamp 配置 |
+| C-11 | GOLD_MAX 过小 | 2026-07-28 | 已从 1,000,000 提升至 10,000,000 |
 | D-01 | goldChange 字段归属 | 2026-07-24 | 已统一到 `narrative.ts` 单一来源 |
 | D-02 | 效果契约方案 | 2026-07-24 | 采用 `effects: NarrativeEffect[]` 数组方案（支持多效果叠加） |
 | D-04 | 体力预扣策略 | 2026-07-24 | 已改为 AI 成功后事务内统一扣除 |
