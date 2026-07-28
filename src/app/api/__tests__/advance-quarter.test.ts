@@ -43,6 +43,9 @@ vi.mock('@/lib/prisma', () => ({
       updateMany: vi.fn(),
       findUnique: vi.fn(),
     },
+    familyMember: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
   },
 }));
 

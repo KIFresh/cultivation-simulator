@@ -21,6 +21,7 @@ import { requireCultivator, apiError } from "@/lib/auth-helpers";
 import { shouldGenerateClassmates, generateClassmates, type NpcRelationData } from "@/lib/classmate-data";
 import { shouldGenerateTeachers, generateTeachers, getTeacherRankBonus } from "@/lib/teacher";
 import { decideClique, getCliqueBonus, getCliqueInfo, type CliqueKey } from "@/lib/clique";
+import { calcPocketMoney, calcSavingsInterest, type ParentLike } from "@/lib/savings";
 
 /** 每季度自然消退的丹毒量（GDD: decayToxicity -3/季） */
 export const DETOX_PER_QUARTER = 3;
@@ -82,6 +83,8 @@ export async function POST(request: NextRequest) {
     let newAttributes = savedAttrs;
     let npcRelations: Record<string, NpcRelationData> = {};
     let cliqueKey: CliqueKey | null = null;
+    let currentSavings: number | undefined;
+    let pocketMoneyResult: { granted: number; interest: number } | null = null;
 
     if (yearWrapped) {
       oldAge = cultivator.age;
@@ -152,6 +155,25 @@ export async function POST(request: NextRequest) {
         };
       }
 
+      // ── 零花钱（学龄阶段） + 储蓄利息 ────────────────
+      if (cultivator.worldId === "earth" && schoolStage && schoolStage.name !== "幼儿园") {
+        try {
+          const familyMembers = await prisma.familyMember.findMany({
+            where: { cultivatorId: cultivator.id, alive: true },
+            select: { relation: true, intimacy: true, incomeLevel: true },
+          });
+          const parents: ParentLike[] = familyMembers
+            .filter((m) => ["父亲", "母亲", "爸爸", "妈妈"].includes(m.relation))
+            .map((m) => ({ intimacy: m.intimacy, incomeLevel: m.incomeLevel ?? 1 }));
+          const pm = calcPocketMoney(schoolStage.name, parents);
+          const interest = calcSavingsInterest(cultivator.savings ?? 0);
+          if (pm.granted > 0 || interest > 0) {
+            currentSavings = (cultivator.savings ?? 0) + pm.granted + interest;
+            pocketMoneyResult = { granted: pm.granted, interest };
+          }
+        } catch { /* 零花钱计算失败不阻塞跨年 */ }
+      }
+
       // ── 职业自动切换 ──────────────────────────────────
       const defaultOcc = getDefaultOccupation(newAge);
       if (defaultOcc !== getDefaultOccupation(oldAge)) occupation = defaultOcc;
@@ -211,6 +233,10 @@ export async function POST(request: NextRequest) {
       // 小团体派系持久化
       if (cliqueKey) {
         updateData.clique = cliqueKey;
+      }
+      // 零花钱 + 储蓄利息持久化
+      if (currentSavings !== undefined) {
+        updateData.savings = currentSavings;
       }
       // 觉醒时的境界变化
       if (newRealm !== cultivator.realm) {
@@ -274,6 +300,7 @@ export async function POST(request: NextRequest) {
       occupation,
       examResult,
       cliqueInfo: cliqueKey ? getCliqueInfo(cliqueKey) : null,
+      pocketMoney: pocketMoneyResult,
       warnEarly,
       remaining,
       maxAge,
