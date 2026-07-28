@@ -1,26 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveCombat, type PlayerCombatData } from "@/lib/combat-engine";
+import { requireCultivator } from "@/lib/auth-helpers";
+import { applyEffects, clampEffectsArray, type NarrativeEffect, type ClampConfig } from "@/lib/narrative-effects";
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireCultivator(request);
+    if ("error" in auth) return auth.error;
+    const cultivator = auth.cultivator;
+
     const body = await request.json();
-    const { userId, enemyId, locationId } = body;
-
-    if (!userId) {
-      return NextResponse.json({ error: "缺少 userId" }, { status: 400 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { cultivator: true },
-    });
-
-    if (!user?.cultivator) {
-      return NextResponse.json({ error: "请先创建修炼者" }, { status: 400 });
-    }
-
-    const cultivator = user.cultivator;
+    const { enemyId, locationId } = body;
 
     // 检查每日战斗次数上限
     const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -65,7 +56,7 @@ export async function POST(request: NextRequest) {
       })),
     };
 
-    // 尝试从 localStorage 获取属性（请求体可能携带）
+    // 尝试从请求体获取属性
     if (body.attributes) {
       player.attributes = body.attributes;
     }
@@ -74,40 +65,74 @@ export async function POST(request: NextRequest) {
 
     // 持久化战斗结果
     if (result.enemy && result.enemy.id !== "none") {
-      const updateData: Record<string, any> = {};
+      const effects: NarrativeEffect[] = [];
+
       if (result.win && result.loot) {
-        updateData.gold = { increment: result.loot.gold };
-        updateData.cultivationExp = { increment: result.loot.exp };
-        updateData.totalExp = { increment: result.loot.exp };
+        if (result.loot.gold !== 0) effects.push({ kind: "gold", delta: result.loot.gold });
+        // cultivationExp 和 totalExp 不在效果契约中，直接更新
       }
       if (!result.win && result.penalty) {
-        updateData.gold = { decrement: Math.min(result.penalty.goldLoss, cultivator.gold ?? 50) };
-        if (result.penalty.injuryDebuff > 0) updateData.injuryDebuff = result.penalty.injuryDebuff;
-        if (result.penalty.lifespanLoss > 0) {
-          updateData.maxAge = Math.max(1, (cultivator.maxAge ?? 80) - result.penalty.lifespanLoss);
+        if (result.penalty.goldLoss > 0) {
+          effects.push({ kind: "gold", delta: -Math.min(result.penalty.goldLoss, cultivator.gold ?? 50) });
         }
-        // 道心受损（档0）
         if (result.penalty.mindDemonDelta) {
-          updateData.mindDemon = { increment: result.penalty.mindDemonDelta };
+          effects.push({ kind: "mindDemon", delta: result.penalty.mindDemonDelta });
         }
-        // 扣物（档1）
-        if (result.penalty.itemLoss && result.penalty.itemLoss.length > 0) {
-          const currentInv = JSON.parse(cultivator.inventory || "[]");
-          for (const lostId of result.penalty.itemLoss) {
-            const idx = currentInv.findIndex((i: any) => i.itemId === lostId && !i.equipped);
-            if (idx !== -1) {
-              currentInv[idx].quantity = (currentInv[idx].quantity ?? 1) - 1;
-              if (currentInv[idx].quantity <= 0) currentInv.splice(idx, 1);
-            }
+      }
+
+      const clampConfig: ClampConfig = {
+        currentGold: cultivator.gold ?? 0,
+        currentStamina: cultivator.stamina,
+        maxStamina: 100,
+        maxGoldAbsDelta: 10_000,
+      };
+      const clamped = clampEffectsArray(effects, clampConfig);
+
+      await prisma.$transaction(async (tx: any) => {
+        // 效果契约处理 gold/mindDemon
+        if (clamped.length > 0) {
+          await applyEffects(clamped, tx, {
+            cultivatorId: cultivator.id,
+            currentGold: cultivator.gold ?? 0,
+            currentStamina: cultivator.stamina,
+            maxStamina: 100,
+          });
+        }
+
+        // 非契约字段：exp、injuryDebuff、lifespan、itemLoss
+        const extraData: Record<string, any> = {};
+        if (result.win && result.loot) {
+          if (result.loot.exp > 0) {
+            extraData.cultivationExp = { increment: result.loot.exp };
+            extraData.totalExp = { increment: result.loot.exp };
           }
-          updateData.inventory = JSON.stringify(currentInv);
         }
-      }
-      if (Object.keys(updateData).length > 0) {
-        await prisma.cultivator.update({ where: { id: cultivator.id }, data: updateData });
-      }
-      await prisma.gameEvent.create({
-        data: { cultivatorId: cultivator.id, type: "COMBAT", title: result.win ? "战斗胜利" : "战斗失败", narrative: result.narrative, reward: JSON.stringify({ win: result.win, style: result.style, enemy: result.enemy.name }) },
+        if (!result.win && result.penalty) {
+          if (result.penalty.injuryDebuff > 0) extraData.injuryDebuff = result.penalty.injuryDebuff;
+          if (result.penalty.lifespanLoss > 0) {
+            extraData.maxAge = Math.max(1, (cultivator.maxAge ?? 80) - result.penalty.lifespanLoss);
+          }
+          // 扣物（档1）
+          if (result.penalty.itemLoss && result.penalty.itemLoss.length > 0) {
+            const currentInv = JSON.parse(cultivator.inventory || "[]");
+            for (const lostId of result.penalty.itemLoss) {
+              const idx = currentInv.findIndex((i: any) => i.itemId === lostId && !i.equipped);
+              if (idx !== -1) {
+                currentInv[idx].quantity = (currentInv[idx].quantity ?? 1) - 1;
+                if (currentInv[idx].quantity <= 0) currentInv.splice(idx, 1);
+              }
+            }
+            extraData.inventory = JSON.stringify(currentInv);
+          }
+        }
+        if (Object.keys(extraData).length > 0) {
+          await tx.cultivator.update({ where: { id: cultivator.id }, data: extraData });
+        }
+
+        // 记录战斗事件
+        await tx.gameEvent.create({
+          data: { cultivatorId: cultivator.id, type: "COMBAT", title: result.win ? "战斗胜利" : "战斗失败", narrative: result.narrative, reward: JSON.stringify({ win: result.win, style: result.style, enemy: result.enemy.name }) },
+        });
       });
     }
 

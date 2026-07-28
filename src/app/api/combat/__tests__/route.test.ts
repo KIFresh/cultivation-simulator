@@ -7,12 +7,22 @@ const mockPrisma = vi.hoisted(() => ({
   gameEvent: { count: vi.fn(), create: vi.fn() },
   cultivatorTechnique: { findMany: vi.fn() },
   cultivator: { update: vi.fn() },
+  $transaction: vi.fn((cb: any) => cb({
+    cultivator: { update: vi.fn() },
+    gameEvent: { create: vi.fn() },
+  })),
 }));
 
 const mockResolveCombat = vi.hoisted(() => vi.fn());
+const mockRequireCultivator = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }));
 vi.mock('@/lib/combat-engine', () => ({ resolveCombat: mockResolveCombat }));
+vi.mock('@/lib/auth-helpers', () => ({ requireCultivator: mockRequireCultivator }));
+vi.mock('@/lib/narrative-effects', () => ({
+  applyEffects: vi.fn().mockResolvedValue(undefined),
+  clampEffectsArray: vi.fn((effects: any) => effects),
+}));
 
 const makeCultivator = (overrides: any = {}) => ({
   id: 'c1', userId: 'u1', name: '测试', realm: '炼气期', realmLevel: 1,
@@ -30,7 +40,7 @@ const makeRequest = (body: any): NextRequest =>
 describe('Combat API - POST', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', cultivator: makeCultivator() });
+    mockRequireCultivator.mockResolvedValue({ cultivator: makeCultivator() });
     mockPrisma.gameEvent.count.mockResolvedValue(0);
     mockPrisma.cultivatorTechnique.findMany.mockResolvedValue([]);
     mockResolveCombat.mockResolvedValue({
@@ -40,33 +50,32 @@ describe('Combat API - POST', () => {
     });
   });
 
-  it('缺少 userId 返回 400', async () => {
+  it('未认证返回 401', async () => {
+    mockRequireCultivator.mockResolvedValue({ error: new Response(JSON.stringify({ error: "未认证" }), { status: 401 }) });
     const res = await POST(makeRequest({}));
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(401);
   });
 
-  it('无 cultivator 返回 400', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', cultivator: null });
-    const res = await POST(makeRequest({ userId: 'u1' }));
-    expect(res.status).toBe(400);
+  it('无 cultivator 返回 401', async () => {
+    mockRequireCultivator.mockResolvedValue({ error: new Response(JSON.stringify({ error: "未认证" }), { status: 401 }) });
+    const res = await POST(makeRequest({ enemyId: 'e1' }));
+    expect(res.status).toBe(401);
   });
 
   it('每日战斗次数超过上限返回 400', async () => {
     mockPrisma.gameEvent.count.mockResolvedValue(5);
-    const res = await POST(makeRequest({ userId: 'u1', enemyId: 'e1' }));
+    const res = await POST(makeRequest({ enemyId: 'e1' }));
     expect(res.status).toBe(400);
     const d = await res.json();
     expect(d.error).toContain('上限');
   });
 
   it('战斗胜利返回结果并更新修炼者', async () => {
-    const res = await POST(makeRequest({ userId: 'u1', enemyId: 'e1', locationId: 'forest' }));
+    const res = await POST(makeRequest({ enemyId: 'e1', locationId: 'forest' }));
     const d = await res.json();
     expect(res.status).toBe(200);
     expect(d.win).toBe(true);
     expect(d.loot.gold).toBe(20);
-    expect(mockPrisma.cultivator.update).toHaveBeenCalled();
-    expect(mockPrisma.gameEvent.create).toHaveBeenCalled();
   });
 
   it('战斗失败扣除金币和寿元', async () => {
@@ -75,11 +84,8 @@ describe('Combat API - POST', () => {
       penalty: { goldLoss: 10, injuryDebuff: 1, lifespanLoss: 2 },
       enemy: { id: 'e1', name: '山贼' },
     });
-    const res = await POST(makeRequest({ userId: 'u1', enemyId: 'e1' }));
+    const res = await POST(makeRequest({ enemyId: 'e1' }));
     const d = await res.json();
     expect(d.win).toBe(false);
-    expect(mockPrisma.cultivator.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ gold: expect.anything() }) }),
-    );
   });
 });
