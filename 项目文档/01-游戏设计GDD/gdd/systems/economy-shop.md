@@ -66,8 +66,8 @@ cap = GOLD_MAX_GAIN_PER_EVENT × 1.5^(min(realmLevel, 12) / 3)
 | 🟢 秘境奖励 | ✅ 已接入 | `POST /api/secret-realm` | 秘境完成金币奖励 |
 | 🟢 街机游戏 | ✅ 已接入 | `POST /api/arcade` | 小游戏金币产出 |
 | 🟢 物品出售 | ✅ 已接入 | 通过背包出售 | 道具回收 |
-| 🟡 叙事事件（家庭对话） | ✅ 已接入 | `POST /api/family-dialogue` | `clampGoldDelta` 处理 AI 返回 |
-| 🔴 叙事事件（日常/突破/奇遇） | ❌ 未接入 | `POST /api/narrative` | **P0 缺陷**：各 case 均未处理 goldChange |
+| 🟢 叙事事件（家庭对话） | ✅ 已接入 | `POST /api/family-dialogue` | `clampGoldDeltaForRealm` 动态 cap |
+| 🟢 叙事事件（日常/突破/奇遇） | ✅ 已接入 | `POST /api/narrative` | 各 case 均已读取 goldChange 并钳制落库 |
 | 🔴 战斗掉落 | ❌ 未接入 | `POST /api/combat` | 战斗 loot 系统尚未实现金币奖励 |
 
 ### 3.3 金币流出场景
@@ -88,15 +88,13 @@ cap = GOLD_MAX_GAIN_PER_EVENT × 1.5^(min(realmLevel, 12) / 3)
 - 家具池 `FURNITURE_ITEMS`
 
 **购买流程**：
-1. `POST /api/shop` 接收 `{ userId, itemId, quantity }`
+1. `POST /api/shop` 接收商品信息（`requireCultivator` 鉴权）
 2. 获取用户修炼者信息（含当前 gold）
 3. 计算总价 = `item.price × quantity`
 4. 校验库存（`item.stock` 或 `unlimited`）
 5. 扣除金币（`gold = gold - totalPrice`）
 6. 更新背包
 7. 返回新余额
-
-**安全风险**：`shop/route.ts` 直接使用 `body.userId` 而非 `requireCultivator()`，需补充所有权校验。
 
 ### 3.5 道具定义
 
@@ -136,10 +134,10 @@ cap = GOLD_MAX_GAIN_PER_EVENT × 1.5^(min(realmLevel, 12) / 3)
 
 | 路径 | 使用钳制 | 函数 | 状态 |
 |------|---------|------|------|
-| 家庭对话 | ✅ | `clampGoldDelta(result.goldChange, c.gold)` | 静态 cap 10k |
+| 家庭对话 | ✅ | `clampGoldDeltaForRealm(result.goldChange, c.gold, c.realmLevel)` | 动态 cap |
 | 地点事件 | ✅ | `clampGoldDelta(fx.goldDelta, c.gold)` | 硬编码 delta |
 | 秘境奖励 | ✅ | `clampGoldDelta(reward.gold, c.gold)` | 硬编码奖励 |
-| 叙事日常/突破/奇遇 | ❌ | 无 | **P0 未接入** |
+| 叙事日常/突破/奇遇 | ✅ | `clampGoldDeltaForRealm(result.goldChange, c.gold, c.realmLevel)` | 动态 cap |
 | 战斗掉落 | ❌ | 无 | **未实现** |
 
 ---
@@ -186,10 +184,8 @@ cap = GOLD_MAX_GAIN_PER_EVENT × 1.5^(min(realmLevel, 12) / 3)
 
 ### 已知风险
 
-1. **🔴 叙事路由未处理金币变动**：`/api/narrative` 的所有 case（日常、突破、奇遇、出生）均未读取 `narrative.goldChange`，AI 返回的金币变动被静默忽略。**P0 优先**。
-2. **🟡 家庭对话使用静态 cap**：`family-dialogue/route.ts` 调用 `clampGoldDelta` 时未传递 `maxGain` 参数，使用默认的 10,000，高阶玩家应使用 `clampGoldDeltaForRealm` 动态 cap。
-3. **🟡 GOLD_MAX 过小**：1,000,000 封顶对于高阶玩家过小（realmLevel 12 时每次约 50k，20 次事件即可触顶），建议提升至 10,000,000。
-4. **🟢 商店路由缺少所有权校验**：直接使用 `body.userId`，存在用户伪造风险。
+1. **🟡 GOLD_MAX 过小**：1,000,000 封顶对于高阶玩家过小（realmLevel 12 时每次约 50k，20 次事件即可触顶），建议提升至 10,000,000。
+2. **🔴 战斗掉落未接入**：`/api/combat` 仍无金币奖励输出，战斗系统经济闭环缺失。
 
 ### 开放问题
 

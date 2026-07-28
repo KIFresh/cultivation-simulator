@@ -53,7 +53,7 @@
 | 日常修炼 | `DAILY_CULTIVATION` | 400 / 0.8 | 无 | `POST /api/narrative` |
 | 突破渡劫 | `BREAKTHROUGH` | 600 / 0.9 | realm 变化 | `POST /api/narrative` |
 | 奇遇探索 | `ENCOUNTER` | 500 / 0.9 | choices[3] | `POST /api/narrative` |
-| NPC 对话 | `NPC_DIALOGUE` | 300 / 0.85 | npcMood, reward | `POST /api/narrative`（未接入路由） |
+| NPC 对话 | `NPC_DIALOGUE` | 300 / 0.85 | npcMood, reward | `POST /api/narrative`（🔴 未接入路由 — 参见 T2-1） |
 | 行动 | `ACTION` | 300/ 0.85 | 无 | （未接入路由） |
 | 年志推进 | `YEAR_ADVANCE` | 400 / 0.8 | 无 | `POST /api/advance-year` |
 | 季度推进 | `QUARTER_ADVANCE` | 300 / 0.8 | 无 | （未接入路由） |
@@ -62,7 +62,7 @@
 | 出生 | `BIRTH` | 500 / 0.85 | family[], suggestedName | `POST /api/narrative` |
 | 战斗 | `COMBAT` | 400 / 0.9 | 纯文本 | `POST /api/combat` |
 
-### 3.2 类型体系（`src/lib/narrative-types.ts`）
+### 3.2 类型体系（`src/lib/narrative.ts`）
 
 ```typescript
 // NarrativeBase — 所有叙事的共享基础字段
@@ -73,7 +73,8 @@ export interface NarrativeBase {
   mood: MoodType;      // "燃" | "静" | "险" | "悟" | "奇"
   hint?: string;
   summary: string;
-  effect?: NarrativeEffect;  // 统一效果契约（可选）
+  goldChange?: number;         // AI 提议的金币变动量（已弃用，建议用 effects）
+  effects?: NarrativeEffect[]; // 统一效果契约数组（Phase 2 推荐方式）
 }
 
 // 五种心境标签
@@ -250,29 +251,16 @@ error    → { gameEventId, message }        // 异常（支持重试）
 
 ```typescript
 export interface NarrativeDisplay {
-  id?: string;
-  type?: string;
-  title?: string;
-  narrative?: string;
-  mood?: string;
+  title: string;
+  narrative: string;
+  mood: string;
   hint?: string;
-  summary?: string;
-  choices?: { text: string; hint?: string }[];
-  chosenOption?: number;
-  reward?: string | null;
-  gameEventId?: string;
-  characterName?: string;
-  suggestedName?: string;
-  // family-dialogue 特定
-  intimacyDelta?: number;
-  npcMood?: string;
-  actionHint?: string;
 }
 ```
 
 ### 效果可视化
 
-效果（金币变动、亲密度变化、体力消耗等）通过 `narrative.effect` 传播到前端。建议前端效果展示方式：
+效果（金币变动、亲密度变化、体力消耗等）通过叙事路由的响应中 `effects` 数组传播到前端。建议前端效果展示方式：
 - 💰 +50 金币（绿色浮动文字）
 - ❤️ 母亲亲密度 +3
 - ⚡ 体力 -10
@@ -300,8 +288,11 @@ export interface NarrativeDisplay {
 1. **🟡 Prompt Injection**：用户输入（`playerMessage`, `taskDescription`）直接拼入 AI 提示词，可能被用于操纵 AI 输出。缓解：输出层 `extractJson` + `clampEffect` 双层校验，但输入层无净化。
 2. **🟡 AI 输出不稳定**：不同供应方/模型的 JSON 格式输出存在偏差，`extractJson` 的三层解析不能覆盖所有边缘情况。缓解：已实现 `normalizeNarrativeKeys` + fallback 机制。
 3. **🟢 费用不可控**：每次叙事调用 AI API，高频操作可能导致费用激增。缓解：本地 Ollama 作为回退，未实现用量配额。
-4. **🔴 类型重复**：`narrative-types.ts` 和 `narrative.ts` 中各自定义了相同的类型体系，存在不同步风险（已知：`goldChange` 字段在 `narrative.ts` 的 `NarrativeBase` 中缺失）。**当前优先级 P0**，需通过 Phase 2 迁移统一。
-5. **🟡 体力预扣无回滚**：`family-dialogue/route.ts` 在 AI 调用前扣除体力，AI 失败后体力无法恢复。缓解：需改为 AI 成功后再扣体力。
+
+### 已修复风险
+
+1. **🔴 类型重复**（已修复 2026-07-24）：`narrative-types.ts` 已改为 `export type { ... } from "./narrative"`，单一来源在 `narrative.ts`。
+2. **🟡 体力预扣无回滚**（已修复 2026-07-24）：family-dialogue 已改用 effects 契约，事务内统一扣除体力。
 
 ### 开放问题
 

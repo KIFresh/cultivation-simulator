@@ -30,12 +30,12 @@
 - **验收**：玩家在入口触发奇遇 → 看到 3 选项 → 选择后获得经验/物品 → 叙事进入 history；同一天不超过 3 次（既有上限逻辑）。
 - **测试证据**：`src/app/api/__tests__/encounter.test.ts`、`src/app/api/narrative/__tests__/route.test.ts`（既有）；补充前端"触发→选择"流程测试。
 
-### Story VS-1.3 — 突破可见性与分享卡【P1】
+### Story VS-1.3 — 突破可见性【P1】
 
-- **现状**：突破已接通（TRACE §1 节点 B）。`breakthrough-card.tsx` 组件已存在（筑基/结丹/元婴，3 套素材）。
-- **方案**：突破成功后用 `BreakthroughCard` 弹分享卡（数据来自 `cultivator` + `breakthroughCount`）；非三素材境界降级为纯文字提示。
-- **验收**：突破成功弹出分享卡（有素材境界）/ 文字提示（无素材境界）。
-- **涉及文件**：`src/app/dashboard/page.tsx`（突破成功分支）+ `breakthrough-card.tsx`（既有）。
+- **现状**：突破已接通（TRACE §1 节点 B）。突破卡片功能已移除。
+- **方案**：突破成功后显示叙事文本 + 属性变化。
+- **验收**：突破成功显示叙事结果。
+- **涉及文件**：`src/app/dashboard/page.tsx`（突破成功分支）。
 
 ### Story VS-1.4 — 闭环串联与"可判好玩"指标【P1】
 

@@ -37,20 +37,12 @@
 
 | # | 等级 | 主题 | 文档描述 | 代码实际 | 文件:行号 |
 |---|------|------|---------|---------|----------|
-| C-01 | 🔴 | goldChange 字段缺失 | 叙事类型应有统一效果接口 | `narrative.ts` 中 `NarrativeBase` 无 `goldChange`，但 `narrative-types.ts` 的 `NarrativeBase` 有 | `narrative-types.ts:58` vs `narrative.ts:432-439` |
-| C-02 | 🔴 | narrative/route.ts 效果缺失 | AI 叙事应产生金币等效果 | 路由中所有 case 均未读取/处理 `goldChange` | `narrative/route.ts:73-390` |
 | C-03 | 🟡 | NPC_DIALOGUE 未接入路由 | 系统 GDD 列出了 NPC 对话类型 | 无路由入口，`narrative/route.ts` default 返回"未知叙事类型" | `narrative/route.ts:391-396` |
 | C-04 | 🟡 | FAMILY_DEATH/QUARTER_ADVANCE 未实现 | NarrativeType 包含这些类型 | 无对应生成函数和路由 case | `narrative-types.ts` 类型定义 |
-| C-05 | 🟡 | 类型定义重复 | 类型应在唯一位置定义 | `narrative-types.ts` 和 `narrative.ts:417-499` 各自定义全套相同类型 | `narrative.ts:417-499` |
-| C-06 | 🟡 | Reward 类型不一致 | NPCDialogueNarrative.reward | `narrative-types.ts` 的 reward 字段与 `narrative.ts` 定义的类型结构不同 | `narrative-types.ts:78` vs `narrative.ts:458` |
-| C-07 | 🟡 | 家庭对话使用静态 cap | GDD 经济系统应动态 cap | `family-dialogue/route.ts` 使用默认 `clampGoldDelta` 而非 `clampGoldDeltaForRealm` | `family-dialogue/route.ts:98` |
-| C-08 | 🟡 | NarrativeDisplay 效果字段缺失 | 前端应展示所有效果 | `dashboard/types.ts` 的 `NarrativeDisplay` 缺少 goldChange 等字段 | `dashboard/types.ts:48-53` |
 | C-09 | 🟡 | streamNarrativeResult 参数过窄 | SSE 流式应带效果数据 | 参数类型只有 `narrative: { narrative?: string }` 无效果字段 | `narrative-stream.ts:12-17` |
 | C-10 | 🟢 | 亲密度靠近极值无衰减 | — | `family-dialogue/route.ts` 无极值衰减 | `family-dialogue/route.ts:86` |
 | C-11 | 🟢 | GOLD_MAX 过小 | — | 1,000,000 对高阶玩家过小 | `gold.ts:9` |
-| C-12 | 🟢 | 仪表板重复 NarrativeDisplay | — | `dashboard/types.ts` 和 `dashboard/page.tsx` 各自定义 | `dashboard/page.tsx:35` |
 | C-13 | 🟢 | COMBAT 返回纯字符串 | 叙事应为结构化 JSON | `generateCombatNarrative` 返回 `Promise<string>` | `narrative.ts:1032` |
-| C-14 | 🟢 | narrative-effects.ts 新增 | 文档 Phase 1 新增模块 | 已创建统一效果契约 | `narrative-effects.ts` |
 
 ---
 
@@ -58,7 +50,18 @@
 
 | # | 主题 | 修复日期 | 说明 |
 |---|------|---------|------|
-| — | 首次重建 | 当前 | 15 个 NUL 损坏 GDD 文档已从代码反推重建 |
+| — | 首次重建 | 2026-07 | 15 个 NUL 损坏 GDD 文档已从代码反推重建 |
+| C-01 | goldChange 字段缺失 | 2026-07-24 | `NarrativeBase` 已加 `goldChange?: number`，`narrative.ts` 为单一来源 |
+| C-02 | narrative/route.ts 效果缺失 | 2026-07-24 | 各 case（BIRTH/DAILY/BREAKTHROUGH/ENCOUNTER）均已读取 `narrative.goldChange` 并钳制落库 |
+| C-05 | 类型定义重复 | 2026-07-24 | `narrative-types.ts` 改为 `export type { ... } from "./narrative"`，单一来源在 `narrative.ts` |
+| C-06 | Reward 类型不一致 | 2026-07-24 | 类型已统一到 `narrative.ts` 单一来源 |
+| C-07 | 家庭对话使用静态 cap | 2026-07-24 | 已改用 `clampGoldDeltaForRealm(result.goldChange, c.gold, c.realmLevel)` |
+| C-08 | NarrativeDisplay 效果字段缺失 | 2026-07-24 | 已精简为 `{title, narrative, mood, hint?}`，效果展示走独立效果系统 |
+| C-12 | 仪表板重复 NarrativeDisplay | 2026-07-24 | 仅在 `dashboard/types.ts:48` 定义一次 |
+| C-14 | narrative-effects.ts 新增 | 2026-07 | 已创建统一效果契约，被 family-dialogue 等路由使用 |
+| D-01 | goldChange 字段归属 | 2026-07-24 | 已统一到 `narrative.ts` 单一来源 |
+| D-02 | 效果契约方案 | 2026-07-24 | 采用 `effects: NarrativeEffect[]` 数组方案（支持多效果叠加） |
+| D-04 | 体力预扣策略 | 2026-07-24 | 已改为 AI 成功后事务内统一扣除 |
 
 ---
 
@@ -117,11 +120,23 @@
 
 ---
 
-## 七、裁决待决项（需主理人确认）
+## 七、已裁决项（历史记录）
 
-| # | 主题 | 分歧 | 建议 |
-|---|------|------|------|
-| D-01 | `goldChange` 字段归属 | `narrative-types.ts` 有 vs `narrative.ts` 无 | 统一到 `narrative-types.ts` 单一来源，删除 `narrative.ts` 中的重复定义 |
-| D-02 | 效果契约方案 | 嵌入 `NarrativeBase.effect?: NarrativeEffect` vs 独立 `effects: NarrativeEffect[]` | 采用 `effects: NarrativeEffect[]` 数组方案（支持多效果叠加），Phase 2 迁移 |
-| D-03 | GOLD_MAX 提升 | 当前 1,000,000 vs 建议 10,000,000 | 等待主理人确认后修改 `gold.ts:9` |
-| D-04 | 体力预扣策略 | 当前在 AI 调用前扣除 vs 建议 AI 成功后扣除 | 等待主理人确认后修改 `family-dialogue/route.ts:58-60` |
+以下裁决已在代码中落地：
+
+| # | 主题 | 裁决时间 | 决议 |
+|---|------|---------|------|
+| D-01 | `goldChange` 字段归属 | 2026-07-24 | 统一到 `narrative.ts` 单一来源，`narrative-types.ts` 改为 re-export |
+| D-02 | 效果契约方案 | 2026-07-24 | 采用 `effects: NarrativeEffect[]` 数组方案（支持多效果叠加） |
+| D-04 | 体力预扣策略 | 2026-07-24 | 改为 AI 成功后事务内统一扣除 |
+
+## 八、待处理项
+
+| # | 主题 | 当前状态 | 建议 |
+|---|------|---------|------|
+| D-03 | GOLD_MAX 提升 | 当前 1,000,000，建议 10,000,000 | 修改 `gold.ts:9` |
+| C-03 | NPC_DIALOGUE 无路由入口 | 无路由，`narrative/route.ts` default 返回错误 | 添加 case 或路由专门化 |
+| C-04 | FAMILY_DEATH/QUARTER_ADVANCE 未实现 | 有类型定义但无生成函数 | 排期实现 |
+| C-09 | streamNarrativeResult 参数过窄 | 参数类型 `{ narrative?: string }` 无效果字段 | 扩展参数类型 |
+| C-10 | 亲密度无极值衰减 | family-dialogue 直接使用 AI 返回值 | 添加 `tanh` 衰减 |
+| C-13 | COMBAT 返回纯字符串 | `generateCombatNarrative` 返回 `Promise<string>` | 改为结构化 JSON |

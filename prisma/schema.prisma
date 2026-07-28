@@ -132,18 +132,6 @@ model GameEvent {
   @@index([cultivatorId, createdAt])
 }
 
-model ShareCard {
-  id           String   @id @default(cuid())
-  cultivatorId String
-  imageUrl     String
-  title        String
-  description  String
-  bilibiliUrl  String?
-  createdAt    DateTime @default(now())
-
-  @@index([cultivatorId])
-}
-
 model User {
   id         String      @id @default(cuid())
   name       String      @unique

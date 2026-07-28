@@ -11,8 +11,6 @@ vi.mock("@/lib/auth-helpers", () => ({
 vi.mock("@/lib/narrative-effects", () => ({
   applyEffects: vi.fn().mockResolvedValue(undefined),
   clampEffectsArray: vi.fn((effects) => effects),
-  type NarrativeEffect: {} as any,
-  type ClampConfig: {} as any,
 }));
 
 // Mock prisma
