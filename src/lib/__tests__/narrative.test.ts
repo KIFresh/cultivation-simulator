@@ -23,6 +23,7 @@ vi.mock('../cultivation-data', () => ({
     { id: 'wild', name: '野外', icon: '🌲', description: '野外', unlockAge: 16, distanceFromHome: 8 },
   ],
   SpiritualRoot: {} as any,
+  getNPCsAtLocation: vi.fn(() => []),
 }));
 
 vi.mock('../worlds-data', () => ({
@@ -111,6 +112,11 @@ describe('narrative', () => {
     it('should include location when provided', () => {
       const ctx = buildStateContext({ name: '赵六', age: 20, locationId: 'home' });
       expect(ctx).toContain('身处家');
+    });
+
+    it('should include location description when available', () => {
+      const ctx = buildStateContext({ name: '赵六', age: 20, locationId: 'home' });
+      expect(ctx).toContain('氛围');
     });
   });
 

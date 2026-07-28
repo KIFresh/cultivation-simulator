@@ -21,7 +21,7 @@ export async function generateDailyCultivationNarrative(params: {
 【修炼者信息】道号：${params.cultivatorName}，灵根：${params.spiritualRoot}，境界：${params.realm} ${formatRealmLevel(params.realm, params.realmLevel)}，修炼值：${params.cultivationExp}
 【今日修炼】方式：${taskNames[params.taskType] || "修炼"}${params.taskDescription ? `，描述：${params.taskDescription}` : ""}
 
-要求：150-250字，体现灵根和境界特点
+要求：150-250字，结合当前地点氛围和附近人物，体现灵根和境界特点
 
 返回JSON：{"type":"DAILY_CULTIVATION","title":"标题","narrative":"正文","mood":"静/悟/燃","hint":"提示","goldChange":0,"effects":[]}`;
 
@@ -54,7 +54,7 @@ export async function generateBreakthroughNarrative(params: {
 【修炼者】${params.cultivatorName}，灵根${params.spiritualRoot}，第${params.breakthroughCount + 1}次突破，累计修炼${params.totalExp}
 【突破】${scene}
 
-要求：${isNewRealm ? "300-500字，天地异动" : "200-300字，修为精进"}
+要求：${isNewRealm ? "300-500字，天地异动，结合地点氛围" : "200-300字，修为精进，结合地点氛围"}
 返回JSON：{"type":"BREAKTHROUGH","title":"标题","narrative":"正文","mood":"燃","hint":"建议","effects":[]}`;
 
   const stateCtx = buildStateContext(params.state);
@@ -83,7 +83,7 @@ export async function generateEncounterNarrative(params: {
 
 【修炼者】${params.cultivatorName}，灵根${params.spiritualRoot}，境界${params.realm} ${formatRealmLevel(params.realm, params.realmLevel)}
 
-要求：200-300字，给出3个选项（低/中/高风险）
+要求：200-300字，结合当前地点氛围，给出3个选项（低/中/高风险）
 返回JSON：{"type":"ENCOUNTER","title":"标题","narrative":"场景","choices":[{"text":"选项","risk":"low/medium/high","hint":"提示"}],"mood":"奇/险","summary":"30字内概述","goldChange":0,"effects":[]}`;
 
   const stateCtx = buildStateContext(params.state);

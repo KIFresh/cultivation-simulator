@@ -2,7 +2,7 @@
 // AI 叙事引擎 — 多供应方自动切换
 // ============================================================
 
-import { SpiritualRoot, formatRealmLevel, LOCATIONS } from "./cultivation-data";
+import { SpiritualRoot, formatRealmLevel, LOCATIONS, getNPCsAtLocation } from "./cultivation-data";
 import type { NarrativeEffect } from "./narrative-effects";
 
 import { syncProviderConfig, callAI, warmupAI } from "./narrative/provider";
@@ -145,11 +145,22 @@ export function buildStateContext(s?: CultivatorState): string {
   }
   if (typeof s.gold === "number") parts.push(`金币${s.gold}`);
 
-  // 地点
+  // 地点氛围
   if (s.locationId) {
     const loc = LOCATIONS.find((l) => l.id === s.locationId);
-    if (loc) parts.push(`身处${loc.name}`);
-    else parts.push(`身处未知之地（${s.locationId}）`);
+    if (loc) {
+      parts.push(`身处${loc.name}`);
+      if (loc.description) parts.push(`氛围：${loc.description}`);
+      // 添加该地点的 NPC
+      const npcs = getNPCsAtLocation(s.locationId);
+      if (npcs.length > 0) {
+        const npcDesc = npcs
+          .filter((n) => n.locationId === s.locationId)
+          .map((n) => `${n.name}（${n.title}）`)
+          .join("、");
+        if (npcDesc) parts.push(`附近的人：${npcDesc}`);
+      }
+    } else parts.push(`身处未知之地（${s.locationId}）`);
   }
 
   // 属性
