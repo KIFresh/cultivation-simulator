@@ -22,6 +22,7 @@ import { shouldGenerateClassmates, generateClassmates, type NpcRelationData } fr
 import { shouldGenerateTeachers, generateTeachers, getTeacherRankBonus } from "@/lib/teacher";
 import { decideClique, getCliqueBonus, getCliqueInfo, type CliqueKey } from "@/lib/clique";
 import { calcPocketMoney, calcSavingsInterest, type ParentLike } from "@/lib/savings";
+import { calcQuarterlyHealthRecovery, checkHealthZero, MAX_HEALTH } from "@/lib/health";
 
 /** 每季度自然消退的丹毒量（GDD: decayToxicity -3/季） */
 export const DETOX_PER_QUARTER = 3;
@@ -60,12 +61,16 @@ export async function POST(request: NextRequest) {
     const nextQuarter = currentQuarter >= 4 ? 1 : currentQuarter + 1;
     const yearWrapped = currentQuarter >= 4;
 
-    // ── 季度的固定副作用：体力回满 + 丹毒衰减 ────────────
-    // 每次成功推进季节，体力直接恢复至当前上限（不增量累积）
+// ── 季度的固定副作用：体力回满 + 丹毒衰减 + 健康恢复 ──
     const maxStamina = calculateMaxStamina(cultivator.age, savedAttrs);
     const quarterStamina = maxStamina;
 
     const newToxicity = decayToxicity(cultivator.toxicity || 0);
+
+    // 健康恢复（每季度 +1，上限 100；健康 ≤0 时不恢复）
+    const healthRecovery = calcQuarterlyHealthRecovery(cultivator.health ?? 100);
+    // 健康 ≤0 时施加 injuryDebuff
+    const zeroDebuff = checkHealthZero(healthRecovery.newHealth);
 
     // ── 跨年逻辑（仅在 4→1 时触发） ────────────────────
     let oldAge = cultivator.age;
@@ -210,7 +215,13 @@ export async function POST(request: NextRequest) {
       quarter: nextQuarter,
       stamina: quarterStamina,
       toxicity: newToxicity,
+      health: healthRecovery.newHealth,
     };
+
+    // 健康 ≤0 时施加 injuryDebuff
+    if (zeroDebuff > 0) {
+      updateData.injuryDebuff = (cultivator.injuryDebuff || 0) + zeroDebuff;
+    }
 
     if (yearWrapped) {
       updateData.age = newAge;
@@ -301,6 +312,7 @@ export async function POST(request: NextRequest) {
       examResult,
       cliqueInfo: cliqueKey ? getCliqueInfo(cliqueKey) : null,
       pocketMoney: pocketMoneyResult,
+      healthRecovery: healthRecovery.delta > 0 ? healthRecovery.delta : undefined,
       warnEarly,
       remaining,
       maxAge,
