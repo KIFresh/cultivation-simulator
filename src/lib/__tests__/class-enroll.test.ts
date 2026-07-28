@@ -4,6 +4,9 @@ import {
   parseClassEnroll,
   enrollClass,
   CLASS_ENROLL_OPTIONS,
+  applyClassBenefits,
+  canEnrollClass,
+  CLASS_ATTR_BONUS,
 } from '../class-enroll';
 
 describe('class-enroll', () => {
@@ -53,6 +56,67 @@ describe('class-enroll', () => {
       const result = enrollClass(current, 'math');
       expect(result).toHaveLength(1);
       expect(result[0].terms).toBe(3);
+    });
+  });
+
+  describe('applyClassBenefits', () => {
+    it('空记录不变', () => {
+      const r = applyClassBenefits([], { root: 5, mind: 3 });
+      expect(r.attributes).toEqual({ root: 5, mind: 3 });
+      expect(r.totalCost).toBe(0);
+    });
+
+    it('单班累计属性 and 费用', () => {
+      const r = applyClassBenefits(
+        [{ optionId: 'calligraphy', terms: 2 }],
+        { mind: 3 },
+      );
+      expect(r.attributes.mind).toBe(3 + CLASS_ATTR_BONUS * 2); // 5
+      expect(r.totalCost).toBe(100);
+    });
+
+    it('多班叠加', () => {
+      const r = applyClassBenefits(
+        [
+          { optionId: 'calligraphy', terms: 1 },
+          { optionId: 'martial', terms: 1 },
+        ],
+        { mind: 0, root: 0 },
+      );
+      expect(r.attributes.mind).toBe(CLASS_ATTR_BONUS);
+      expect(r.attributes.root).toBe(CLASS_ATTR_BONUS);
+      expect(r.totalCost).toBe(100 + 150);
+    });
+
+    it('未知 optionId 跳过', () => {
+      const r = applyClassBenefits(
+        [{ optionId: 'unknown', terms: 1 }],
+        { root: 5 },
+      );
+      expect(r.attributes).toEqual({ root: 5 });
+      expect(r.totalCost).toBe(0);
+    });
+  });
+
+  describe('canEnrollClass', () => {
+    it('年龄 < 6 不能报', () => {
+      expect(canEnrollClass(5, 'math', [])).toBe(false);
+    });
+
+    it('年龄 > 18 不能报', () => {
+      expect(canEnrollClass(19, 'math', [])).toBe(false);
+    });
+
+    it('6-18 岁可报', () => {
+      expect(canEnrollClass(8, 'math', [])).toBe(true);
+    });
+
+    it('已报名不可重复报', () => {
+      expect(canEnrollClass(8, 'math', [{ optionId: 'math', terms: 1 }])).toBe(false);
+    });
+
+    it('不存在 optionId 不可报', () => {
+      expect(canEnrollClass(8, 'bogus', [])).toBe(false);
     });
   });
 });

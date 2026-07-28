@@ -23,6 +23,7 @@ import { shouldGenerateTeachers, generateTeachers, getTeacherRankBonus } from "@
 import { decideClique, getCliqueBonus, getCliqueInfo, type CliqueKey } from "@/lib/clique";
 import { calcPocketMoney, calcSavingsInterest, type ParentLike } from "@/lib/savings";
 import { calcQuarterlyHealthRecovery, checkHealthZero, MAX_HEALTH } from "@/lib/health";
+import { parseClassEnroll, applyClassBenefits } from "@/lib/class-enroll";
 
 /** 每季度自然消退的丹毒量（GDD: decayToxicity -3/季） */
 export const DETOX_PER_QUARTER = 3;
@@ -90,6 +91,8 @@ export async function POST(request: NextRequest) {
     let cliqueKey: CliqueKey | null = null;
     let currentSavings: number | undefined;
     let pocketMoneyResult: { granted: number; interest: number } | null = null;
+    let classBenefitsResult: { optionCount: number; totalCost: number } | null = null;
+    let classGoldDeduction = 0;
 
     if (yearWrapped) {
       oldAge = cultivator.age;
@@ -146,6 +149,19 @@ export async function POST(request: NextRequest) {
       for (const [key, val] of Object.entries(cliqueBonus)) {
         if (newAttributes[key] !== undefined) {
           newAttributes[key] = Math.round((newAttributes[key] + val) * 10) / 10;
+        }
+      }
+
+      // ── 课外班年度属性加成与扣费 ──────────────────────
+      classBenefitsResult = null;
+      classGoldDeduction = 0;
+      if (newAge >= 6 && newAge <= 18) {
+        const records = parseClassEnroll(cultivator.classEnroll);
+        if (records.length > 0) {
+          const { attributes: classAttrs, totalCost } = applyClassBenefits(records, newAttributes);
+          newAttributes = classAttrs;
+          classBenefitsResult = { optionCount: records.length, totalCost };
+          classGoldDeduction = Math.min(totalCost, cultivator.gold ?? 0);
         }
       }
 
@@ -245,6 +261,10 @@ export async function POST(request: NextRequest) {
       if (cliqueKey) {
         updateData.clique = cliqueKey;
       }
+      // 课外班扣费
+      if (classGoldDeduction > 0) {
+        updateData.gold = (cultivator.gold ?? 0) - classGoldDeduction;
+      }
       // 零花钱 + 储蓄利息持久化
       if (currentSavings !== undefined) {
         updateData.savings = currentSavings;
@@ -312,6 +332,7 @@ export async function POST(request: NextRequest) {
       examResult,
       cliqueInfo: cliqueKey ? getCliqueInfo(cliqueKey) : null,
       pocketMoney: pocketMoneyResult,
+      classBenefits: classBenefitsResult,
       healthRecovery: healthRecovery.delta > 0 ? healthRecovery.delta : undefined,
       warnEarly,
       remaining,
