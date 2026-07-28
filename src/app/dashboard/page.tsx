@@ -10,7 +10,6 @@ import { AttributeGrid } from "@/app/dashboard/_components/attribute-grid";
 import { NarrativePanel } from "@/app/dashboard/_components/narrative-panel";
 import { InventoryPanel } from "@/app/dashboard/_components/inventory-panel";
 import { NpcChatPanel } from "@/app/dashboard/_components/npc-chat-panel";
-import { SchoolLifePanel } from "@/app/dashboard/_components/school-life-panel";
 import { useDashboardState } from "@/app/dashboard/hooks/use-dashboard-state";
 import { useDevTools } from "@/app/dashboard/hooks/use-dashboard-dev-tools";
 
@@ -126,6 +125,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center space-x-2 mt-1 text-[11px] text-gray-400">
                 {schoolStage && <span>📖 {schoolStage.name}{schoolGrade}年级{schoolRank !== "普通" ? `（${schoolRank}）` : ""}</span>}
+                {schoolStage && cliqueInfo && <span>🤝 {cliqueInfo.name}</span>}
                 {currentLocName && <span>📍 {currentLocName}</span>}
               </div>
             </div>
@@ -144,19 +144,24 @@ export default function DashboardPage() {
                 </div>
                 <p className="font-mono font-bold text-sm text-[#B83227]">{cultivator.gold ?? 50}</p>
               </div>
+              <div className="rounded-2xl border border-[#EADCD0] bg-white/80 p-3 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-gray-500">❤️ 健康值</span>
+                  {cultivator.injuryDebuff > 0 && <span className="text-[10px] text-red-500">受伤 {cultivator.injuryDebuff} 轮</span>}
+                </div>
+                <p className="font-mono font-bold text-sm text-[#2C1E1E]">{cultivator.health ?? 100}</p>
+              </div>
+              {(cultivator.savings ?? 0) > 0 && (
+                <div className="rounded-2xl border border-[#EADCD0] bg-white/80 p-3 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-gray-500">🏦 储蓄</span>
+                  </div>
+                  <p className="font-mono font-bold text-sm text-[#2C1E1E]">{cultivator.savings}</p>
+                </div>
+              )}
             </div>
 
             <AttributeGrid attributes={attributes} />
-
-            <SchoolLifePanel
-              clique={cliqueInfo}
-              classEnroll={cultivator.classEnroll ?? null}
-              savings={cultivator.savings ?? null}
-              health={cultivator.health ?? 100}
-              injuryDebuff={cultivator.injuryDebuff ?? 0}
-              npcRelations={cultivator.npcRelations ?? null}
-              schoolStage={schoolStage ? { name: schoolStage.name, grade: schoolGrade } : null}
-            />
 
             {(inventory || []).some((i: any) => i.itemId === "phone") && (
               <button onClick={() => router.push("/phone")}
