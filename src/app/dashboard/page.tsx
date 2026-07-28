@@ -10,6 +10,7 @@ import { AttributeGrid } from "@/app/dashboard/_components/attribute-grid";
 import { NarrativePanel } from "@/app/dashboard/_components/narrative-panel";
 import { InventoryPanel } from "@/app/dashboard/_components/inventory-panel";
 import { NpcChatPanel } from "@/app/dashboard/_components/npc-chat-panel";
+import { SchoolLifePanel } from "@/app/dashboard/_components/school-life-panel";
 import { useDashboardState } from "@/app/dashboard/hooks/use-dashboard-state";
 import { useDevTools } from "@/app/dashboard/hooks/use-dashboard-dev-tools";
 
@@ -56,6 +57,7 @@ export default function DashboardPage() {
     currentLoc,
     currentNPCs,
     maxStamina,
+    cliqueInfo,
     actions,
     handleActionClick,
     handleSubmitWithInput,
@@ -137,9 +139,20 @@ export default function DashboardPage() {
                 <StatusGauge label="寿元" value={Math.max(0, remaining)} max={maxAge} hint={`剩余 ${Math.max(0, remaining)} 年`} />
               )}
               <StatusGauge label="金币存余" value={cultivator.gold ?? 50} max={cultivator.gold ?? 50} hint="金币" />
+              <StatusGauge label="健康值" value={cultivator.health ?? 100} max={100} hint={`${cultivator.health ?? 100} / 100`} />
             </div>
 
             <AttributeGrid attributes={attributes} />
+
+            <SchoolLifePanel
+              clique={cliqueInfo}
+              classEnroll={cultivator.classEnroll ?? null}
+              savings={cultivator.savings ?? null}
+              health={cultivator.health ?? 100}
+              injuryDebuff={cultivator.injuryDebuff ?? 0}
+              npcRelations={cultivator.npcRelations ?? null}
+              schoolStage={schoolStage ? { name: schoolStage.name, grade: schoolGrade } : null}
+            />
 
             {(inventory || []).some((i: any) => i.itemId === "phone") && (
               <button onClick={() => router.push("/phone")}

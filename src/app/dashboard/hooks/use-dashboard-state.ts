@@ -63,6 +63,7 @@ export function useDashboardState() {
   const [warnEarly, setWarnEarly] = useState(false);
   const [remaining, setRemaining] = useState(0);
   const [maxAge, setMaxAge] = useState<number | null>(null);
+  const [cliqueInfo, setCliqueInfo] = useState<any>(null);
 
   const attributesRef = useRef(attributes);
   attributesRef.current = attributes;
@@ -251,6 +252,25 @@ export function useDashboardState() {
         localStorage.setItem(STORAGE_KEYS.occupation, data.occupation);
       }
       if (data.examResult) toast.success(`📝 ${data.examResult.description}`, { duration: 5000 });
+      if (data.cliqueInfo) {
+        setCliqueInfo(data.cliqueInfo);
+      } else if (data.yearWrapped && data.cultivator?.age >= 6 && data.cultivator?.age <= 15) {
+        // 跨年时若未返回小团体信息，清除旧状态
+        setCliqueInfo(null);
+      }
+      if (data.healthRecovery !== undefined && data.healthRecovery > 0) {
+        toast.success(`❤️ 健康恢复 +${data.healthRecovery}`, { duration: 2000 });
+      }
+      if (data.pocketMoney) {
+        const pm = data.pocketMoney;
+        const parts: string[] = [];
+        if (pm.granted > 0) parts.push(`零花钱 +${pm.granted}`);
+        if (pm.interest > 0) parts.push(`利息 +${pm.interest}`);
+        if (parts.length > 0) toast.success(`🏦 ${parts.join('，')}`, { duration: 3000 });
+      }
+      if (data.classBenefits && data.classBenefits.optionCount > 0) {
+        toast.success(`📚 课外班属性加成，年费 -${data.classBenefits.totalCost}`, { duration: 3000 });
+      }
       const newLocs = getUnlockedLocations(data.cultivator.age, isAwakened(data.cultivator.realm), unlockedLocs);
       localStorage.setItem(STORAGE_KEYS.unlockedLocations, JSON.stringify(newLocs.map((l: any) => l.id)));
       toast.success(`🌿 ${data.cultivator.name} ${data.yearWrapped ? `${data.newAge}岁` : `第${data.quarter}季`}`, { duration: 3000 });
@@ -358,6 +378,8 @@ export function useDashboardState() {
     setRemaining,
     maxAge,
     setMaxAge,
+    cliqueInfo,
+    setCliqueInfo,
     isAwake,
     realmLabel,
     schoolStage,
