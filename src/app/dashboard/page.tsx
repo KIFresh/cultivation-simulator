@@ -12,6 +12,7 @@ import { InventoryPanel } from "@/app/dashboard/_components/inventory-panel";
 import { NpcChatPanel } from "@/app/dashboard/_components/npc-chat-panel";
 import { useDashboardState } from "@/app/dashboard/hooks/use-dashboard-state";
 import { useDevTools } from "@/app/dashboard/hooks/use-dashboard-dev-tools";
+import { getRootInfo } from "@/lib/cultivation-data";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -119,7 +120,7 @@ export default function DashboardPage() {
             <div className="mb-8">
               <h2 className="text-3xl font-bold calligraphy mb-1 tracking-wider text-[#7A1F18]">{cultivator.name}</h2>
               <div className="flex items-center space-x-3 text-xs">
-                <span className="text-[#D49B4B] font-bold">{cultivator.spiritualRoot}</span>
+                <span className="text-[#D49B4B] font-bold">{getRootInfo(cultivator.spiritualRoot).name}</span>
                 <span className="text-gray-300">|</span>
                 <span className="text-gray-500">{displayOccupation === "婴儿" ? "🍼" : displayOccupation === "学生" ? "📚" : "👤"} {displayOccupation}</span>
               </div>

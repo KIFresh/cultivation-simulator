@@ -101,7 +101,8 @@ export function useDashboardState() {
         setCultivator(capped);
         if (capped.storyEntries) {
           try {
-            setMemoryEntries(Array.isArray(capped.storyEntries) ? capped.storyEntries : []);
+            const parsed = typeof capped.storyEntries === "string" ? JSON.parse(capped.storyEntries) : capped.storyEntries;
+            setMemoryEntries(Array.isArray(parsed) ? parsed : []);
           } catch {}
         }
         if (capped.maxAge) {
@@ -290,7 +291,12 @@ export function useDashboardState() {
     actions.sendNpcMessage(msg, npcChat, npcChatHistory);
 
   const handleActionClick = (actionId: string) => {
-    if (!cultivator || cultivator.stamina < (getActionById(actionId)?.actionPointCost || 0)) return;
+    const cost = getActionById(actionId)?.actionPointCost || 0;
+    if (!cultivator) return;
+    if (cultivator.stamina < cost) {
+      toast.error(`体力不足（需要 ${cost}，当前 ${cultivator.stamina}）`, { duration: 2000 });
+      return;
+    }
     if (activeActionId === actionId) actions.performAction(actionId);
     else {
       setActiveActionId(actionId);
@@ -299,6 +305,12 @@ export function useDashboardState() {
   };
 
   const handleSubmitWithInput = (actionId: string) => {
+    const cost = getActionById(actionId)?.actionPointCost || 0;
+    if (!cultivator) return;
+    if (cultivator.stamina < cost) {
+      toast.error(`体力不足（需要 ${cost}，当前 ${cultivator.stamina}）`, { duration: 2000 });
+      return;
+    }
     if (actionInput.trim()) actions.performAction(actionId, actionInput.trim());
     else actions.performAction(actionId);
   };
@@ -315,7 +327,7 @@ export function useDashboardState() {
   const schoolGrade = schoolStage && cultivator ? getSchoolGrade(cultivator.age, schoolStage) : 0;
   const displayOccupation = occupation || (cultivator ? getDefaultOccupation(cultivator.age) : "");
   const locs = cultivator ? getUnlockedLocations(cultivator.age, isAwake, unlockedLocs) : [];
-  const maxStamina = cultivator ? calculateMaxStamina(cultivator.age) : 20;
+  const maxStamina = cultivator ? calculateMaxStamina(cultivator.age, attributes) : 20;
 
   return {
     userId,
