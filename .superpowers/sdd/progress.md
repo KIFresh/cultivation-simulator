@@ -7,3 +7,4 @@
 - Review: APPROVED.
 Task 1: complete (commits 419df6e..bad9fa4, 1068 tests passed, review clean)
 Task 2: complete (commit 5c82c31, 1070 tests, exp now atomic)
+Tasks 3-5: complete (commit 746062c, 1075 tests, combat server attributes, loot persistence, cultivator snapshot)
