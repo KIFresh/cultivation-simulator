@@ -1,6 +1,0 @@
-{
-  "title": "feat: 家庭职业时代系统、物品/技能页、记忆压缩与 UI 同步",
-  "head": "feat/family-career-ui-sync",
-  "base": "master",
-  "body": "## 概述\n\n实现家庭职业时代系统、物品/技能页、道心明镜压缩修复与叙事实时同步。\n\n## 变更清单\n\n### Task 1 — 世界年份与时代规则\n- 新增 Cultivator.worldYear 字段（默认 2025）\n- 纯函数 getWorldEra() 推导时代\n- 创建角色时自动写入，旧存档回退安全\n\n### Task 2 — 结构化家庭职业与收入规则\n- 新增 FamilyMember 职业字段\n- 确定性职业初始化规则，出生 AI 不再影响职业收入\n- 家庭保存 API 事务化，拒收客户端职业字段\n\n### Task 3 — 跨年职业结算与统一家庭经济\n- advance-quarter 跨年时职业演进\n- 统一 HouseholdIncome 驱动额度/零花钱/索要\n- 失败时返回可观测错误\n\n### Task 4 — 道心明镜压缩与叙事实时同步\n- 记忆压缩：容错 JSON、重要/普通拆分\n- 叙事实时同步：store 派生仪表盘和技能\n\n### Task 5 — 物品页与技能页\n- 导航栏新增物品/技能入口\n- 物品页：背包分类，技能页：功法/技艺双标签\n\n### Task 6 — 自然化灵根显示\n- 木_中品 → 木灵根 · 中品，chaos → 杂灵根\n\n### Task 7 — 全量验证与审查\n- 90 测试文件、1051 测试全部通过\n\n## 遗留问题\n1. 仪表盘家庭数据仅从 localStorage 加载\n2. 5 个路由缺少 requireCultivator 鉴权（既有问题）\n3. initializeFamilyCareer 缺少 familyBackground 参数传递"
-}
