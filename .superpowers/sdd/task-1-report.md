@@ -1,48 +1,67 @@
-# Task 1 实施报告
+# Task 1: 新增 mergeInventoryItems 纯函数
 
-## 状态
+## 状态：代码已完成，测试和提交需手动执行
 
-`DONE_WITH_CONCERNS`
+## 修改文件
 
-## 已完成改动
+### 1. `src/lib/inventory-utils.ts`
+- 在 `consumeInventoryItem` 之后追加了 `mergeInventoryItems` 函数（第 95-109 行）
+- 导出函数签名：`mergeInventoryItems(inventory: InventoryItem[], itemIds: string[]): InventoryItem[]`
+- 纯函数实现：浅拷贝原数组，遍历 itemIds 累加 quantity 或新增条目，不修改原数组
 
-- 新增 `src/lib/world-era.ts`
-  - 提供 `CAREER_CATEGORIES` 和 `CareerCategory`，职业大类限定为 `agriculture`、`manufacturing`、`education`、`healthcare`、`public_service`、`business`、`service`、`freelance`。
-  - 提供 `WorldEraKey`、`WorldEra`、`normalizeWorldYear`、`getWorldEra`。
-  - 阶段边界：2025–2039「现代都市」、2040–2054「数字转型」、2055+「智能协同」。
-  - 非正整数、非 number 的年份回退为 2025；返回值复制 `careerWeights`，避免调用者改变常量定义。
-- 新增 `src/lib/__tests__/world-era.test.ts`
-  - 覆盖四个阶段边界、非法年份回退、收入系数为正、职业权重仅引用允许大类。
-- 修改 `prisma/schema.prisma`
-  - `Cultivator` 新增 `worldYear Int @default(2025)`。
-- 新增 `prisma/migrations/20260728231932_add_world_year/migration.sql`
-  - SQLite 迁移以非空、默认 2025 的列增加 `worldYear`。
-- 修改 `src/app/dashboard/types.ts`
-  - `CultivatorData` 增加 `worldYear?: number`，使现有测试夹具与旧 API 载荷保持兼容。
+### 2. `src/lib/__tests__/inventory-utils.test.ts`
+- 在文件末尾追加了 `mergeInventoryItems` 的 6 个测试用例（第 105-144 行）
+- 测试覆盖：空背包添加物品、已有 stack 累加数量、重复掉落 ID 累加多次、不修改原输入数组、保留 equipped 状态、空数组返回副本
 
-## TDD 记录
+## 遇到的问题
 
-先创建 `world-era.test.ts`，此时 `../world-era` 不存在，测试处于预期 RED 状态；之后以最小实现新增 `world-era.ts`。
+当前子代理环境没有 shell 执行能力，无法运行以下命令：
+- `npx vitest run src/lib/__tests__/inventory-utils.test.ts -t "mergeInventoryItems"`（测试）
+- `npx vitest run`（全量测试）
+- `npx tsc --noEmit`（TypeScript 检查）
+- `git add / git commit`（提交）
 
-## 验证
+## 需手动执行的步骤
 
-尚未完成命令验证；需要在控制器继续执行：
+```powershell
+# 1. 运行测试确认失败（预期：mergeInventoryItems 未定义错误）
+npx vitest run src/lib/__tests__/inventory-utils.test.ts -t "mergeInventoryItems"
 
-```bash
-npx prisma migrate dev --name add_world_year
-npx prisma generate
-npx vitest run src/lib/__tests__/world-era.test.ts
+# 2. 实现完成后运行测试确认通过（预期：6 passed）
+npx vitest run src/lib/__tests__/inventory-utils.test.ts -t "mergeInventoryItems"
+
+# 3. 全量测试
+npx vitest run
+
+# 4. TypeScript 检查
 npx tsc --noEmit
+
+# 5. 提交
+git add src/lib/inventory-utils.ts src/lib/__tests__/inventory-utils.test.ts
+git commit -m "feat: add mergeInventoryItems pure function"
 ```
 
-未运行的原因：本子代理工具集中没有 shell/终端执行工具；语言服务器也不可用（`typescript-language-server` 不在 PATH）。
+## 代码变更摘要
 
-## 已知问题 / 阻塞项
+### 实现代码（`src/lib/inventory-utils.ts`）
+```typescript
+export function mergeInventoryItems(
+  inventory: InventoryItem[],
+  itemIds: string[],
+): InventoryItem[] {
+  const result = inventory.map((i) => ({ ...i }));
+  for (const itemId of itemIds) {
+    const existing = result.find((i) => i.itemId === itemId);
+    if (existing) {
+      existing.quantity += 1;
+    } else {
+      result.push({ itemId, quantity: 1, equipped: false });
+    }
+  }
+  return result;
+}
+```
 
-1. **创建角色显式默认写入尚未完成。** `src/app/api/cultivator/route.ts` 有两处嵌套 `cultivator.create`（已有用户和新用户路径）。按任务要求应分别加入 `worldYear: 2025`：
-   - 第 108 行附近，`worldId: body.worldId || "earth"` 后；
-   - 第 146 行附近，内联 `create` 对象内。
-
-   我尝试修改该文件，但写入策略以“路径不在本子代理 declared write_paths 中”为由拒绝。未绕过策略；请控制器或持有该路径授权的实现者补上。
-
-2. 由于上述写入授权限制，以及缺少终端执行能力，本报告不能声称 Task 1 已通过全部验收。未提交任何 Git 变更。
+### 测试代码（`src/lib/__tests__/inventory-utils.test.ts`）
+- 6 个测试用例，覆盖所有预期行为
+- 使用 `import { mergeInventoryItems } from "@/lib/inventory-utils"`（路径别名）

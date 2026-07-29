@@ -87,3 +87,23 @@ export function consumeInventoryItem(
   }
   return next;
 }
+
+/**
+ * 将一组可能重复的 itemId 合并到背包中。
+ * 同 itemId 累加 quantity，不修改原输入数组。
+ */
+export function mergeInventoryItems(
+  inventory: InventoryItem[],
+  itemIds: string[],
+): InventoryItem[] {
+  const result = inventory.map((i) => ({ ...i }));
+  for (const itemId of itemIds) {
+    const existing = result.find((i) => i.itemId === itemId);
+    if (existing) {
+      existing.quantity += 1;
+    } else {
+      result.push({ itemId, quantity: 1, equipped: false });
+    }
+  }
+  return result;
+}

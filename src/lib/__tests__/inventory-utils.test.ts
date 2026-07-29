@@ -101,3 +101,44 @@ describe('consumeInventoryItem', () => {
     expect(consumeInventoryItem(inv, 'nonexistent', 1)).toBeNull();
   });
 });
+
+import { mergeInventoryItems } from "@/lib/inventory-utils";
+
+describe("mergeInventoryItems", () => {
+  it("空背包添加物品", () => {
+    const result = mergeInventoryItems([], ["spirit_stone"]);
+    expect(result).toEqual([{ itemId: "spirit_stone", quantity: 1, equipped: false }]);
+  });
+  it("已有 stack 累加数量", () => {
+    const inv = [{ itemId: "spirit_stone", quantity: 3, equipped: false }];
+    const result = mergeInventoryItems(inv, ["spirit_stone", "spirit_stone"]);
+    expect(result).toHaveLength(1);
+    expect(result[0].quantity).toBe(5);
+  });
+  it("重复掉落 ID 累加多次", () => {
+    const result = mergeInventoryItems([], ["herb", "herb", "herb"]);
+    expect(result).toHaveLength(1);
+    expect(result[0].quantity).toBe(3);
+  });
+  it("不修改原输入数组", () => {
+    const inv = [{ itemId: "sword", quantity: 1, equipped: true }];
+    const copy = JSON.parse(JSON.stringify(inv));
+    mergeInventoryItems(inv, ["shield"]);
+    expect(inv).toEqual(copy);
+  });
+  it("保留其他物品及 equipped 状态", () => {
+    const inv = [
+      { itemId: "sword", quantity: 1, equipped: true },
+      { itemId: "shield", quantity: 1, equipped: false },
+    ];
+    const result = mergeInventoryItems(inv, ["potion"]);
+    expect(result).toHaveLength(3);
+    expect(result.find((i: any) => i.itemId === "sword")?.equipped).toBe(true);
+  });
+  it("空数组 itemIds 返回原数组副本", () => {
+    const inv = [{ itemId: "stone", quantity: 2, equipped: false }];
+    const result = mergeInventoryItems(inv, []);
+    expect(result).toEqual(inv);
+    expect(result).not.toBe(inv);
+  });
+});
