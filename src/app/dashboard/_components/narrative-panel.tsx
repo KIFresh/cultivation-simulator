@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { ScrollText } from "lucide-react";
 import type { NarrativeDisplay } from "@/app/dashboard/types";
+import { mergeNpcs } from "@/lib/npc-utils";
 
 interface NarrativePanelProps {
   narrative: NarrativeDisplay | null;
@@ -19,7 +20,7 @@ interface NarrativePanelProps {
   onActionSubmit: (actionId: string, input: string, selectedNpcIds: string[]) => void;
 }
 
-export function NarrativePanel({
+export const NarrativePanel = React.memo(function NarrativePanel({
   narrative,
   streamingText,
   availableActions,
@@ -41,17 +42,24 @@ export function NarrativePanel({
     setSelectedNpcs([]);
   }, [activeActionId]);
 
-  const toggleNpc = (npcId: string) => {
+  const toggleNpc = useCallback((npcId: string) => {
     setSelectedNpcs((prev) => (prev.includes(npcId) ? prev.filter((id) => id !== npcId) : [...prev, npcId]));
-  };
+  }, []);
 
-  const handleSubmitAction = (actionId: string) => {
+  const handleSubmitAction = useCallback((actionId: string) => {
     const text = draft.trim();
     if (!text) return;
     onActionSubmit(actionId, text, selectedNpcs);
     setDraft("");
     setSelectedNpcs([]);
-  };
+  }, [draft, selectedNpcs, onActionSubmit]);
+
+  const mergedNpcs = useMemo(() => mergeNpcs(familyMembers, currentNPCs), [familyMembers, currentNPCs]);
+
+  const visibleActions = useMemo(
+    () => availableActions.filter((a) => a.id !== "FREE").slice(0, 6),
+    [availableActions],
+  );
   return (
     <div className="rounded-3xl border border-[#EADCD0] bg-white p-6 shadow-sm">
       <div className="mb-6 flex items-center gap-3 border-b border-[#EADCD0] pb-4">
@@ -106,7 +114,7 @@ export function NarrativePanel({
           <p className="mb-3 text-xs text-gray-400">叙事生成中，请稍候…</p>
         )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {availableActions.filter((a) => a.id !== "FREE").slice(0, 6).map((action) => {
+          {visibleActions.map((action) => {
             const isActive = activeActionId === action.id;
             const cant = cultivator.stamina < action.actionPointCost;
             const isLocked = action.locked;
@@ -135,33 +143,18 @@ export function NarrativePanel({
                 {isActive && !actionLoading && (
                   <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-1 duration-150">
                     <div className="flex flex-wrap gap-1">
-                      {(familyMembers ?? []).map((npc: any) => {
+                      {mergedNpcs.map((npc: any) => {
                         const active = selectedNpcs.includes(npc.name);
                         return (
                           <button
-                            key={`family-${npc.name}`}
+                            key={npc._key}
                             type="button"
                             onClick={() => toggleNpc(npc.name)}
                             className={`rounded-lg border px-2 py-1 text-[10px] transition-colors ${
                               active ? "border-[#B83227] bg-[#FDF2F0] text-[#B83227]" : "border-[#EADCD0] bg-white text-[#2C1E1E]"
                             }`}
                           >
-                            👨‍👩‍👧‍👦 {npc.name}
-                          </button>
-                        );
-                      })}
-                      {(currentNPCs ?? []).map((npc: any) => {
-                        const active = selectedNpcs.includes(npc.name);
-                        return (
-                          <button
-                            key={`npc-${npc.name}`}
-                            type="button"
-                            onClick={() => toggleNpc(npc.name)}
-                            className={`rounded-lg border px-2 py-1 text-[10px] transition-colors ${
-                              active ? "border-[#B83227] bg-[#FDF2F0] text-[#B83227]" : "border-[#EADCD0] bg-white text-[#2C1E1E]"
-                            }`}
-                          >
-                            {npc.avatar} {npc.name}
+                            {npc._src === "family" ? "👨‍👩‍👧‍👦" : npc.avatar} {npc.name}
                           </button>
                         );
                       })}
@@ -204,4 +197,4 @@ export function NarrativePanel({
       </div>
     </div>
   );
-}
+});

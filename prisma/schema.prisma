@@ -34,8 +34,6 @@ model Cultivator {
   npcRelations          String?
   inventory             String?
   gold                  Int                   @default(50)
-  storySummary          String?
-  storySummaryUpdatedAt DateTime?
   storyEntries          String?
   storyEntriesUpdatedAt DateTime?
   maxAge                Int?

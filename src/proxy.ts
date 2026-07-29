@@ -16,7 +16,10 @@ export function proxy(request: NextRequest) {
     return NextResponse.next({ request: { headers } });
   }
 
-  return NextResponse.next();
+  // 未验证会话时绝不透传客户端伪造的身份头。
+  const headers = new Headers(request.headers);
+  headers.delete("x-user-id");
+  return NextResponse.next({ request: { headers } });
 }
 
 export const config = {

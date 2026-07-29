@@ -1,30 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireCultivator, apiError } from "@/lib/auth-helpers";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { userId, message } = body;
+    const auth = await requireCultivator(request);
+    if ("error" in auth) return auth.error;
+    const cultivator = auth.cultivator;
 
-    if (!userId || !message) {
+    const body = await request.json();
+    const { message } = body;
+
+    if (!message) {
       return NextResponse.json({ error: "缺少必填参数" }, { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { cultivator: true },
-    });
-    if (!user?.cultivator) {
-      return NextResponse.json({ error: "请先创建修炼者" }, { status: 400 });
-    }
-
-    const c = user.cultivator;
-    if (c.stamina < 1) {
+    if (cultivator.stamina < 1) {
       return NextResponse.json({ error: "行动力不足" }, { status: 400 });
     }
 
     const updated = await prisma.cultivator.update({
-      where: { id: c.id },
+      where: { id: cultivator.id },
       data: { stamina: { decrement: 1 } },
     });
 

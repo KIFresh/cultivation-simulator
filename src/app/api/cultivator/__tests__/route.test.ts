@@ -61,21 +61,25 @@ describe('Cultivator API - POST 创建修炼者', () => {
     expect(res.status).toBe(400);
   });
 
-  it('已有 userId 时创建修炼者成功', async () => {
+  it('已有 userId 时创建修炼者成功（原子性 + attributes + gender）', async () => {
     mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', cultivator: null });
-    mockPrisma.user.update.mockResolvedValue({
+    const mockUser = {
       id: 'u1', name: 'user1',
-      cultivator: makeCultivator({ id: 'c1', name: '小明' }),
+      cultivator: makeCultivator({ id: 'c1', name: '小明', attributes: '{"root":3,"spirit":4}', gender: '女' }),
+    };
+    mockPrisma.$transaction.mockImplementation(async (fn: any) => {
+      const tx = {
+        user: { update: vi.fn().mockResolvedValue(mockUser) },
+        cultivatorTechnique: { create: vi.fn().mockResolvedValue({}) },
+      };
+      return fn(tx);
     });
-    const res = await POST(makeRequest({ userId: 'u1', cultivatorName: '小明', spiritualRoot: '火灵根' }));
+    const res = await POST(makeRequest({ userId: 'u1', cultivatorName: '小明', spiritualRoot: '火灵根', attributes: { root: 3, spirit: 4 }, gender: '女' }));
     const d = await res.json();
     expect(res.status).toBe(200);
     expect(d.user.cultivator.name).toBe('小明');
-    expect(mockPrisma.user.update).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({
-        cultivator: { create: expect.objectContaining({ worldYear: 2025 }) },
-      }),
-    }));
+    expect(d.user.cultivator.attributes).toBe('{"root":3,"spirit":4}');
+    expect(d.user.cultivator.gender).toBe('女');
   });
 
   it('已有修炼者时返回 409', async () => {
@@ -84,23 +88,38 @@ describe('Cultivator API - POST 创建修炼者', () => {
     expect(res.status).toBe(409);
   });
 
-  it('新建用户路径创建修炼者成功', async () => {
+  it('新建用户路径创建修炼者成功（原子性 + attributes + gender）', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(null);
-    mockPrisma.user.create.mockResolvedValue({
+    const mockUser = {
       id: 'u2', name: 'newUser',
-      cultivator: makeCultivator({ id: 'c2', name: '小刚' }),
+      cultivator: makeCultivator({ id: 'c2', name: '小刚', attributes: '{"root":5,"spirit":5}', gender: '男' }),
+    };
+    mockPrisma.$transaction.mockImplementation(async (fn: any) => {
+      const tx = {
+        user: { create: vi.fn().mockResolvedValue(mockUser) },
+        cultivatorTechnique: { create: vi.fn().mockResolvedValue({}) },
+      };
+      return fn(tx);
     });
     const res = await POST(makeRequest({
       userName: 'newUser', cultivatorName: '小刚', spiritualRoot: '水灵根',
+      attributes: { root: 5, spirit: 5 }, gender: '男',
     }));
     const d = await res.json();
     expect(res.status).toBe(200);
     expect(d.user.cultivator.name).toBe('小刚');
-    expect(mockPrisma.user.create).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({
-        cultivator: { create: expect.objectContaining({ worldYear: 2025 }) },
-      }),
+    expect(d.user.cultivator.attributes).toBe('{"root":5,"spirit":5}');
+    expect(d.user.cultivator.gender).toBe('男');
+  });
+
+  it('交易失败时回滚数据库（atomic 失败）', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.$transaction.mockRejectedValue(new Error('DB error'));
+    const res = await POST(makeRequest({
+      userName: 'failUser', cultivatorName: '失败', spiritualRoot: '火灵根',
     }));
+    expect(res.status).toBe(500);
+    expect(mockPrisma.user.create).not.toHaveBeenCalled();
   });
 
   it('用户名已存在返回 409', async () => {

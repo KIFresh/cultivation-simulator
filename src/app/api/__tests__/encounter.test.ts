@@ -36,8 +36,10 @@ vi.mock('@/lib/cultivation-data', () => ({
   getItemById: vi.fn(() => null),
 }));
 
+const VALID_CUID = 'c123456789012345678901234';
+
 const makeCultivator = (overrides: any = {}) => ({
-  id: 'c1', userId: 'u1', name: '测试', spiritualRoot: '火灵根',
+  id: 'c1', userId: VALID_CUID, name: '测试', spiritualRoot: '火灵根',
   realm: '炼气期', realmLevel: 1, cultivationExp: 100, totalExp: 200,
   stamina: 50, gold: 100, inventory: '[]', age: 18, location: 'home',
   storyEntries: '[]', breakthroughBuff: 0, maxAge: null, bonusAge: 0,
@@ -46,10 +48,13 @@ const makeCultivator = (overrides: any = {}) => ({
   attributes: null, ...overrides,
 });
 
-const makeRequest = (url: string, body?: any): NextRequest => ({
+const makeRequest = (url: string, body?: any, headers?: Record<string, string>): NextRequest => ({
   url,
   nextUrl: { searchParams: new URL(url).searchParams },
   json: async () => body,
+  headers: new Map(Object.entries({
+    "x-user-id": headers?.["x-user-id"] ?? new URL(url).searchParams.get("userId") ?? "",
+  })) as unknown as Headers,
 }) as unknown as NextRequest;
 
 describe('Encounter API - GET', () => {
@@ -64,22 +69,22 @@ describe('Encounter API - GET', () => {
     });
   });
 
-  it('缺少 userId 返回 400', async () => {
+  it('缺少 userId 返回 401', async () => {
     const res = await GET(makeRequest('http://localhost/api/encounter'));
     const d = await res.json();
-    expect(res.status).toBe(400);
-    expect(d.error).toBe('缺少 userId');
+    expect(res.status).toBe(401);
+    expect(d.error).toBe('未登录或会话无效');
   });
 
-  it('无 cultivator 返回 400', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', cultivator: null });
-    const res = await GET(makeRequest('http://localhost/api/encounter?userId=u1'));
-    expect(res.status).toBe(400);
+  it('无 cultivator 返回 404', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ id: VALID_CUID, cultivator: null });
+    const res = await GET(makeRequest('http://localhost/api/encounter?userId=' + VALID_CUID));
+    expect(res.status).toBe(404);
   });
 
   it('手动探索超过 3 次返回未触发', async () => {
     mockPrisma.gameEvent.count.mockResolvedValue(3);
-    const res = await GET(makeRequest('http://localhost/api/encounter?userId=u1&source=manual'));
+    const res = await GET(makeRequest('http://localhost/api/encounter?userId=' + VALID_CUID + '&source=manual'));
     const d = await res.json();
     expect(d.triggered).toBe(false);
     expect(d.reason).toContain('机缘已尽');
@@ -87,7 +92,7 @@ describe('Encounter API - GET', () => {
 
   it('shouldTriggerEncounter 返回 false 时未触发', async () => {
     mockEncounterData.shouldTriggerEncounter.mockReturnValue(false);
-    const res = await GET(makeRequest('http://localhost/api/encounter?userId=u1'));
+    const res = await GET(makeRequest('http://localhost/api/encounter?userId=' + VALID_CUID));
     const d = await res.json();
     expect(d.triggered).toBe(false);
     // 恢复默认实现
@@ -96,7 +101,7 @@ describe('Encounter API - GET', () => {
   });
 
   it('成功触发奇遇返回 eventId', async () => {
-    const res = await GET(makeRequest('http://localhost/api/encounter?userId=u1'));
+    const res = await GET(makeRequest('http://localhost/api/encounter?userId=' + VALID_CUID));
     const d = await res.json();
     expect(d.triggered).toBe(true);
     expect(d.eventId).toBe('evt1');
@@ -108,6 +113,7 @@ describe('Encounter API - POST', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     const c = makeCultivator();
+    mockPrisma.user.findUnique.mockResolvedValue({ id: VALID_CUID, cultivator: c });
     mockPrisma.gameEvent.findUnique.mockResolvedValue({
       id: 'evt1', cultivatorId: 'c1', type: 'ENCOUNTER',
       title: '悬崖遇仙', chosenOption: null,
@@ -126,12 +132,12 @@ describe('Encounter API - POST', () => {
   });
 
   it('缺少必填参数返回 400', async () => {
-    const res = await POST(makeRequest('http://localhost', { userId: 'u1' }));
+    const res = await POST(makeRequest('http://localhost', { userId: VALID_CUID }, { 'x-user-id': VALID_CUID }));
     expect(res.status).toBe(400);
   });
 
   it('无效选项索引返回 400', async () => {
-    const res = await POST(makeRequest('http://localhost', { eventId: 'evt1', userId: 'u1', choiceIndex: 5 }));
+    const res = await POST(makeRequest('http://localhost', { eventId: 'evt1', userId: VALID_CUID, choiceIndex: 5 }, { 'x-user-id': VALID_CUID }));
     expect(res.status).toBe(400);
   });
 
@@ -139,12 +145,12 @@ describe('Encounter API - POST', () => {
     mockPrisma.gameEvent.findUnique.mockResolvedValue({
       id: 'evt1', cultivatorId: 'c1', type: 'ENCOUNTER', chosenOption: 0,
     });
-    const res = await POST(makeRequest('http://localhost', { eventId: 'evt1', userId: 'u1', choiceIndex: 0 }));
+    const res = await POST(makeRequest('http://localhost', { eventId: 'evt1', userId: VALID_CUID, choiceIndex: 0 }, { 'x-user-id': VALID_CUID }));
     expect(res.status).toBe(400);
   });
 
   it('成功选择低风险选项', async () => {
-    const res = await POST(makeRequest('http://localhost', { eventId: 'evt1', userId: 'u1', choiceIndex: 0 }));
+    const res = await POST(makeRequest('http://localhost', { eventId: 'evt1', userId: VALID_CUID, choiceIndex: 0 }, { 'x-user-id': VALID_CUID }));
     const d = await res.json();
     expect(res.status).toBe(200);
     expect(d.success).toBe(true);

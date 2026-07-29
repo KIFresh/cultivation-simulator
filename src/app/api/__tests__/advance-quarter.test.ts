@@ -31,7 +31,6 @@ const fakeCultivator: any = {
   health: 100,
   gold: 50,
   storyEntries: null,
-  storySummary: null,
   location: 'home',
   inventory: null,
   npcRelations: null,

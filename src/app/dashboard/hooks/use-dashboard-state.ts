@@ -124,18 +124,40 @@ export function useDashboardState() {
   }, [storeCultivator]);
 
   useEffect(() => {
-    const raw = typeof window !== "undefined" ? window.localStorage.getItem("family") : null;
-    if (raw) {
-      try {
-        const parsed = parseFamily(raw);
-        setFamilyMembers(parsed.members ?? []);
-      } catch {
-        setFamilyMembers([]);
-      }
-    } else {
-      setFamilyMembers([]);
+    if (!userId) {
+      // 无 userId 时从 localStorage 读取兜底
+      const raw = typeof window !== "undefined" ? window.localStorage.getItem("family") : null;
+      if (raw) {
+        try {
+          const parsed = parseFamily(raw);
+          setFamilyMembers(parsed.members ?? []);
+        } catch { setFamilyMembers([]); }
+      } else { setFamilyMembers([]); }
+      return;
     }
-  }, []);
+    // 优先从 API 获取家庭数据
+    fetch(`/api/family?userId=${userId}`)
+      .then((r) => r.ok ? r.json() : Promise.reject(new Error("API 失败")))
+      .then((data) => {
+        if (data?.members) {
+          setFamilyMembers(data.members);
+          // 同步写入 localStorage 作为兼容兜底
+          try { localStorage.setItem("family", JSON.stringify({ members: data.members })); } catch {}
+        } else {
+          setFamilyMembers([]);
+        }
+      })
+      .catch(() => {
+        // API 失败时从 localStorage 读取兜底
+        const raw = typeof window !== "undefined" ? window.localStorage.getItem("family") : null;
+        if (raw) {
+          try {
+            const parsed = parseFamily(raw);
+            setFamilyMembers(parsed.members ?? []);
+          } catch { setFamilyMembers([]); }
+        } else { setFamilyMembers([]); }
+      });
+  }, [userId]);
 
   const loadLocalData = useCallback(() => {
     try {
@@ -194,28 +216,14 @@ export function useDashboardState() {
         if (isAwakened(data.user.cultivator.realm)) {
           setCanBreak(canBreakthrough(data.user.cultivator.realm, data.user.cultivator.realmLevel, data.user.cultivator.cultivationExp, data.user.cultivator.spiritualRoot, data.user.cultivator.breakthroughBuff || 0));
         }
-        fetch(`/api/events?limit=50`)
-          .then((r) => r.json())
-          .then((evData) => {
-            if (evData.events && evData.events.length > 0) {
-              const history: NarrativeDisplay[] = evData.events.map((ev: any) => {
-                let mood = "静";
-                try { const parsed = JSON.parse(ev.reward || "{}"); if (parsed.mood) mood = parsed.mood; } catch {}
-                return { title: ev.title, narrative: ev.narrative, mood };
-              });
-              setNarrativeHistory(history);
-              if (history.length > 0 && !narrative) {
-                setNarrative({ title: history[0].title, narrative: history[0].narrative, mood: history[0].mood });
-              }
-            }
-          });
+        // 不在这里设置 narrative，避免与 store 订阅冲突
       }
     } catch (err) {
       console.error("加载角色失败:", err);
     } finally {
       setLoading(false);
     }
-  }, [userId, narrative]);
+  }, [userId]);
 
   useEffect(() => {
     const id = localStorage.getItem(STORAGE_KEYS.userId);
@@ -234,8 +242,23 @@ export function useDashboardState() {
   }, [router]);
 
   useEffect(() => {
-    if (userId) loadCultivator();
-  }, [userId, loadCultivator]);
+    if (userId) {
+      loadCultivator();
+      // 额外加载叙事历史
+      fetch(`/api/events?limit=50`)
+        .then((r) => r.json())
+        .then((evData) => {
+          if (evData.events && evData.events.length > 0) {
+            const history: NarrativeDisplay[] = evData.events.map((ev: any) => {
+              let mood = "静";
+              try { const parsed = JSON.parse(ev.reward || "{}"); if (parsed.mood) mood = parsed.mood; } catch {}
+              return { title: ev.title, narrative: ev.narrative, mood };
+            });
+            setNarrativeHistory(history);
+          }
+        });
+    }
+  }, [userId]);
 
   useEffect(() => {
     loadLocalData();

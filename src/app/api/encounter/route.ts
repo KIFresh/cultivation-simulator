@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireCultivator, apiError } from "@/lib/auth-helpers";
 import {
   shouldTriggerEncounter,
   pickRandomEncounter,
@@ -24,23 +25,12 @@ const ENCOUNTER_ITEM_MAP: Record<string, string> = {
 // ============================================================
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireCultivator(request);
+    if ("error" in auth) return auth.error;
+    const cultivator = auth.cultivator;
+
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
     const source = searchParams.get("source") || "auto"; // "manual" | "auto"
-
-    if (!userId) {
-      return NextResponse.json({ error: "缺少 userId" }, { status: 400 });
-    }
-
-    // 获取修炼者信息
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { cultivator: true },
-    });
-
-    if (!user?.cultivator) {
-      return NextResponse.json({ error: "请先创建修炼者" }, { status: 400 });
-    }
 
     // 检查今日已触发的奇遇次数
     const today = new Date();
@@ -50,7 +40,7 @@ export async function GET(request: NextRequest) {
 
     const encountersToday = await prisma.gameEvent.count({
       where: {
-        cultivatorId: user.cultivator.id,
+        cultivatorId: cultivator.id,
         type: "ENCOUNTER",
         createdAt: {
           gte: today,
@@ -94,7 +84,7 @@ export async function GET(request: NextRequest) {
     // 创建游戏事件记录（尚未选择）
     const gameEvent = await prisma.gameEvent.create({
       data: {
-        cultivatorId: user.cultivator.id,
+        cultivatorId: cultivator.id,
         type: "ENCOUNTER",
         title: encounter.title,
         narrative: encounter.narrative,
@@ -127,12 +117,16 @@ export async function GET(request: NextRequest) {
 // ============================================================
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { eventId, userId, choiceIndex } = body;
+    const auth = await requireCultivator(request);
+    if ("error" in auth) return auth.error;
+    const cultivator = auth.cultivator;
 
-    if (!eventId || !userId || choiceIndex === undefined) {
+    const body = await request.json();
+    const { eventId, choiceIndex } = body;
+
+    if (!eventId || choiceIndex === undefined) {
       return NextResponse.json(
-        { error: "缺少必填信息（eventId, userId, choiceIndex）" },
+        { error: "缺少必填信息（eventId, choiceIndex）" },
         { status: 400 }
       );
     }
@@ -144,7 +138,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 获取事件和修炼者
+    // 获取事件
     const gameEvent = await prisma.gameEvent.findUnique({
       where: { id: eventId },
     });
@@ -154,12 +148,8 @@ export async function POST(request: NextRequest) {
     if (gameEvent.chosenOption !== null) {
       return NextResponse.json({ error: "该奇遇已经结算" }, { status: 400 });
     }
-
-    const cultivator = await prisma.cultivator.findUnique({
-      where: { id: gameEvent.cultivatorId },
-    });
-    if (!cultivator) {
-      return NextResponse.json({ error: "修炼者不存在" }, { status: 404 });
+    if (gameEvent.cultivatorId !== cultivator.id) {
+      return NextResponse.json({ error: "无权操作此奇遇" }, { status: 403 });
     }
 
     // 找到对应的奇遇数据（通过 reward 中存储的 encounterId）

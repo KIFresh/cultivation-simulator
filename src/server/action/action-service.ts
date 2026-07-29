@@ -38,7 +38,7 @@ import { NARRATIVE_EFFECT_WHITELISTS, checkEffectWhitelist } from "@/lib/narrati
 import { getGoldMaxGainByRealm } from "@/lib/gold";
 import { evaluateActionGift } from "@/lib/action-gifts";
 import { calculateAnnualFamilyAllowance, type AllowanceParent } from "@/lib/family-allowance";
-import { calculateHouseholdIncome, initializeFamilyCareer, isFamilyGuardianRelation, type FamilyCareer } from "@/lib/family-career";
+import { calculateHouseholdIncome, initializeFamilyCareer, isFamilyGuardianRelation, NEUTRAL_FAMILY_ECONOMIC_BACKGROUND, type FamilyCareer } from "@/lib/family-career";
 
 export interface ActionInput {
   actionId: string;
@@ -202,6 +202,7 @@ export async function executeAction(
       age: member.age,
       alive: member.alive,
       worldYear: (cultivator as { worldYear?: number }).worldYear ?? 2025,
+      familyBackground: NEUTRAL_FAMILY_ECONOMIC_BACKGROUND,
     });
   }));
   // 非当前年份记录只可能是跨年事务前的旧快照；不给它临时额度，避免覆盖跨年重置。
@@ -234,7 +235,7 @@ export async function executeAction(
     expGained: 0,
     isAwakened: isAwakened(newRealm),
     awakenEvent: !!awakenEvent,
-    storySummary: summaryText || undefined,
+
     giftDecision: { givesGold: giftDecision.givesGold, reason: giftDecision.reason },
     state: {
       ...stateFromCultivator(cultivator),

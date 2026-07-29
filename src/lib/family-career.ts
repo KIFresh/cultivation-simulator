@@ -4,6 +4,9 @@ export const CAREER_CATEGORIES = WORLD_CAREER_CATEGORIES;
 export type { CareerCategory };
 export type CareerStatus = "employed" | "unemployed" | "retired";
 
+/** 0=拮据, 1=普通, 2=小康/中性, 3=殷实, 4=富裕 */
+export const NEUTRAL_FAMILY_ECONOMIC_BACKGROUND = 2;
+
 export interface FamilyCareer {
   relation: string;
   age: number;

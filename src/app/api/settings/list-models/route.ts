@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isPrivateOrLocalUrl, apiError } from "@/lib/auth-helpers";
+import { apiError, isPrivateOrLocalUrl, requireAdminKey } from "@/lib/auth-helpers";
 
 export async function POST(request: NextRequest) {
+  if (!requireAdminKey(request.headers.get("x-admin-key"))) {
+    return apiError("管理员密钥无效", 401, "ADMIN_REQUIRED");
+  }
   try {
     const body = await request.json();
     const { baseUrl, apiKey, type } = body;
@@ -10,9 +13,14 @@ export async function POST(request: NextRequest) {
       return apiError("缺少供应方类型");
     }
 
-    // SSRF 防护：禁止内网地址
-    if (baseUrl && isPrivateOrLocalUrl(baseUrl)) {
-      return apiError("禁止访问内网地址");
+    if (isPrivateOrLocalUrl(baseUrl)) {
+      return apiError("接口地址不能指向本机或内网地址");
+    }
+    try {
+      const protocol = new URL(baseUrl).protocol;
+      if (protocol !== "https:" && protocol !== "http:") return apiError("接口地址必须使用 HTTP 或 HTTPS");
+    } catch {
+      return apiError("接口地址格式不正确");
     }
 
     if (type === "ollama") {

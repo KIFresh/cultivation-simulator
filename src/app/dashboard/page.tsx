@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import TopNav from "@/components/top-nav";
 import MemoryPanel from "@/components/memory-panel";
@@ -13,6 +14,7 @@ import { NpcChatPanel } from "@/app/dashboard/_components/npc-chat-panel";
 import { useDashboardState } from "@/app/dashboard/hooks/use-dashboard-state";
 import { useDevTools } from "@/app/dashboard/hooks/use-dashboard-dev-tools";
 import { getRootInfo, formatSpiritualRootLabel } from "@/lib/cultivation-data";
+import { mergeNpcs } from "@/lib/npc-utils";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -80,6 +82,13 @@ export default function DashboardPage() {
       window.location.reload();
     },
   });
+
+  // 合并附近 NPC：家庭成员优先，同名/同关系的地点 NPC 去重
+  // 必须放在所有条件 return 前，避免 React Hook 顺序错乱
+  const mergedNpcs = useMemo(
+    () => mergeNpcs(familyMembers ?? [], currentNPCs ?? []),
+    [familyMembers, currentNPCs],
+  );
 
   if (loading) return (
     <main className="flex-1 flex items-center justify-center min-h-screen bg-[#FAF7F3]" style={{ fontFamily: "'Noto Serif SC','Songti SC','STSong','SimSun','宋体',Georgia,serif" }}>
@@ -197,14 +206,18 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {currentNPCs.length > 0 && (
+            {mergedNpcs.length > 0 && (
               <div className="flex flex-wrap gap-3 items-center text-xs">
                 <span className="text-gray-400">附近的人：</span>
                 <div className="flex flex-wrap gap-2">
-                  {currentNPCs.map((npc: any) => (
-                    <button key={npc.name} onClick={() => setNpcChat(npc)} className="bg-[#FDF2F0] text-[#7A1F18] px-3 py-1.5 rounded-xl border border-[#B83227]/20 flex items-center space-x-2 cursor-pointer hover:scale-105 transition-transform">
+                  {mergedNpcs.map((npc: any) => (
+                    <button key={npc._key} onClick={() => setNpcChat(npc)} className="bg-[#FDF2F0] text-[#7A1F18] px-3 py-1.5 rounded-xl border border-[#B83227]/20 flex items-center space-x-2 cursor-pointer hover:scale-105 transition-transform">
                       <span>{npc.avatar}</span>
-                      <span className="font-bold">{npc.name} {isAwake && npc.realm ? <span className="font-normal opacity-70 text-[9px]">({npc.realm})</span> : null}</span>
+                      <span className="font-bold">
+                        {npc.name}
+                        {npc.age != null ? <span className="font-normal opacity-70 text-[9px]">（{npc.age}岁）</span> : null}
+                        {npc._src !== 'family' && isAwake && npc.realm ? <span className="font-normal opacity-70 text-[9px]">({npc.realm})</span> : null}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -233,8 +246,8 @@ export default function DashboardPage() {
             activeActionId={activeActionId}
             actionLoading={advancing}
             cultivator={cultivator}
-            currentNPCs={currentNPCs}
-            familyMembers={familyMembers}
+            currentNPCs={mergedNpcs}
+            familyMembers={[]}
             narrativeExpanded={narrativeExpanded}
             onExpandToggle={() => setNarrativeExpanded(!narrativeExpanded)}
             onActionClick={handleActionClick}

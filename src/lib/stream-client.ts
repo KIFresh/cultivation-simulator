@@ -29,7 +29,7 @@ interface StreamChunk {
   characterName?: string;
   narrative?: NarrativeData;
   narrativeError?: NarrativeErrorPayload;
-  committed?: { gameEventId?: string };
+  committed?: { gameEventId?: string; characterName?: string };
   done?: boolean;
   fullText?: string;
   error?: unknown;
@@ -44,13 +44,13 @@ interface StreamChunk {
 export async function fetchStreamNarrative(
   url: string,
   body: unknown,
-  opts?: { onChunk?: (text: string) => void; signal?: AbortSignal },
+  opts?: { onChunk?: (text: string) => void; signal?: AbortSignal; headers?: Record<string, string> },
 ): Promise<NarrativeResult> {
   const result: NarrativeResult = {};
   try {
     const res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...opts?.headers },
       body: JSON.stringify(body),
       signal: opts?.signal,
     });
@@ -96,6 +96,7 @@ export async function fetchStreamNarrative(
             opts?.onChunk?.(cleanNarrativeStream(chunk.text));
           }
           if (chunk.characterName) result.characterName = chunk.characterName;
+          if (chunk.committed?.characterName) result.characterName = chunk.committed.characterName;
           if (chunk.narrative) {
             result.narrative = { ...(result.narrative ?? {}), ...chunk.narrative };
             if (chunk.narrative.characterName) {
@@ -104,6 +105,18 @@ export async function fetchStreamNarrative(
           }
           if (chunk.narrativeError) {
             result.narrativeError = chunk.narrativeError;
+          }
+          if (chunk.error) {
+            const errMsg = typeof chunk.error === "string" ? chunk.error : (chunk.error as Record<string, unknown>)?.message;
+            if (!result.narrativeError) {
+              result.narrativeError = {
+                type: "STREAM",
+                code: "STREAM_ERROR",
+                message: typeof errMsg === "string" ? errMsg : "叙事流异常",
+                gameEventId: null,
+                params: body,
+              };
+            }
           }
         }
       }

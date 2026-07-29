@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireCultivator, apiError } from "@/lib/auth-helpers";
 import {
   generateBreakthroughNarrative,
   type StoryEntry,
@@ -20,15 +21,14 @@ const PROTECTOR_EFFECTS: Record<string, { failReduce: number; mindReduce: number
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireCultivator(request);
+    if ("error" in auth) return auth.error;
+    const cultivator = auth.cultivator;
+
     const body = await request.json();
-    const { userId, protector } = body;
+    const { protector } = body;
     const isStream = new URL(request.url).searchParams.get("stream") === "true";
-    if (!userId) return NextResponse.json({ error: "缺少 userId" }, { status: 400 });
 
-    const user = await prisma.user.findUnique({ where: { id: userId }, include: { cultivator: true } });
-    if (!user?.cultivator) return NextResponse.json({ error: "请先创建修炼者" }, { status: 400 });
-
-    const cultivator = user.cultivator;
     if (cultivator.realm === "凡人") {
       return NextResponse.json({ error: "凡人无法突破，需先灵气觉醒" }, { status: 400 });
     }
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
       toLevel: next.newLevel,
       totalExp: cultivator.totalExp,
       breakthroughCount: cultivator.breakthroughCount,
-      storySummary: summaryText || undefined,
+
       state: { ...stateFromCultivator(cultivator), realm: next.newRealm, realmLevel: next.newLevel },
     });
 

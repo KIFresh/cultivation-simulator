@@ -15,7 +15,7 @@ interface AttributeGridProps {
   attributes: Record<string, number>;
 }
 
-export function AttributeGrid({ attributes }: AttributeGridProps) {
+export const AttributeGrid = React.memo(function AttributeGrid({ attributes }: AttributeGridProps) {
   return (
     <div className="grid grid-cols-3 gap-3">
       {ATTR_INFO.map((a) => (
@@ -26,4 +26,4 @@ export function AttributeGrid({ attributes }: AttributeGridProps) {
       ))}
     </div>
   );
-}
+});

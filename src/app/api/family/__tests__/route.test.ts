@@ -52,8 +52,6 @@ const makeCultivator = (overrides: Record<string, unknown> = {}) => ({
   attributes: null,
   inventory: '[]',
   npcRelations: null,
-  storySummary: null,
-  storySummaryUpdatedAt: null,
   storyEntries: '[]',
   storyEntriesUpdatedAt: null,
   talents: null,

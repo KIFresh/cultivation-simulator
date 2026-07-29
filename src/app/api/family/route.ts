@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireCultivator, apiError } from "@/lib/auth-helpers";
-import { getCareerDisplayName, initializeFamilyCareer } from "@/lib/family-career";
+import { getCareerDisplayName, initializeFamilyCareer, NEUTRAL_FAMILY_ECONOMIC_BACKGROUND } from "@/lib/family-career";
 
 function parseHistory(raw: string | null): unknown[] {
   if (!raw) return [];
@@ -94,6 +94,7 @@ export async function POST(request: NextRequest) {
           age,
           alive,
           worldYear: cultivator.worldYear,
+          familyBackground: NEUTRAL_FAMILY_ECONOMIC_BACKGROUND,
         });
         return {
           cultivatorId: cultivator.id,

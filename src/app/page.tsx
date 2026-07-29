@@ -16,6 +16,7 @@ export default function Home() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [userName, setUserName] = useState("");
   const [birthStream, setBirthStream] = useState("");
+  const [quickCreating, setQuickCreating] = useState(false);
   const { enabled, mounted } = useDevModeEnabled();
 
   useEffect(() => {
@@ -42,6 +43,9 @@ export default function Home() {
 
 
   const handleQuickCreate = async () => {
+    if (quickCreating) return;
+    setQuickCreating(true);
+    try {
     // 随机出生资质
     const births = [{id:"waste",p:5},{id:"mortal",p:8},{id:"elite",p:11},{id:"prodigy",p:14},{id:"monster",p:17},{id:"reborn",p:21},{id:"chosen",p:25}];
     const birth = births[Math.floor(Math.random() * births.length)];
@@ -72,8 +76,10 @@ export default function Home() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     // 创建角色
     const res = await fetch("/api/cultivator", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userName: `dev_${Date.now()}`, cultivatorName: "未命名", spiritualRoot: root, worldId: "earth", attributes: attr, gender: Math.random() > 0.5 ? "男" : "女" }) });
-    const data = await res.json();
-    if (!data.user) { toast.error("生成失败"); return; }
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.user) {
+      throw new Error(data?.error || `角色生成失败（${res.status}）`);
+    }
     localStorage.setItem("userId", data.user.id);
     localStorage.setItem("userDisplayName", data.user.name);
     // attributes 已通过 API 写入 DB
@@ -82,19 +88,30 @@ export default function Home() {
     const birthBody = { userId: data.user.id, type: "BIRTH", worldName: "地球", identityName, age: 1, worldId: "earth" };
     let lastBirthPayload: { params: unknown; gameEventId?: string | null } | undefined;
     const genNarrative = async (): Promise<boolean> => {
-      const showRetry = () =>
-        new Promise<boolean>((resolve) => {
-          toast.error("出生叙事生成失败，请点击重试", {
-            action: { label: "重试", onClick: () => resolve(genNarrative()) },
-            duration: 10000,
-          });
+      const showRetry = () => {
+        // 角色已创建成功；重试必须复用这名角色，不能再次调用快速生成。
+        toast.error("出生叙事生成失败", {
+          action: {
+            label: "重试叙事",
+            onClick: async () => {
+              setQuickCreating(true);
+              try {
+                if (await genNarrative()) router.push("/dashboard");
+              } finally {
+                setQuickCreating(false);
+              }
+            },
+          },
+          duration: 10000,
         });
+        return Promise.resolve(false);
+      };
       try {
         let birthData: any = null;
         let birthName: string | undefined;
         if (lastBirthPayload) {
           const r = await fetch("/api/narrative/retry", {
-            method: "POST", headers: { "Content-Type": "application/json" },
+            method: "POST", headers: { "Content-Type": "application/json", "x-user-id": data.user.id },
             body: JSON.stringify({ type: "BIRTH", params: lastBirthPayload.params, gameEventId: lastBirthPayload.gameEventId ?? undefined }),
           });
           birthData = await r.json().catch(() => null);
@@ -102,6 +119,7 @@ export default function Home() {
         } else {
           const sr = await fetchStreamNarrative("/api/narrative?stream=true", birthBody, {
             onChunk: (text: string) => setBirthStream((prev) => cleanNarrativeStream(prev + text)),
+            headers: { "x-user-id": data.user.id },
           });
           if (sr?.narrativeError) {
             setBirthStream("");
@@ -126,6 +144,12 @@ export default function Home() {
       }
     };
     if (await genNarrative()) { router.push("/dashboard"); }
+    } catch (error) {
+      console.error("快速生成失败:", error);
+      toast.error(error instanceof Error ? error.message : "快速生成失败，请检查网络或服务配置");
+    } finally {
+      setQuickCreating(false);
+    }
   };
 
   const handleReset = async () => {
@@ -165,7 +189,7 @@ export default function Home() {
       {mounted && enabled && devMode && (
         <div className="fixed top-0 left-0 right-0 bg-orange-500 text-white text-xs text-center py-1 z-50 flex items-center justify-center gap-4">
           <span>DEV MODE</span>
-          <button onClick={handleQuickCreate} className="underline hover:no-underline">快速生成</button>
+          <button onClick={handleQuickCreate} disabled={quickCreating} className="underline hover:no-underline disabled:opacity-60">{quickCreating ? "生成中…" : "快速生成"}</button>
           <button onClick={handleReset} className="underline hover:no-underline">重置数据</button>
           <button onClick={handleExitDev} className="underline hover:no-underline">退出</button>
         </div>

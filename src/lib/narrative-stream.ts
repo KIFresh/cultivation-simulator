@@ -25,7 +25,13 @@ export function streamNarrativeResult(
     }
   })();
 
-  const committed = { gameEventId: eventId, cultivator: cultivator ?? null };
+  const committed = {
+    gameEventId: eventId,
+    cultivator: cultivator ?? null,
+    characterName: (cultivator && typeof cultivator === "object" && "name" in (cultivator as Record<string, unknown>))
+      ? (cultivator as Record<string, unknown>).name as string
+      : undefined,
+  };
 
   return createSSEResponse(
     gen,

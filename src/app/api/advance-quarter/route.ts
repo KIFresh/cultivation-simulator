@@ -30,6 +30,7 @@ import {
   evolveFamilyCareer,
   getCareerDisplayName,
   initializeFamilyCareer,
+  NEUTRAL_FAMILY_ECONOMIC_BACKGROUND,
   isFamilyGuardianRelation,
   type FamilyCareer,
 } from "@/lib/family-career";
@@ -203,6 +204,7 @@ export async function POST(request: NextRequest) {
               age: member.age,
               alive: member.alive,
               worldYear: currentWorldYear,
+              familyBackground: NEUTRAL_FAMILY_ECONOMIC_BACKGROUND,
               categoryHint: member.careerCategory ?? member.occupation ?? undefined,
               levelHint: member.careerLevel,
             });

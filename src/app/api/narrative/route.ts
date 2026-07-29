@@ -30,10 +30,7 @@ import { NARRATIVE_EFFECT_WHITELISTS, checkEffectWhitelist } from "@/lib/narrati
 import { sanitizeAttributes } from "@/lib/utils";
 import { calculateMaxStamina } from "@/lib/cultivation-data";
 import { requireCultivator } from "@/lib/auth-helpers";
-import { getCareerDisplayName, initializeFamilyCareer } from "@/lib/family-career";
-
-// 身份选择尚无服务端持久化字段，不能信任出生文案参数；职业经济初始化固定使用中性背景。
-const NEUTRAL_FAMILY_ECONOMIC_BACKGROUND = 2;
+import { getCareerDisplayName, initializeFamilyCareer, NEUTRAL_FAMILY_ECONOMIC_BACKGROUND } from "@/lib/family-career";
 
 // POST — 生成叙事 + 处理突破
 export async function POST(request: NextRequest) {
@@ -100,7 +97,7 @@ export async function POST(request: NextRequest) {
           birthTier: body.birthTier,
           worldId: body.worldId,
           family: body.family || [],
-          storySummary: summaryText || undefined,
+
         });
 
         // ── suggestedName 验证 ────────────────────────────
@@ -218,7 +215,7 @@ export async function POST(request: NextRequest) {
           taskType: taskType || "CUSTOM",
           taskDescription,
           cultivationExp: cultivator.cultivationExp,
-          storySummary: summaryText || undefined,
+
           state: stateFromCultivator(cultivator),
         });
 
@@ -353,7 +350,7 @@ export async function POST(request: NextRequest) {
           toLevel: result.newLevel,
           totalExp: cultivator.totalExp,
           breakthroughCount: cultivator.breakthroughCount,
-          storySummary: summaryText || undefined,
+
           state: { ...stateFromCultivator(cultivator), realm: result.newRealm, realmLevel: result.newLevel },
         });
 
@@ -409,7 +406,7 @@ export async function POST(request: NextRequest) {
           spiritualRoot: cultivator.spiritualRoot as import("@/lib").SpiritualRoot,
           realm: cultivator.realm,
           realmLevel: cultivator.realmLevel,
-          storySummary: summaryText || undefined,
+
           state: {
             name: cultivator.name, age: cultivator.age, realm: cultivator.realm, realmLevel: cultivator.realmLevel,
             gold: cultivator.gold, stamina: cultivator.stamina, locationId: cultivator.location || "home",

@@ -46,6 +46,7 @@ export function useDevTools({ onAfterCreate }: UseDevToolsOptions = {}): UseDevT
     const rem = budget % 6;
     attrKeys.forEach((k, i) => { attr[k] = base + (i < rem ? 1 : 0); });
 
+    try {
     const res = await fetch("/api/cultivator", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -54,12 +55,13 @@ export function useDevTools({ onAfterCreate }: UseDevToolsOptions = {}): UseDevT
         cultivatorName: `测试_${Date.now()}`,
         spiritualRoot: root,
         worldId: "earth",
+        attributes: attr,
+        gender: Math.random() > 0.5 ? "男" : "女",
       }),
     });
-    const data = await res.json();
-    if (!data.user) {
-      toast.error("生成失败");
-      return;
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.user) {
+      throw new Error(data?.error || `角色生成失败（${res.status}）`);
     }
     localStorage.setItem("userId", data.user.id);
     localStorage.setItem("cultivatorName", data.user.cultivator.name);
@@ -67,10 +69,25 @@ export function useDevTools({ onAfterCreate }: UseDevToolsOptions = {}): UseDevT
 
     const identityName = { orphan:"山野遗孤", scholar:"书香门第", merchant:"商贾之子", general:"将门之后", sect:"散修传人" }[identity.id];
     const genNarrative = async (): Promise<boolean> => {
+      const showRetry = (message: string) => {
+        toast.error(message, {
+          action: {
+            label: "重试叙事",
+            onClick: async () => {
+              if (await genNarrative()) {
+                onAfterCreate?.();
+                window.location.reload();
+              }
+            },
+          },
+          duration: 10000,
+        });
+        return false;
+      };
       try {
         const r = await fetch("/api/narrative", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "x-user-id": data.user.id },
           body: JSON.stringify({ userId: data.user.id, type: "BIRTH", worldName: "地球", identityName, age: 1, worldId: "earth" }),
         });
         if (!r.ok) {
@@ -84,18 +101,17 @@ export function useDevTools({ onAfterCreate }: UseDevToolsOptions = {}): UseDevT
         return true;
       } catch (err) {
         console.error("出生叙事生成失败:", err);
-        return new Promise((resolve) => {
-          toast.error(`出生叙事生成失败: ${(err as Error).message}`, {
-            action: { label: "重试", onClick: () => resolve(genNarrative()) },
-            duration: 10000,
-          });
-        });
+        return showRetry(`出生叙事生成失败: ${(err as Error).message}`);
       }
     };
 
     if (await genNarrative()) {
       onAfterCreate?.();
       window.location.reload();
+    }
+    } catch (error) {
+      console.error("快速生成失败:", error);
+      toast.error(error instanceof Error ? error.message : "快速生成失败，请检查网络或服务配置");
     }
   }, [onAfterCreate]);
 

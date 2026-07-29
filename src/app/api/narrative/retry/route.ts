@@ -2,12 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireCultivator } from "@/lib/auth-helpers";
 import { generateBirthNarrative } from "@/lib/narrative";
-import { getCareerDisplayName, initializeFamilyCareer } from "@/lib/family-career";
+import { getCareerDisplayName, initializeFamilyCareer, NEUTRAL_FAMILY_ECONOMIC_BACKGROUND } from "@/lib/family-career";
 
-// 身份选择尚无服务端持久化字段，不能信任重试文案参数；职业经济初始化固定使用中性背景。
-const NEUTRAL_FAMILY_ECONOMIC_BACKGROUND = 2;
 
-// POST — 重新生成某段叙事（如出生时生成失败或需要重写）
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireCultivator(request);
@@ -32,7 +29,7 @@ export async function POST(request: NextRequest) {
       worldName: params?.worldName,
       identityName: params?.identityName,
       family: Array.isArray(params?.family) ? params.family : undefined,
-      storySummary: params?.storySummary,
+
       birthTier: params?.birthTier,
     });
 

@@ -105,7 +105,9 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "该用户已有修炼者" }, { status: 409 });
       }
 
-      const user = await prisma.user.update({
+    // 已有用户路径：原子创建修炼者 + 初始功法
+    const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
         where: { id: body.userId },
         data: {
           cultivator: {
@@ -114,15 +116,16 @@ export async function POST(request: NextRequest) {
               spiritualRoot: body.spiritualRoot,
               worldId: body.worldId || "earth",
               worldYear: 2025,
+              attributes: body.attributes ? JSON.stringify(body.attributes) : undefined,
+              gender: body.gender,
             },
           },
         },
         include: { cultivator: true },
       });
 
-      // 初始赠送吐纳术
       if (user.cultivator) {
-        await prisma.cultivatorTechnique.create({
+        await tx.cultivatorTechnique.create({
           data: {
             cultivatorId: user.cultivator.id,
             techniqueId: "basic_breathing",
@@ -133,7 +136,10 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      return setSessionCookie(NextResponse.json({ user }), user.id);
+      return user;
+    });
+
+    return setSessionCookie(NextResponse.json({ user: result }), result.id);
     }
 
     // 新建用户路径：必须有 userName
@@ -146,31 +152,42 @@ export async function POST(request: NextRequest) {
 
     const pwdHash = password ? hashPassword(password) : undefined;
 
-    const user = await prisma.user.create({
-      data: {
-        name: userName,
-        password: pwdHash ? `${pwdHash.salt}:${pwdHash.hash}` : undefined,
-        cultivator: {
-          create: { name: cultivatorName, spiritualRoot, worldId: worldId || "earth", worldYear: 2025 },
+    // 原子创建用户 + 修炼者 + 初始功法
+    const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          name: userName,
+          password: pwdHash ? `${pwdHash.salt}:${pwdHash.hash}` : undefined,
+          cultivator: {
+            create: {
+              name: cultivatorName,
+              spiritualRoot,
+              worldId: worldId || "earth",
+              worldYear: 2025,
+              attributes: body.attributes ? JSON.stringify(body.attributes) : undefined,
+              gender: body.gender,
+            },
+          },
         },
-      },
-      include: { cultivator: true },
+        include: { cultivator: true },
+      });
+
+      if (user.cultivator) {
+        await tx.cultivatorTechnique.create({
+          data: {
+            cultivatorId: user.cultivator.id,
+            techniqueId: "basic_breathing",
+            equipSlot: 1,
+            level: 1,
+            proficiency: 0,
+          },
+        });
+      }
+
+      return user;
     });
 
-    // 初始赠送吐纳术
-    if (user.cultivator) {
-      await prisma.cultivatorTechnique.create({
-        data: {
-          cultivatorId: user.cultivator.id,
-          techniqueId: "basic_breathing",
-          equipSlot: 1,
-          level: 1,
-          proficiency: 0,
-        },
-      });
-    }
-
-    return setSessionCookie(NextResponse.json({ user }), user.id);
+    return setSessionCookie(NextResponse.json({ user: result }), result.id);
   } catch (error) {
     console.error("创建修炼者失败:", error);
     return NextResponse.json({ error: "创建失败，请重试" }, { status: 500 });

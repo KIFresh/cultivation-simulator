@@ -76,8 +76,6 @@ export interface CultivatorWithUser {
   subjectExp: string | null;
   inventory: string | null;
   npcRelations: string | null;
-  storySummary: string | null;
-  storySummaryUpdatedAt: Date | null;
   storyEntries: string | null;
   storyEntriesUpdatedAt: Date | null;
   talents: string | null;
@@ -138,11 +136,40 @@ export async function requireCultivator(
 }
 
 // ── SSRF 防护：禁止内网地址 ────────────────────────────────
-const PRIVATE_IP_RE =
-  /^(https?:\/\/)?(localhost|127\.\d+\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+|0\.0\.0\.0|169\.254\.\d+\.\d+|\[::1\])(:\d+)?/i;
+function isPrivateIpv4(hostname: string): boolean {
+  const parts = hostname.split(".").map(Number);
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return false;
+  const [a, b] = parts;
+  return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+}
 
-export function isPrivateOrLocalUrl(url: string): boolean {
-  return PRIVATE_IP_RE.test(url.trim());
+function isPrivateIpv6(hostname: string): boolean {
+  const normalized = hostname.toLowerCase();
+  if (normalized === "::" || normalized === "::1") return true;
+  // fc00::/7 (ULA) and fe80::/10 (link-local)
+  if (/^f[cd][0-9a-f]{2}:/i.test(normalized) || /^fe[89ab][0-9a-f]:/i.test(normalized)) return true;
+  const mappedIpv4 = normalized.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
+  return mappedIpv4 ? isPrivateIpv4(mappedIpv4[1]) : false;
+}
+
+/** 拒绝本机、私网、链路本地和 IPv4-mapped IPv6 主机。 */
+export function isPrivateOrLocalHostname(rawHostname: string): boolean {
+  const hostname = rawHostname.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
+  if (hostname === "localhost" || hostname.endsWith(".localhost")) return true;
+  return isPrivateIpv4(hostname) || isPrivateIpv6(hostname);
+}
+
+/**
+ * 拒绝本机、私网、链路本地和 IPv4-mapped IPv6 地址。
+ * URL 会规范化 2130706433、127.1 等数字 IPv4 写法，再检查 hostname。
+ */
+export function isPrivateOrLocalUrl(rawUrl: string): boolean {
+  try {
+    return isPrivateOrLocalHostname(new URL(rawUrl.trim()).hostname);
+  } catch {
+    // 无效 URL 会由调用方报告格式错误；这里不作为私网地址处理。
+    return false;
+  }
 }
 
 // ── 管理员鉴权 ────────────────────────────────────────────

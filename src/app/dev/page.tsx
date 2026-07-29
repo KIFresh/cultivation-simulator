@@ -58,7 +58,7 @@ export default function DevPage() {
     attrKeys.forEach((k, i) => { attr[k] = base + (i < rem ? 1 : 0); });
     // 家庭由出生叙事生成，不预创建
     // 创建角色
-    const res = await fetch("/api/cultivator", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userName: `dev_${Date.now()}`, cultivatorName: `测试_${Date.now()}`, spiritualRoot: root, worldId: "earth" }) });
+    const res = await fetch("/api/cultivator", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userName: `dev_${Date.now()}`, cultivatorName: `测试_${Date.now()}`, spiritualRoot: root, worldId: "earth", attributes: attr, gender: Math.random() > 0.5 ? "男" : "女" }) });
     const data = await res.json();
     if (!data.user) { toast.error("生成失败"); return; }
     localStorage.setItem("userId", data.user.id);

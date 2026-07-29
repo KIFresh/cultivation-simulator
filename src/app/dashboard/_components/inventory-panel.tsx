@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { getEquippedItems, getBackpackItems, getItemById } from "@/lib";
 import type { InventoryItem } from "@/lib";
 
@@ -16,7 +16,7 @@ interface ItemTooltipState {
   y: number;
 }
 
-export function InventoryPanel({ inventory, onUseItem }: InventoryPanelProps) {
+export const InventoryPanel = React.memo(function InventoryPanel({ inventory, onUseItem }: InventoryPanelProps) {
   const [tooltip, setTooltip] = useState<ItemTooltipState | null>(null);
   const items = useMemo(() => {
     const equipped: { inv: InventoryItem; item: any }[] = [];
@@ -116,4 +116,4 @@ export function InventoryPanel({ inventory, onUseItem }: InventoryPanelProps) {
       )}
     </div>
   );
-}
+});

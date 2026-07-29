@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '@/lib/prisma';
+import { buildSummaryFromEntries } from '@/lib/narrative';
 
 // ============================================================
 // 类型定义
@@ -38,7 +39,7 @@ export interface NarrativeStateSnapshot {
   occupation?: string | null;
   schoolRank: number;
   family: FamilyMemberSnapshot[];
-  storySummary?: string | null;
+  recentSummary?: string;
 }
 
 // ============================================================
@@ -64,7 +65,7 @@ export async function buildNarrativeSnapshot(cultivator: {
   attributes?: unknown;
   occupation?: string | null;
   schoolRank?: number | null;
-  storySummary?: string | null;
+  storyEntries?: string | null;
 }): Promise<NarrativeStateSnapshot> {
   // 解析属性
   const attrs =
@@ -101,6 +102,21 @@ export async function buildNarrativeSnapshot(cultivator: {
     // 家庭加载失败不阻塞叙事
   }
 
+  // 从 storyEntries 构建剧情概要
+  let recentSummary: string | undefined;
+  if (cultivator.storyEntries) {
+    try {
+      const entries = JSON.parse(
+        typeof cultivator.storyEntries === "string" ? cultivator.storyEntries : "[]"
+      );
+      if (Array.isArray(entries) && entries.length > 0) {
+        recentSummary = buildSummaryFromEntries(entries);
+      }
+    } catch {
+      // 解析失败，跳过
+    }
+  }
+
   return {
     cultivatorId: cultivator.id,
     userId: cultivator.userId,
@@ -121,7 +137,7 @@ export async function buildNarrativeSnapshot(cultivator: {
     occupation: cultivator.occupation,
     schoolRank: cultivator.schoolRank ?? 0,
     family,
-    storySummary: cultivator.storySummary,
+    recentSummary,
   };
 }
 
@@ -174,8 +190,8 @@ export function formatSnapshotForPrompt(s: NarrativeStateSnapshot): string {
   }
 
   // 剧情概要
-  if (s.storySummary) {
-    lines.push(`\n近期经历：${s.storySummary}`);
+  if (s.recentSummary) {
+    lines.push(`\n近期经历：${s.recentSummary}`);
   }
 
   // 地点约束说明
