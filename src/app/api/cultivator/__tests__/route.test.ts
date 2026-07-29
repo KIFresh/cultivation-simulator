@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { GET, POST, PATCH } from '../route';
+import { requireCultivator } from '@/lib/auth-helpers';
 
 const mockPrisma = vi.hoisted(() => ({
   user: { findUnique: vi.fn(), update: vi.fn(), create: vi.fn() },
@@ -33,6 +34,8 @@ vi.mock('@/lib/narrative', () => ({
   createEntry: mockCreateEntry,
   buildSummaryFromEntries: vi.fn(() => '摘要'),
 }));
+
+vi.mock('@/lib/auth-helpers', () => ({ requireCultivator: vi.fn() }));
 
 const makeCultivator = (overrides: any = {}) => ({
   id: 'c1', userId: 'u1', name: '测试', realm: '凡人', realmLevel: 0,
@@ -131,22 +134,37 @@ describe('Cultivator API - POST 创建修炼者', () => {
   });
 
   it('action=updateMemory 更新记忆', async () => {
+    vi.mocked(requireCultivator).mockResolvedValue({ cultivator: makeCultivator() });
     mockPrisma.cultivator.update.mockResolvedValue(makeCultivator({ storyEntries: JSON.stringify([{ text: 'test' }]) }));
     const res = await POST(makeRequest({ action: 'updateMemory', userId: 'u1', storyEntries: [{ text: 'test' }] }));
     const d = await res.json();
     expect(d.success).toBe(true);
     expect(d.entries).toBeDefined();
   });
+
+  it('updateMemory 无认证返回 401', async () => {
+    vi.mocked(requireCultivator).mockResolvedValueOnce({ error: new NextResponse(null, { status: 401 }) });
+    const res = await POST(makeRequest({ action: 'updateMemory', userId: 'u1', storyEntries: [{ text: 'test' }] }));
+    expect(res.status).toBe(401);
+  });
+
+  it('compressMemory 无认证返回 401', async () => {
+    vi.mocked(requireCultivator).mockResolvedValueOnce({ error: new NextResponse(null, { status: 401 }) });
+    const res = await POST(makeRequest({ action: 'compressMemory', userId: 'u1' }));
+    expect(res.status).toBe(401);
+  });
 });
 
 describe('Cultivator API - PATCH 更新位置', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(requireCultivator).mockResolvedValue({ cultivator: makeCultivator() });
     mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', cultivator: makeCultivator() });
     mockPrisma.cultivator.update.mockResolvedValue(makeCultivator({ location: 'school', stamina: 40 }));
   });
 
   it('缺少 userId 返回 400', async () => {
+    vi.mocked(requireCultivator).mockResolvedValueOnce({ error: { status: 400 } as NextResponse });
     const res = await PATCH(makeRequest({}));
     expect(res.status).toBe(400);
   });
@@ -157,14 +175,23 @@ describe('Cultivator API - PATCH 更新位置', () => {
     expect(res.status).toBe(200);
     expect(d.cultivator).toBeDefined();
   });
+
+  it('PATCH 无认证返回 401', async () => {
+    vi.mocked(requireCultivator).mockResolvedValueOnce({ error: new NextResponse(null, { status: 401 }) });
+    const req = { json: async () => ({ userId: 'u1', location: 'home' }) } as NextRequest;
+    const res = await PATCH(req);
+    expect(res.status).toBe(401);
+  });
 });
 
 describe('Cultivator API - GET 获取修炼者信息', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(requireCultivator).mockResolvedValue({ cultivator: makeCultivator() });
   });
 
   it('缺少 userId 返回 400', async () => {
+    vi.mocked(requireCultivator).mockResolvedValueOnce({ error: { status: 400 } as NextResponse });
     const res = await GET({ url: 'http://localhost/api/cultivator', nextUrl: { searchParams: new URL('http://localhost/api/cultivator').searchParams } } as NextRequest);
     expect(res.status).toBe(400);
   });
@@ -184,5 +211,12 @@ describe('Cultivator API - GET 获取修炼者信息', () => {
     const req = { url: 'http://localhost/api/cultivator?userId=u1', nextUrl: { searchParams: new URL('http://localhost/api/cultivator?userId=u1').searchParams } } as NextRequest;
     const res = await GET(req);
     expect(res.status).toBe(404);
+  });
+
+  it('GET 无认证返回 401', async () => {
+    vi.mocked(requireCultivator).mockResolvedValueOnce({ error: new NextResponse(null, { status: 401 }) });
+    const req = { url: 'http://localhost/api/cultivator?userId=u1', nextUrl: { searchParams: new URL('http://localhost/api/cultivator?userId=u1').searchParams } } as NextRequest;
+    const res = await GET(req);
+    expect(res.status).toBe(401);
   });
 });
