@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { executeAction, type ActionResult } from "../action-service";
+import { prisma } from "@/lib/prisma";
 
 // ─── Hoisted mock factories ────────────────────────────────────────────────
 const mockGetActionById = vi.hoisted(() => vi.fn());
@@ -23,12 +24,13 @@ const mockGetLocationActionBonus = vi.hoisted(() => vi.fn(() => 1));
 const mockCalculateTechniqueBonuses = vi.hoisted(() => vi.fn(() => ({})));
 const mockAddProficiency = vi.hoisted(() => vi.fn());
 const mockTriggerStudyEvent = vi.hoisted(() => vi.fn());
-const mockGetDefaultStudyNarrative = vi.hoisted(() => vi.fn(() => "研读中"));
+const mockEvaluateActionGift = vi.hoisted(() => vi.fn().mockReturnValue({ givesGold: 0, givesIntimacyDelta: 0, reason: "noop", reasonCode: "NOT_MONEY_REQUEST", remainingAllowance: 0 }));
 
 // ─── Module mocks ───────────────────────────────────────────────────────────
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     cultivatorTechnique: { findMany: vi.fn() },
+    familyMember: { findMany: vi.fn(() => []) },
     gameEvent: { count: vi.fn(() => 0) },
     $transaction: vi.fn(),
   },
@@ -82,7 +84,6 @@ vi.mock("@/lib/technique-data", () => ({
   calcTechniqueProficiency: vi.fn(() => 20),
   addProficiency: mockAddProficiency,
   triggerStudyEvent: mockTriggerStudyEvent,
-  getDefaultStudyNarrative: mockGetDefaultStudyNarrative,
 }));
 
 vi.mock("@/lib/narrative-effects", () => ({
@@ -97,6 +98,10 @@ vi.mock("@/lib/narrative-schema", () => ({
 
 vi.mock("@/lib/gold", () => ({
   getGoldMaxGainByRealm: mockGetGoldMaxGainByRealm,
+}));
+
+vi.mock("@/lib/action-gifts", () => ({
+  evaluateActionGift: mockEvaluateActionGift,
 }));
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -144,6 +149,8 @@ const BASE_CULTIVATOR = {
   maxAge: null,
   bonusAge: 0,
   toxicity: 0,
+  allowanceYear: 16,
+  allowanceRemaining: 30,
 };
 
 const DEFAULT_NARRATIVE = {
@@ -157,6 +164,15 @@ const DEFAULT_NARRATIVE = {
 
 const mockTx = () => ({
   cultivator: { update: vi.fn().mockResolvedValue({ ...BASE_CULTIVATOR, stamina: 75 }) },
+  gameEvent: { create: vi.fn().mockResolvedValue({ id: "evt1" }) },
+  cultivatorTechnique: { update: vi.fn().mockResolvedValue({}) },
+});
+
+const mockConditionalAllowanceTx = (updatedCount: number) => ({
+  cultivator: {
+    updateMany: vi.fn().mockResolvedValue({ count: updatedCount }),
+    update: vi.fn().mockResolvedValue({ ...BASE_CULTIVATOR, stamina: 78 }),
+  },
   gameEvent: { create: vi.fn().mockResolvedValue({ id: "evt1" }) },
   cultivatorTechnique: { update: vi.fn().mockResolvedValue({}) },
 });
@@ -187,6 +203,8 @@ beforeEach(() => {
   mockCalculateTechniqueBonuses.mockReturnValue({});
   mockCheckEffectWhitelist.mockReturnValue([]);
   mockGetGoldMaxGainByRealm.mockReturnValue(50);
+  mockEvaluateActionGift.mockReturnValue({ givesGold: 0, givesIntimacyDelta: 0, reason: "noop", reasonCode: "NOT_MONEY_REQUEST", remainingAllowance: 30 });
+  (prisma.familyMember.findMany as any).mockResolvedValue([]);
 });
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
@@ -261,6 +279,25 @@ describe("executeAction - 核心成功路径", () => {
     }
   });
 
+  it("将选中的 NPC 传给行动叙事", async () => {
+    const { prisma } = await import("@/lib/prisma");
+    (prisma.$transaction as any).mockImplementation((fn: any) => fn(mockTx()));
+    (prisma.cultivatorTechnique.findMany as any).mockResolvedValue([]);
+
+    await executeAction(
+      { actionId: "MEDITATE", freeInput: "递上一杯热茶", npcIds: ["赵母"], npcNames: ["赵母"] },
+      BASE_CULTIVATOR
+    );
+
+    expect(mockGenerateActionNarrative).toHaveBeenCalledWith(
+      expect.objectContaining({
+        freeInput: "递上一杯热茶",
+        npcIds: ["赵母"],
+        npcNames: ["赵母"],
+      })
+    );
+  });
+
   it("扣除行动力且创建 ACTION 事件", async () => {
     const { prisma } = await import("@/lib/prisma");
     const tx = mockTx();
@@ -269,10 +306,14 @@ describe("executeAction - 核心成功路径", () => {
 
     await executeAction({ actionId: "MEDITATE" }, BASE_CULTIVATOR);
 
-    // 效果层应包含 -5 stamina
-    expect(mockApplyEffects).toHaveBeenCalled();
-    const effectsArg = mockClampEffectsArray.mock.calls[0]?.[0] ?? [];
-    expect(effectsArg.some((e: any) => e.kind === "stamina" && e.delta === -5)).toBe(true);
+    // stamina 直接在 updateData 中扣除，不走 effects/applyEffects
+    expect(tx.cultivator.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          stamina: 75, // BASE_CULTIVATOR.stamina(80) - MEDITATE(5)
+        }),
+      })
+    );
 
     // gameEvent.create 被调用创建 ACTION 事件（参数嵌套在 data 下）
     expect(tx.gameEvent.create).toHaveBeenCalled();
@@ -327,6 +368,63 @@ describe("executeAction - 核心成功路径", () => {
     await executeAction({ actionId: "MEDITATE" }, cultivator);
     // 46 + 1 = 47 ≤ 50，但 summary 长度 > 1000 应触发压缩
     expect(mockCompressStorySummary).toHaveBeenCalled();
+  });
+
+  it("TALK 赠予金币以当前额度为条件原子扣减，再在同一事务发放金币", async () => {
+    const { prisma } = await import("@/lib/prisma");
+    const tx = mockConditionalAllowanceTx(1);
+    (prisma.$transaction as any).mockImplementation((fn: any) => fn(tx));
+    (prisma.cultivatorTechnique.findMany as any).mockResolvedValue([]);
+
+    const talkAction = makeAction({ id: "TALK", name: "与人交谈", category: "social", actionPointCost: 2, minAgeEarth: 1, minRealm: undefined });
+    mockGetActionById.mockReturnValue(talkAction);
+    mockEvaluateActionGift.mockReturnValue({ givesGold: 10, givesIntimacyDelta: 1, reason: "亲密赠与", reasonCode: "GRANTED", remainingAllowance: 20 });
+
+    const result = await executeAction({ actionId: "TALK" }, BASE_CULTIVATOR);
+
+    expect(result.status).toBe("success");
+    expect(tx.cultivator.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: "c1", allowanceYear: 16, allowanceRemaining: 30 }),
+      data: { allowanceYear: 16, allowanceRemaining: 20 },
+    }));
+    const effectsArg = mockClampEffectsArray.mock.calls[0]?.[0] ?? [];
+    expect(effectsArg.some((e: any) => e.kind === "gold" && e.delta === 10)).toBe(true);
+    expect(tx.cultivator.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.not.objectContaining({ allowanceRemaining: expect.anything() }) })
+    );
+  });
+
+  it("未初始化当前年度额度时以年份不匹配为条件原子初始化并扣减", async () => {
+    const { prisma } = await import("@/lib/prisma");
+    const tx = mockConditionalAllowanceTx(1);
+    (prisma.$transaction as any).mockImplementation((fn: any) => fn(tx));
+    (prisma.cultivatorTechnique.findMany as any).mockResolvedValue([]);
+    mockGetActionById.mockReturnValue(makeAction({ id: "TALK", category: "social", actionPointCost: 2, minAgeEarth: 1, minRealm: undefined }));
+    mockEvaluateActionGift.mockReturnValue({ givesGold: 10, givesIntimacyDelta: 1, reason: "亲密赠与", reasonCode: "GRANTED", remainingAllowance: 20 });
+
+    const result = await executeAction({ actionId: "TALK" }, { ...BASE_CULTIVATOR, allowanceYear: null, allowanceRemaining: 0 });
+
+    expect(result.status).toBe("success");
+    expect(tx.cultivator.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "c1", allowanceYear: null },
+      data: { allowanceYear: 16, allowanceRemaining: 20 },
+    }));
+  });
+
+  it("年度额度被并发消耗时不发放金币或写入行动", async () => {
+    const { prisma } = await import("@/lib/prisma");
+    const tx = mockConditionalAllowanceTx(0);
+    (prisma.$transaction as any).mockImplementation((fn: any) => fn(tx));
+    (prisma.cultivatorTechnique.findMany as any).mockResolvedValue([]);
+    mockGetActionById.mockReturnValue(makeAction({ id: "TALK", category: "social", actionPointCost: 2, minAgeEarth: 1, minRealm: undefined }));
+    mockEvaluateActionGift.mockReturnValue({ givesGold: 10, givesIntimacyDelta: 1, reason: "亲密赠与", reasonCode: "GRANTED", remainingAllowance: 20 });
+
+    const result = await executeAction({ actionId: "TALK" }, BASE_CULTIVATOR);
+
+    expect(result).toEqual({ status: "error", message: "本年度可支配的零花钱已被其他行动使用，请重试", code: 409 });
+    expect(mockApplyEffects).not.toHaveBeenCalled();
+    expect(tx.cultivator.update).not.toHaveBeenCalled();
+    expect(tx.gameEvent.create).not.toHaveBeenCalled();
   });
 });
 

@@ -68,6 +68,7 @@ export interface CultivatorWithUser {
   worldId: string | null;
   age: number;
   quarter: number;
+  worldYear: number;
   quarterAccum: string | null;
   location: string | null;
   attributes: string | null;

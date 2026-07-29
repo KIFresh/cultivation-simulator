@@ -132,7 +132,8 @@ export function generateStreetOmen(params: {
 
   let boon: BoonEntry | undefined;
   if (base.boon && rng() < 0.5) {
-    boon = { ts: Date.now(), season: params.quarter, title: base.boon.title, detail: base.boon.detail };
+    // 由输入种子派生稳定时间戳，保证同一角色/年龄/季度/街区的结果可复现。
+    boon = { ts: hashSeed(`${params.id}|${params.age}|${params.quarter}|${params.district}|boon`), season: params.quarter, title: base.boon.title, detail: base.boon.detail };
   }
 
   return {

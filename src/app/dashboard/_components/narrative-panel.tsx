@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ScrollText } from "lucide-react";
 import type { NarrativeDisplay } from "@/app/dashboard/types";
 
@@ -10,13 +10,13 @@ interface NarrativePanelProps {
   availableActions: any[];
   activeActionId: string | null;
   actionLoading: boolean;
-  actionInput: string;
   cultivator: any;
+  currentNPCs?: any[];
+  familyMembers?: any[];
   onExpandToggle: () => void;
   narrativeExpanded: boolean;
-  onActionClick: (actionId: string) => void;
-  onActionSubmit: (actionId: string) => void;
-  onActionInputChange?: (value: string) => void;
+  onActionClick: (actionId: string, selectedNpcIds: string[]) => void;
+  onActionSubmit: (actionId: string, input: string, selectedNpcIds: string[]) => void;
 }
 
 export function NarrativePanel({
@@ -25,14 +25,33 @@ export function NarrativePanel({
   availableActions,
   activeActionId,
   actionLoading,
-  actionInput,
   cultivator,
+  currentNPCs = [],
+  familyMembers = [],
   onExpandToggle,
   narrativeExpanded,
   onActionClick,
   onActionSubmit,
-  onActionInputChange = () => {},
 }: NarrativePanelProps) {
+  const [draft, setDraft] = useState("");
+  const [selectedNpcs, setSelectedNpcs] = useState<string[]>([]);
+
+  useEffect(() => {
+    setDraft("");
+    setSelectedNpcs([]);
+  }, [activeActionId]);
+
+  const toggleNpc = (npcId: string) => {
+    setSelectedNpcs((prev) => (prev.includes(npcId) ? prev.filter((id) => id !== npcId) : [...prev, npcId]));
+  };
+
+  const handleSubmitAction = (actionId: string) => {
+    const text = draft.trim();
+    if (!text) return;
+    onActionSubmit(actionId, text, selectedNpcs);
+    setDraft("");
+    setSelectedNpcs([]);
+  };
   return (
     <div className="rounded-3xl border border-[#EADCD0] bg-white p-6 shadow-sm">
       <div className="mb-6 flex items-center gap-3 border-b border-[#EADCD0] pb-4">
@@ -83,6 +102,9 @@ export function NarrativePanel({
           <span className="h-[1px] w-4 bg-red-300" />
           当下抉择
         </p>
+        {actionLoading && (
+          <p className="mb-3 text-xs text-gray-400">叙事生成中，请稍候…</p>
+        )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {availableActions.filter((a) => a.id !== "FREE").slice(0, 6).map((action) => {
             const isActive = activeActionId === action.id;
@@ -94,7 +116,7 @@ export function NarrativePanel({
               <div key={action.id} className="flex flex-col gap-1">
                 <button
                   disabled={disabled}
-                  onClick={() => onActionClick(action.id)}
+                  onClick={() => onActionClick(action.id, selectedNpcs)}
                   className={`group flex items-center justify-between rounded-2xl border px-4 py-4 text-left shadow-sm transition-all hover:border-[#B83227] hover:bg-[#FDF2F0] ${
                     cant ? "opacity-40" : isLocked ? "opacity-30" : isActive ? "border-[#B83227] bg-[#FDF2F0]" : "border-[#EADCD0] bg-white"
                   }`}
@@ -110,26 +132,66 @@ export function NarrativePanel({
                   </div>
                   <span className="font-mono text-[10px] font-bold text-[#D49B4B]">-{action.actionPointCost}</span>
                 </button>
-                {isActive && (
-                  <div className="flex gap-1 animate-in fade-in slide-in-from-top-1 duration-150">
-                    <input
-                      value={actionInput}
-                      onChange={(e) => onActionInputChange?.(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") onActionSubmit(action.id);
-                      }}
-                      className="h-7 flex-1 rounded-lg border border-[#EADCD0] bg-white px-2 text-[11px] text-[#2C1E1E] focus:outline-none focus:border-[#B83227]"
-                      placeholder="描述你想怎么做…"
-                      disabled={actionLoading}
-                      autoFocus
-                    />
-                    <button
-                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#B83227] text-white hover:bg-[#7A1F18] disabled:opacity-50"
-                      disabled={actionLoading}
-                      onClick={() => onActionSubmit(action.id)}
-                    >
-                      <span className="text-xs">➤</span>
-                    </button>
+                {isActive && !actionLoading && (
+                  <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-1 duration-150">
+                    <div className="flex flex-wrap gap-1">
+                      {(familyMembers ?? []).map((npc: any) => {
+                        const active = selectedNpcs.includes(npc.name);
+                        return (
+                          <button
+                            key={`family-${npc.name}`}
+                            type="button"
+                            onClick={() => toggleNpc(npc.name)}
+                            className={`rounded-lg border px-2 py-1 text-[10px] transition-colors ${
+                              active ? "border-[#B83227] bg-[#FDF2F0] text-[#B83227]" : "border-[#EADCD0] bg-white text-[#2C1E1E]"
+                            }`}
+                          >
+                            👨‍👩‍👧‍👦 {npc.name}
+                          </button>
+                        );
+                      })}
+                      {(currentNPCs ?? []).map((npc: any) => {
+                        const active = selectedNpcs.includes(npc.name);
+                        return (
+                          <button
+                            key={`npc-${npc.name}`}
+                            type="button"
+                            onClick={() => toggleNpc(npc.name)}
+                            className={`rounded-lg border px-2 py-1 text-[10px] transition-colors ${
+                              active ? "border-[#B83227] bg-[#FDF2F0] text-[#B83227]" : "border-[#EADCD0] bg-white text-[#2C1E1E]"
+                            }`}
+                          >
+                            {npc.avatar} {npc.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex gap-1">
+                      <input
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleSubmitAction(action.id);
+                          }
+                        }}
+                        className="h-7 flex-1 rounded-lg border border-[#EADCD0] bg-white px-2 text-[11px] text-[#2C1E1E] focus:outline-none focus:border-[#B83227]"
+                        placeholder="描述你想怎么做…"
+                        autoFocus
+                        disabled={actionLoading}
+                      />
+                      <button
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#B83227] text-white hover:bg-[#7A1F18] disabled:opacity-50"
+                        disabled={actionLoading || !draft.trim()}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleSubmitAction(action.id);
+                        }}
+                      >
+                        <span className="text-xs">➤</span>
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

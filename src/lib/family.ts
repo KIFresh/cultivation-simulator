@@ -2,6 +2,7 @@
 // 被 src/app/create/page.tsx 与 src/app/dev/page.tsx 使用，结果以 JSON 存 localStorage。
 
 import type { FamilyMember } from "@/app/dashboard/types";
+import { getCareerDisplayName, initializeFamilyCareer } from "./family-career";
 
 export interface EarthFamily {
   members: FamilyMember[];
@@ -67,7 +68,43 @@ export function generateEarthFamily(seed: number = 1, identityId: string = "scho
     });
   }
 
-  return { members };
+  const familyBackground = identityCareerBackground(identityId);
+  return {
+    members: members.map((member) => {
+      const career = initializeFamilyCareer({
+        relation: member.relation,
+        age: member.age ?? 0,
+        worldYear: 2025,
+        familyBackground,
+        alive: member.alive,
+      });
+      return {
+        ...member,
+        occupation: getCareerDisplayName(career.careerCategory, career.careerLevel, 2025),
+        incomeLevel: career.incomeLevel,
+        careerCategory: career.careerCategory,
+        careerLevel: career.careerLevel,
+        careerStatus: career.careerStatus,
+        monthlyIncome: career.monthlyIncome,
+        careerUpdatedYear: career.careerUpdatedYear,
+      };
+    }),
+  };
+}
+
+function identityCareerBackground(identityId: string): number {
+  switch (identityId) {
+    case "merchant":
+    case "scholar":
+      return 3;
+    case "orphan":
+      return 0;
+    case "general":
+    case "sect":
+      return 2;
+    default:
+      return 1;
+  }
 }
 
 function identityIntimacy(identityId: string): number {

@@ -8,6 +8,9 @@ export const MAX_HEALTH = 100;
 /** 每季度自然恢复量（基础值，不与任何属性挂钩） */
 export const QUARTERLY_HEALTH_RECOVERY = 1;
 
+/** 每季度自然消退的丹毒量（GDD: decayToxicity -3/季） */
+export const DETOX_PER_QUARTER = 3;
+
 /** 健康警戒线：低于此值触发负面包袱 */
 export const HEALTH_CRITICAL_THRESHOLD = 20;
 
@@ -52,8 +55,8 @@ export function checkHealthZero(health: number): number {
 }
 
 /**
- * 应用伤害：扣减健康，返回新值（下界为 0）。
+ * 季度自然消退丹毒（GDD: -3/季）。
  */
-export function applyDamage(currentHealth: number, delta: number): number {
-  return Math.max(0, currentHealth + delta);
+export function decayToxicity(current: number): number {
+  return Math.max(0, current - DETOX_PER_QUARTER);
 }

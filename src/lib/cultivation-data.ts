@@ -52,6 +52,19 @@ export function getRootInfo(rootKey: string, talents?: string[], reincarnationCo
   return info;
 }
 
+export function formatSpiritualRootLabel(rootKey: string, info?: SpiritualRootInfo): string {
+  const rootInfo = info ?? getRootInfo(rootKey);
+  if (rootKey === "chaos") {
+    return "杂灵根";
+  }
+  // 新格式: 木_中品 → 木灵根 · 中品
+  const match = rootKey.match(/^(金|木|水|火|土)_(上品|中品|下品)$/);
+  if (match) {
+    return `${match[1]}灵根 · ${match[2]}`;
+  }
+  return rootInfo.name;
+}
+
 // ============================================================
 // 修炼境界
 // ============================================================
@@ -348,18 +361,137 @@ export const BREAKTHROUGH_ANIMATIONS: Record<string, string> = {
 };
 
 export interface NPC { name: string; title: string; realm: string; personality: string; greeting: string; avatar: string; locationId: string; }
+export interface FamilyMember { id?: string; name: string; relation: string; alive: boolean; age?: number; intimacy?: number; }
 export const NPCS: NPC[] = [
+  { name: "父亲", title: "家长", realm: "凡人", personality: "严厉", greeting: "别光想着玩，把学业放在第一位。", avatar: "👨‍👦", locationId: "home" },
+  { name: "母亲", title: "家长", realm: "凡人", personality: "温柔", greeting: "今天在学校过得怎么样？", avatar: "👩‍👦", locationId: "home" },
+  { name: "班主任", title: "老师", realm: "凡人", personality: "认真负责", greeting: "最近上课要认真听讲。", avatar: "🏫", locationId: "school" },
+  { name: "同学", title: "同学", realm: "凡人", personality: "活泼好动", greeting: "放学一起走吧！", avatar: "🎒", locationId: "school" },
   { name: "韩立", title: "韩老魔", realm: "大乘期", personality: "谨慎低调", greeting: "在下韩立，一介散修。", avatar: "🧘", locationId: "wild" },
   { name: "南宫婉", title: "南宫仙子", realm: "化神期", personality: "清冷孤傲", greeting: "修仙之路漫漫，能在此相遇也算有缘。", avatar: "🌸", locationId: "cave" },
   { name: "墨彩环", title: "墨府千金", realm: "筑基期", personality: "活泼灵动", greeting: "道友道友！你是从哪里来的？", avatar: "🦋", locationId: "school" },
   { name: "银月", title: "银月妖女", realm: "化神期", personality: "妖媚狡黠", greeting: "呵呵，又一个来送死的？", avatar: "🌙", locationId: "downtown" },
   { name: "大衍神君", title: "大衍老人", realm: "大乘期", personality: "神秘莫测", greeting: "老夫观你根骨……有几分意思。", avatar: "🔮", locationId: "market" },
-  { name: "紫灵", title: "紫灵仙子", realm: "元婴期", personality: "温婉大方", greeting: "修仙之道，贵在坚持。", avatar: "💜", locationId: "home" },
+  { name: "坊市商人", title: "商人", realm: "凡人", personality: "精明", greeting: "客官，看看新到的货？", avatar: "🧮", locationId: "market" },
+  { name: "炼丹师", title: "炼丹师", realm: "凡人", personality: "沉稳", greeting: "炼丹需要耐心，你要学吗？", avatar: "🧪", locationId: "market" },
+  { name: "街边小贩", title: "小贩", realm: "凡人", personality: "热情", greeting: "热乎的包子，来一份？", avatar: "🥟", locationId: "downtown" },
+  { name: "幼儿园老师", title: "老师", realm: "凡人", personality: "亲切", greeting: "今天要乖乖听故事哦。", avatar: "🧸", locationId: "kindergarten" },
 ];
+
+const TOKEN_NPC_MAP: Record<string, (loc: string) => NPC | null> = {
+  father: (loc) =>
+    loc === "home"
+      ? {
+          name: "父亲",
+          title: "家长",
+          realm: "凡人",
+          personality: "严厉",
+          greeting: "别光想着玩，把学业放在第一位。",
+          avatar: "👨‍👦",
+          locationId: loc,
+        }
+      : null,
+  mother: (loc) =>
+    loc === "home"
+      ? {
+          name: "母亲",
+          title: "家长",
+          realm: "凡人",
+          personality: "温柔",
+          greeting: "今天在学校过得怎么样？",
+          avatar: "👩‍👦",
+          locationId: loc,
+        }
+      : null,
+  kindergarten_teacher: (loc) =>
+    loc === "kindergarten"
+      ? {
+          name: "幼儿园老师",
+          title: "老师",
+          realm: "凡人",
+          personality: "亲切",
+          greeting: "今天要乖乖听故事哦。",
+          avatar: "🧸",
+          locationId: loc,
+        }
+      : null,
+  headteacher: (loc) =>
+    loc === "school"
+      ? {
+          name: "班主任",
+          title: "老师",
+          realm: "凡人",
+          personality: "认真负责",
+          greeting: "最近上课要认真听讲。",
+          avatar: "🏫",
+          locationId: loc,
+        }
+      : null,
+  classmate: (loc) =>
+    loc === "school"
+      ? {
+          name: "同学",
+          title: "同学",
+          realm: "凡人",
+          personality: "活泼好动",
+          greeting: "放学一起走吧！",
+          avatar: "🎒",
+          locationId: loc,
+        }
+      : null,
+  merchant: (loc) =>
+    loc === "market"
+      ? {
+          name: "坊市商人",
+          title: "商人",
+          realm: "凡人",
+          personality: "精明",
+          greeting: "客官，看看新到的货？",
+          avatar: "🧮",
+          locationId: loc,
+        }
+      : null,
+  alchemist: (loc) =>
+    loc === "market"
+      ? {
+          name: "炼丹师",
+          title: "炼丹师",
+          realm: "凡人",
+          personality: "沉稳",
+          greeting: "炼丹需要耐心，你要学吗？",
+          avatar: "🧪",
+          locationId: loc,
+        }
+      : null,
+  street_vendor: (loc) =>
+    loc === "downtown"
+      ? {
+          name: "街边小贩",
+          title: "小贩",
+          realm: "凡人",
+          personality: "热情",
+          greeting: "热乎的包子，来一份？",
+          avatar: "🥟",
+          locationId: loc,
+        }
+      : null,
+};
+
+function token_to_npc(locationId: string, token: string): NPC | null {
+  const fn = TOKEN_NPC_MAP[token];
+  if (!fn) return null;
+  return fn(locationId);
+}
 
 /** 获取某地点的 NPC 列表 */
 export function getNPCsAtLocation(locationId: string): NPC[] {
-  return NPCS.filter((n) => n.locationId === locationId);
+  const locationNPCs = (LOCATIONS.find((l) => l.id === locationId)?.localNPCs ?? [])
+    .map((token) => token_to_npc(locationId, token))
+    .filter((n): n is NPC => !!n);
+  const byName = new Map<string, NPC>();
+  for (const n of locationNPCs) byName.set(n.name, n);
+  for (const n of NPCS.filter((n) => n.locationId === locationId)) byName.set(n.name, n);
+  return Array.from(byName.values());
 }
 export function calculateSchoolRank(age: number, attributes: Record<string, number>, teacherBonus?: number): SchoolRank {
   const baseScore = (attributes.insight || 0) * 3 + (attributes.mind || 0) * 2 + (attributes.root || 0) + (attributes.spirit || 0) + (attributes.luck || 0) * 1.5 + (attributes.charm || 0) * 0.5;
@@ -378,9 +510,9 @@ export function getSchoolName(stage: SchoolStage, rank: SchoolRank): string {
 // ============================================================
 export interface Location { id: string; name: string; icon: string; description: string; unlockAge: number; requireAwakened?: boolean; distanceFromHome: number; actionBonuses?: Record<string, number>; staminaRecovery?: number; shopItems?: string[]; encounterPool?: string[]; localNPCs?: string[]; }
 export const LOCATIONS: Location[] = [
-  { id: "home", name: "家", icon: "🏠", description: "温馨的家", unlockAge: 0, distanceFromHome: 0, staminaRecovery: 3, shopItems: [], localNPCs: [] },
-  { id: "kindergarten", name: "幼儿园", icon: "🧸", description: "启蒙教育的地方", unlockAge: 3, distanceFromHome: 1, localNPCs: ["teacher"] },
-  { id: "school", name: "学校", icon: "🏫", description: "学习知识的地方", unlockAge: 6, distanceFromHome: 2, actionBonuses: { "STUDY": 1.2 }, localNPCs: ["classmate"] },
+  { id: "home", name: "家", icon: "🏠", description: "温馨的家", unlockAge: 0, distanceFromHome: 0, staminaRecovery: 3, shopItems: [], localNPCs: ["father", "mother"] },
+  { id: "kindergarten", name: "幼儿园", icon: "🧸", description: "启蒙教育的地方", unlockAge: 3, distanceFromHome: 1, localNPCs: ["kindergarten_teacher"] },
+  { id: "school", name: "学校", icon: "🏫", description: "学习知识的地方", unlockAge: 6, distanceFromHome: 2, actionBonuses: { "STUDY": 1.2 }, localNPCs: ["classmate", "headteacher"] },
   { id: "downtown", name: "市区", icon: "🏙️", description: "繁华的城市中心", unlockAge: 12, distanceFromHome: 4, shopItems: ["phone", "talisman_shield"], localNPCs: ["street_vendor"] },
   { id: "wild", name: "野外", icon: "🌲", description: "灵气充盈的野外", unlockAge: 16, distanceFromHome: 8, requireAwakened: true, actionBonuses: { "EXPLORE": 1.3, "MEDITATE": 1.2 }, encounterPool: ["ancient_cave", "treasure_hunt"] },
   { id: "cave", name: "洞府", icon: "🏔️", description: "闭关修炼的洞府", unlockAge: 16, distanceFromHome: 6, requireAwakened: true, actionBonuses: { "SECLUSION": 1.5, "MEDITATE": 1.3 }, staminaRecovery: 5 },

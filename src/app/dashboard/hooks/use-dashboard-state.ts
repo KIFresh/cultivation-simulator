@@ -20,6 +20,7 @@ import {
   MORTAL_REALM,
   formatRealmLevel,
 } from "@/lib";
+import { parseFamily } from "@/lib/family";
 import { toast } from "sonner";
 
 const STORAGE_KEYS = {
@@ -65,25 +66,24 @@ export function useDashboardState() {
   const [remaining, setRemaining] = useState(0);
   const [maxAge, setMaxAge] = useState<number | null>(null);
   const [cliqueInfo, setCliqueInfo] = useState<any>(null);
+  const [familyMembers, setFamilyMembers] = useState<any[]>([]);
+  const [currentNPCs, setCurrentNPCs] = useState<any[]>([]);
 
   // ── 全局 store 订阅 ──
-  // 使用 store 的 streamingText 和 actionLoading 替代本地状态，确保页面切换不丢失
   const storeStreamingText = useGameStore((s) => s.streamingText);
   const storeActionLoading = useGameStore((s) => s.actionLoading);
   const storeNarrative = useGameStore((s) => s.narrative);
   const storeNarrativeError = useGameStore((s) => s.narrativeError);
+  const storeCultivator = useGameStore((s) => s.cultivator);
 
-  // 同步 store 的 streamingText 到本地状态（NarrativePanel 从 props 读取）
   useEffect(() => {
     setStreamingText(storeStreamingText);
   }, [storeStreamingText]);
 
-  // 同步 store 的 actionLoading
   useEffect(() => {
     setActionLoading(storeActionLoading);
   }, [storeActionLoading]);
 
-  // 同步 store 的 narrative（来自非 action 路由的叙事）
   useEffect(() => {
     if (storeNarrative && storeNarrative !== narrative) {
       setNarrative(storeNarrative);
@@ -91,56 +91,51 @@ export function useDashboardState() {
     }
   }, [storeNarrative]);
 
-  // 同步 store 的 narrativeError → toast
   useEffect(() => {
     if (storeNarrativeError) {
       toast.error(storeNarrativeError.message || "叙事生成失败");
     }
   }, [storeNarrativeError]);
 
-  // 订阅 store 的 lastActionResult 处理 action 完成后的 side-effect
-  const storeLastActionResult = useGameStore((s) => s.lastActionResult);
-  const prevLastActionResultRef = useRef<Record<string, any> | null>(null);
+  // 以 store 的 cultivator 为准覆盖局部状态
   useEffect(() => {
-    const result = storeLastActionResult;
-    if (!result || result === prevLastActionResultRef.current) return;
-    prevLastActionResultRef.current = result;
-
-    // 从 result 中提取并处理 side-effect
-    const awakenEvent = result.awakenEvent;
-    const expGained = result.expGained;
-    const techniqueEvents = result.techniqueEvents;
-    const c = result.cultivator;
-
-    if (c) {
-      setCultivator(c);
-      if (c.storyEntries) {
+    if (storeCultivator) {
+      setCultivator(storeCultivator);
+      if (storeCultivator.storyEntries) {
         try {
-          const parsed = typeof c.storyEntries === "string" ? JSON.parse(c.storyEntries) : c.storyEntries;
+          const parsed = typeof storeCultivator.storyEntries === "string" ? JSON.parse(storeCultivator.storyEntries) : storeCultivator.storyEntries;
           setMemoryEntries(Array.isArray(parsed) ? parsed : []);
         } catch {}
       }
-      if (isAwakened(c.realm)) {
-        setCanBreak(canBreakthrough(c.realm, c.realmLevel, c.cultivationExp, c.spiritualRoot, c.breakthroughBuff || 0));
+      if (storeCultivator.inventory) {
+        try {
+          const backendInv = typeof storeCultivator.inventory === "string" ? JSON.parse(storeCultivator.inventory) : storeCultivator.inventory;
+          const invArray = Array.isArray(backendInv) ? backendInv : [];
+          setInventory(invArray);
+          localStorage.setItem(STORAGE_KEYS.inventory, JSON.stringify(invArray));
+        } catch {}
       }
-      setAvailableActions(getActionsWithLockInfo(c.worldId || "earth", c.age, c.realm, currentLoc));
+      setCurrentNPCs(getNPCsAtLocation(storeCultivator.location || "home"));
+      setAvailableActions(getActionsWithLockInfo(storeCultivator.worldId || "earth", storeCultivator.age, storeCultivator.realm, storeCultivator.location || "home"));
+      if (isAwakened(storeCultivator.realm)) {
+        setCanBreak(canBreakthrough(storeCultivator.realm, storeCultivator.realmLevel, storeCultivator.cultivationExp, storeCultivator.spiritualRoot, storeCultivator.breakthroughBuff || 0));
+      }
     }
-    if (awakenEvent) {
-      setAwakenEvent(awakenEvent);
-      toast.success("🎉 灵气觉醒！", { duration: 5000 });
-    }
-    if (expGained) toast.success(`修炼值 +${expGained}`, { duration: 2000 });
-    if (techniqueEvents && techniqueEvents.length > 0) {
-      techniqueEvents.forEach((te: any) => {
-        const profMsg = te.eventNarrative ? te.eventNarrative : `${te.icon} ${te.techniqueName} 熟练度 +${te.profGained}`;
-        toast(profMsg, { duration: 3000 });
-        if (te.leveledUp) toast.success(`⚡ ${te.icon} ${te.techniqueName} 升级！`, { duration: 4000 });
-      });
-    }
-  }, [storeLastActionResult]);
+  }, [storeCultivator]);
 
-  const attributesRef = useRef(attributes);
-  attributesRef.current = attributes;
+  useEffect(() => {
+    const raw = typeof window !== "undefined" ? window.localStorage.getItem("family") : null;
+    if (raw) {
+      try {
+        const parsed = parseFamily(raw);
+        setFamilyMembers(parsed.members ?? []);
+      } catch {
+        setFamilyMembers([]);
+      }
+    } else {
+      setFamilyMembers([]);
+    }
+  }, []);
 
   const loadLocalData = useCallback(() => {
     try {
@@ -192,7 +187,9 @@ export function useDashboardState() {
           setInventory([]);
           localStorage.setItem(STORAGE_KEYS.inventory, JSON.stringify([]));
         }
-        const actions = getActionsWithLockInfo(data.user.cultivator.worldId || "earth", data.user.cultivator.age, data.user.cultivator.realm);
+        const loc = data.user.cultivator.location || "home";
+        setCurrentNPCs(getNPCsAtLocation(loc));
+        const actions = getActionsWithLockInfo(data.user.cultivator.worldId || "earth", data.user.cultivator.age, data.user.cultivator.realm, loc);
         setAvailableActions(actions);
         if (isAwakened(data.user.cultivator.realm)) {
           setCanBreak(canBreakthrough(data.user.cultivator.realm, data.user.cultivator.realmLevel, data.user.cultivator.cultivationExp, data.user.cultivator.spiritualRoot, data.user.cultivator.breakthroughBuff || 0));
@@ -245,7 +242,6 @@ export function useDashboardState() {
   }, [loadLocalData]);
 
   const currentLoc = cultivator?.location || "home";
-  const currentNPCs = cultivator ? getNPCsAtLocation(currentLoc) : [];
 
   const actions = useDashboardActions({
     userId,
@@ -272,6 +268,7 @@ export function useDashboardState() {
           setCanBreak(canBreakthrough(c.realm, c.realmLevel, c.cultivationExp, c.spiritualRoot, c.breakthroughBuff || 0));
         }
         setAvailableActions(getActionsWithLockInfo(c.worldId || "earth", c.age, c.realm, currentLoc));
+        setCurrentNPCs(getNPCsAtLocation(c.location || "home"));
       }
       if (awakenEvent) {
         setAwakenEvent(awakenEvent);
@@ -304,6 +301,7 @@ export function useDashboardState() {
           setCanBreak(canBreakthrough(c.realm, c.realmLevel, c.cultivationExp, c.spiritualRoot, c.breakthroughBuff || 0));
         }
         setAvailableActions(getActionsWithLockInfo(c.worldId || "earth", c.age, c.realm, currentLoc));
+        setCurrentNPCs(getNPCsAtLocation(c.location || "home"));
       }
       if (data.warnEarly) {
         setWarnEarly(true);
@@ -326,7 +324,6 @@ export function useDashboardState() {
       if (data.cliqueInfo) {
         setCliqueInfo(data.cliqueInfo);
       } else if (data.yearWrapped && data.cultivator?.age >= 6 && data.cultivator?.age <= 15) {
-        // 跨年时若未返回小团体信息，清除旧状态
         setCliqueInfo(null);
       }
       if (data.healthRecovery !== undefined && data.healthRecovery > 0) {
@@ -357,36 +354,45 @@ export function useDashboardState() {
 
   const handleUseItem = async (itemId: string) => actions.handleUseItem(itemId);
 
-  const sendNpcMessage = async (msg: string, npcChat: any, npcChatHistory: any[]) =>
-    actions.sendNpcMessage(msg, npcChat, npcChatHistory);
+  const sendNpcMessage = async (msg: string, npcChat: any, npcChatHistory: any[]) => {
+    const trimmed = msg.trim();
+    if (!trimmed) return;
+    const playerEntry = { role: "player", content: trimmed };
+    const nextHistory = [...npcChatHistory, playerEntry];
+    setNpcChatHistory(nextHistory);
+    setNpcMessage("");
 
-  const handleActionClick = (actionId: string) => {
+    await actions.sendNpcMessage(trimmed, npcChat, nextHistory);
+  };
+
+  const handleActionClick = useCallback((actionId: string, selectedNpcIds: string[] = []) => {
     const cost = getActionById(actionId)?.actionPointCost || 0;
+    console.log("[useDashboardState] handleActionClick", { actionId, activeActionId, stamina: cultivator?.stamina, cost });
     if (!cultivator) return;
     if (cultivator.stamina < cost) {
       toast.error(`体力不足（需要 ${cost}，当前 ${cultivator.stamina}）`, { duration: 2000 });
       return;
     }
     if (activeActionId === actionId) {
-      setActiveActionId(null);
-      useGameStore.getState().performAction(actionId).catch(() => {});
+      useGameStore.getState().performAction(actionId, undefined, selectedNpcIds).catch(() => {});
     }
     else {
       setActiveActionId(actionId);
       setActionInput("");
     }
-  };
+  }, [cultivator, activeActionId]);
 
-  const handleSubmitWithInput = (actionId: string) => {
+  const handleSubmitWithInput = useCallback((actionId: string, input: string, selectedNpcIds: string[] = []) => {
     const cost = getActionById(actionId)?.actionPointCost || 0;
     if (!cultivator) return;
     if (cultivator.stamina < cost) {
       toast.error(`体力不足（需要 ${cost}，当前 ${cultivator.stamina}）`, { duration: 2000 });
       return;
     }
-    if (actionInput.trim()) useGameStore.getState().performAction(actionId, actionInput.trim()).catch(() => {});
-    else useGameStore.getState().performAction(actionId).catch(() => {});
-  };
+    const trimmed = input?.trim();
+    if (trimmed) useGameStore.getState().performAction(actionId, trimmed, selectedNpcIds).catch(() => {});
+    else useGameStore.getState().performAction(actionId, undefined, selectedNpcIds).catch(() => {});
+  }, [cultivator]);
 
   const handleBreakthrough = () => actions.handleBreakthrough();
   const advanceSeason = () => actions.advanceSeason();
@@ -473,6 +479,7 @@ export function useDashboardState() {
     locs,
     currentLoc,
     currentNPCs,
+    familyMembers,
     maxStamina,
     actions,
     handleActionClick,
@@ -485,4 +492,3 @@ export function useDashboardState() {
     loadCultivator,
   };
 }
-

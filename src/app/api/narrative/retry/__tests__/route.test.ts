@@ -11,6 +11,7 @@ const mockPrisma = vi.hoisted(() => ({
 
 const mockRequireCultivator = vi.hoisted(() => vi.fn());
 const mockGenerateBirthNarrative = vi.hoisted(() => vi.fn());
+const careerInitializeCalls = vi.hoisted(() => [] as Array<Record<string, unknown>>);
 
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }));
 vi.mock('@/lib/auth-helpers', () => ({
@@ -19,6 +20,16 @@ vi.mock('@/lib/auth-helpers', () => ({
 vi.mock('@/lib/narrative', () => ({
   generateBirthNarrative: mockGenerateBirthNarrative,
 }));
+vi.mock('@/lib/family-career', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/family-career')>();
+  return {
+    ...actual,
+    initializeFamilyCareer: vi.fn((input) => {
+      careerInitializeCalls.push(input);
+      return actual.initializeFamilyCareer(input);
+    }),
+  };
+});
 
 const makeCultivator = (overrides: any = {}) => ({
   id: 'c1', userId: 'u1', name: '测试', realm: '凡人', realmLevel: 0,
@@ -27,7 +38,7 @@ const makeCultivator = (overrides: any = {}) => ({
   storyEntries: '[]', storyEntriesUpdatedAt: null,
   breakthroughCount: 0, breakthroughBuff: 0, reincarnationCount: 0,
   injuryDebuff: 0, mindDemon: 0, maxAge: null, bonusAge: 0,
-  worldId: 'earth',
+  worldId: 'earth', worldYear: 2055,
   talents: null, inheritedTalent: null, inheritedItems: null,
   attributes: null, ...overrides,
 });
@@ -38,6 +49,7 @@ const makeRequest = (body: any): NextRequest =>
 describe('Narrative Retry API - POST', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    careerInitializeCalls.length = 0;
     mockRequireCultivator.mockResolvedValue({ cultivator: makeCultivator() });
     mockGenerateBirthNarrative.mockResolvedValue({
       title: '转世重生', narrative: '你重生了', mood: '奇',
@@ -79,6 +91,41 @@ describe('Narrative Retry API - POST', () => {
     const d = await res.json();
     expect(res.status).toBe(200);
     expect(d.gameEventId).toBe('evt1');
+  });
+
+  it('重试时 AI occupation 与 birthTier 均不改变固定家庭成员的持久化职业和收入', async () => {
+    const writesFor = async (birthTier: string, occupation: string) => {
+      careerInitializeCalls.length = 0;
+      mockGenerateBirthNarrative.mockResolvedValue({
+        title: '转世重生', narrative: '你重生了', mood: '奇',
+        suggestedName: '小石头', family: [
+          { relation: '父亲', name: '石父', age: 35, alive: true, occupation, intimacy: 50 },
+        ],
+        summary: '转世故事',
+      });
+      const createMany = vi.fn().mockResolvedValue({ count: 1 });
+      mockPrisma.$transaction.mockImplementationOnce(async (txn: any) => txn({
+        cultivator: { update: vi.fn().mockResolvedValue(makeCultivator()) },
+        gameEvent: { update: vi.fn().mockResolvedValue({ id: 'evt1' }) },
+        familyMember: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }), createMany },
+      }));
+
+      const res = await POST(makeRequest({ type: 'BIRTH', params: { birthTier } }));
+      expect(res.status).toBe(200);
+      const member = createMany.mock.calls[0][0].data[0];
+      expect(careerInitializeCalls[0]).toMatchObject({
+        relation: '父亲',
+        worldYear: 2055,
+        familyBackground: 2,
+      });
+      expect(careerInitializeCalls[0]).not.toHaveProperty('categoryHint');
+      return member;
+    };
+
+    const farmerFromPoorBirth = await writesFor('贫寒', '农夫');
+    const merchantFromWealthyBirth = await writesFor('显赫世家', '富商');
+
+    expect(merchantFromWealthyBirth).toEqual(farmerFromPoorBirth);
   });
 
   it('suggestedName 无效时使用原名称', async () => {

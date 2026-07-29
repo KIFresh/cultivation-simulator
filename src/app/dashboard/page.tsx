@@ -12,7 +12,7 @@ import { InventoryPanel } from "@/app/dashboard/_components/inventory-panel";
 import { NpcChatPanel } from "@/app/dashboard/_components/npc-chat-panel";
 import { useDashboardState } from "@/app/dashboard/hooks/use-dashboard-state";
 import { useDevTools } from "@/app/dashboard/hooks/use-dashboard-dev-tools";
-import { getRootInfo } from "@/lib/cultivation-data";
+import { getRootInfo, formatSpiritualRootLabel } from "@/lib/cultivation-data";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -56,6 +56,7 @@ export default function DashboardPage() {
     locs,
     currentLoc,
     currentNPCs,
+    familyMembers,
     maxStamina,
     cliqueInfo,
     actions,
@@ -120,7 +121,7 @@ export default function DashboardPage() {
             <div className="mb-8">
               <h2 className="text-3xl font-bold calligraphy mb-1 tracking-wider text-[#7A1F18]">{cultivator.name}</h2>
               <div className="flex items-center space-x-3 text-xs">
-                <span className="text-[#D49B4B] font-bold">{getRootInfo(cultivator.spiritualRoot).name}</span>
+                <span className="text-[#D49B4B] font-bold">{formatSpiritualRootLabel(cultivator.spiritualRoot, getRootInfo(cultivator.spiritualRoot))}</span>
                 <span className="text-gray-300">|</span>
                 <span className="text-gray-500">{displayOccupation === "婴儿" ? "🍼" : displayOccupation === "学生" ? "📚" : "👤"} {displayOccupation}</span>
               </div>
@@ -187,7 +188,12 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-2">
                 <div className="text-[#B83227] text-sm">📍</div>
-                <h3 className="text-sm font-bold text-amber-950/80">当前境域：<span>{currentLocName}</span></h3>
+                <h3 className="text-sm font-bold text-amber-950/80">
+                  当前境域：<span>{currentLocName}</span>
+                  <span className="ml-2 text-xs text-gray-400">
+                    （第{cultivator.quarter ?? 1}季）
+                  </span>
+                </h3>
               </div>
             </div>
 
@@ -226,13 +232,13 @@ export default function DashboardPage() {
             availableActions={availableActions}
             activeActionId={activeActionId}
             actionLoading={advancing}
-            actionInput={actionInput}
             cultivator={cultivator}
+            currentNPCs={currentNPCs}
+            familyMembers={familyMembers}
             narrativeExpanded={narrativeExpanded}
             onExpandToggle={() => setNarrativeExpanded(!narrativeExpanded)}
             onActionClick={handleActionClick}
             onActionSubmit={handleSubmitWithInput}
-            onActionInputChange={(value: any) => actions.setActionInput(value)}
           />
 
           <div className="flex gap-2">

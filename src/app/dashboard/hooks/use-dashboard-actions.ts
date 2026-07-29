@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import type { CultivatorData, NarrativeDisplay } from "@/app/dashboard/types";
 import { toast } from "sonner";
+import { useGameStore } from "@/store";
 
 export interface UseDashboardActionsOptions {
   userId: string | null;
@@ -52,6 +53,8 @@ export function useDashboardActions({
   const syncCultivator = useCallback(
     (c: CultivatorData) => {
       onCultivatorUpdate?.(c);
+      // 同步更新 store，使 store 订阅者（如 useDataSync、dashboard state）收到最新数据
+      useGameStore.getState().setCultivator(c);
     },
     [onCultivatorUpdate],
   );

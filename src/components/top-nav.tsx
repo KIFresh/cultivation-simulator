@@ -9,6 +9,8 @@ const NAV_TABS: { label: string; href: string }[] = [
   { label: "修炼", href: "/dashboard" },
   { label: "世界", href: "/world" },
   { label: "关系", href: "/relationships" },
+  { label: "物品", href: "/items" },
+  { label: "技能", href: "/skills" },
   { label: "资产", href: "/assets" },
   { label: "记录", href: "/history" },
   { label: "生活", href: "/life" },

@@ -39,6 +39,7 @@ export interface GameStore {
   narrativeRetrying: boolean;
   location: string | null;
   unlockedLocations: string[] | null;
+  currentNPCs: any[];
   /** 最近一次 action 完成的完整结果，供 dashboard 订阅处理 side-effect */
   lastActionResult: Record<string, any> | null;
 
@@ -46,7 +47,7 @@ export interface GameStore {
   setCultivator: (data: Partial<CultivatorData> | null) => void;
   loadCultivator: (userId: string) => Promise<void>;
   bootstrap: () => void;
-  performAction: (actionId: string, input?: string) => Promise<void>;
+  performAction: (actionId: string, input?: string, selectedNpcIds?: string[]) => Promise<void>;
   breakthrough: (protector?: string) => Promise<void>;
   advanceQuarter: () => Promise<void>;
   useItem: (itemId: string, quantity?: number) => Promise<void>;
@@ -88,6 +89,7 @@ function deriveStoreFields(raw: any) {
     totalExp: Number(raw.totalExp || 0),
     stamina: Number(raw.stamina || 0),
     age,
+    worldYear: Number(raw.worldYear ?? 2025),
     quarter: raw.quarter ?? undefined,
     quarterAccum: raw.quarterAccum ?? null,
     worldId: raw.worldId ?? null,
@@ -146,18 +148,25 @@ function deriveStoreFields(raw: any) {
 /** 统一回填：处理道消 / 叙事 / 修炼者派生 / 突破门控 */
 function applyNarrativeResult(set: (partial: any) => void, data: any): void {
   if (data?.daoXiao) {
-    set({ actionLoading: false, streamingText: null, lastActionResult: data, narrativeError: { message: "道消！修炼之路中断。", params: data.summary } });
-    if (data.cultivator) set((s: any) => ({ ...deriveStoreFields(data.cultivator) }));
+    set((s: any) => ({
+      ...s,
+      ...(data.cultivator ? deriveStoreFields(data.cultivator) : {}),
+      actionLoading: false,
+      streamingText: null,
+      lastActionResult: data,
+      narrativeError: { message: "道消！修炼之路中断。", params: data.summary },
+    }));
     return;
   }
-  const derived = deriveStoreFields(data.cultivator);
+  const derived = data.cultivator ? deriveStoreFields(data.cultivator) : {};
   set((s: any) => ({
+    ...s,
     ...derived,
-    narrative: data.narrative ?? null,
+    narrative: data.narrative ?? s.narrative,
     streamingText: null,
     lastActionResult: data,
     actionLoading: false,
-    canBreakthrough: typeof data.canBreakthrough === "boolean" ? data.canBreakthrough : derived.canBreakthrough,
+    canBreakthrough: typeof data.canBreakthrough === "boolean" ? data.canBreakthrough : derived.canBreakthrough ?? s.canBreakthrough,
   }));
 }
 
@@ -175,6 +184,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   narrativeRetrying: false,
   location: null,
   unlockedLocations: null,
+  currentNPCs: [],
   lastActionResult: null,
 
   setUserId: (id) => set({ userId: id }),
@@ -214,7 +224,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
   },
 
-  performAction: async (actionId, input) => {
+  performAction: async (actionId, input, selectedNpcIds = []) => {
     const { userId, cultivator, actionLoading } = get();
     if (!userId) throw new Error("未找到用户，请先创建修炼者");
     if (actionLoading) return; // 拒绝重复请求
@@ -224,12 +234,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const raw = typeof window !== "undefined" ? window.localStorage.getItem("family") : null;
       if (raw) familyData = JSON.parse(raw);
     } catch {}
+    // NarrativePanel 当前以 NPC 名称作为选择值；直接保留名称，确保家庭成员与地点 NPC 都能成为叙事目标。
+    const npcIdsForAction = selectedNpcIds?.length ? selectedNpcIds : undefined;
+    const npcNames = npcIdsForAction;
     const body = {
       actionId,
       freeInput: input,
       worldId: cultivator?.worldId || "earth",
       family: familyData,
       attributes: parseAttrs(cultivator?.attributes),
+      ...(npcIdsForAction?.length ? { npcIds: npcIdsForAction } : {}),
+      ...(npcNames?.length ? { npcNames } : {}),
     };
     lastRequest = { endpoint: "/api/action?stream=true", body };
     try {
@@ -306,8 +321,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.daoXiao) {
-        set({ actionLoading: false, narrativeError: { message: "道消！时序流转中断。", params: data.summary } });
-        if (data.cultivator) set((state) => ({ ...state, ...deriveStoreFields(data.cultivator) }));
+        set((state: any) => ({
+          ...state,
+          ...(data.cultivator ? deriveStoreFields(data.cultivator) : {}),
+          actionLoading: false,
+          narrativeError: { message: "道消！时序流转中断。", params: data.summary },
+        }));
         return;
       }
       applyNarrativeResult(set, data);
@@ -348,16 +367,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.daoXiao) {
-        set({ narrativeError: { message: "道消！叙事生成中断。", params: data.summary } });
-        if (data.cultivator) set((state) => ({ ...state, ...deriveStoreFields(data.cultivator) }));
+        set((state) => ({
+          ...state,
+          ...deriveStoreFields(data.cultivator || state.cultivator),
+          narrativeError: { message: "道消！叙事生成中断。", params: data.summary },
+          narrativeRetrying: false,
+        }));
         return;
       }
-      if (data.narrative) set({ narrative: data.narrative });
-      if (data.cultivator) set((state) => ({ ...state, ...deriveStoreFields(data.cultivator) }));
+      set((state: any) => ({
+        ...state,
+        ...deriveStoreFields(data.cultivator || state.cultivator),
+        narrative: data.narrative ?? state.narrative,
+        narrativeRetrying: false,
+      }));
     } catch (e) {
-      set({ narrativeError: { message: e instanceof Error ? e.message : "重试失败" } });
-    } finally {
-      set({ narrativeRetrying: false });
+      set({ narrativeError: { message: e instanceof Error ? e.message : "重试失败" }, narrativeRetrying: false });
     }
   },
 

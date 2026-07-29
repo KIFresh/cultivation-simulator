@@ -50,16 +50,23 @@ export async function POST(request: NextRequest) {
       }
 
       const { compressStorySummary, createEntry } = await import("@/lib/narrative");
-      const entries: import("@/lib/narrative").StoryEntry[] = JSON.parse(cultivator.storyEntries || '[]');
+      let entries: import("@/lib/narrative").StoryEntry[] = [];
+      try {
+        entries = JSON.parse(cultivator.storyEntries || '[]');
+        if (!Array.isArray(entries)) entries = [];
+      } catch {
+        entries = [];
+      }
+
       const importantEntries = entries.filter(e => e.important);
       const normalEntries = entries.filter(e => !e.important);
 
       if (normalEntries.length === 0) {
-        return NextResponse.json({ entries, message: "无非重要条目需要压缩" });
+        return NextResponse.json({ success: true, entries: importantEntries, compressed: false, message: "没有可压缩的普通记忆" });
       }
 
       const compressedText = await compressStorySummary(entries, cultivator.name);
-      const compressedEntry = createEntry("📜 记忆凝练", compressedText, false);
+      const compressedEntry = createEntry("记忆凝练", compressedText, false);
 
       const newEntries = [...importantEntries, compressedEntry];
 
@@ -71,7 +78,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      return NextResponse.json({ success: true, entries: newEntries });
+      return NextResponse.json({ success: true, entries: newEntries, compressed: true, message: "记忆已压缩" });
     }
 
     const { cultivatorName, spiritualRoot, password, worldId } = body;
@@ -106,6 +113,7 @@ export async function POST(request: NextRequest) {
               name: body.cultivatorName,
               spiritualRoot: body.spiritualRoot,
               worldId: body.worldId || "earth",
+              worldYear: 2025,
             },
           },
         },
@@ -143,7 +151,7 @@ export async function POST(request: NextRequest) {
         name: userName,
         password: pwdHash ? `${pwdHash.salt}:${pwdHash.hash}` : undefined,
         cultivator: {
-          create: { name: cultivatorName, spiritualRoot, worldId: worldId || "earth" },
+          create: { name: cultivatorName, spiritualRoot, worldId: worldId || "earth", worldYear: 2025 },
         },
       },
       include: { cultivator: true },

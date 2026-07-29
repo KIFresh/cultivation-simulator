@@ -36,12 +36,18 @@ import {
 } from "@/lib/narrative-effects";
 import { NARRATIVE_EFFECT_WHITELISTS, checkEffectWhitelist } from "@/lib/narrative-schema";
 import { getGoldMaxGainByRealm } from "@/lib/gold";
+import { evaluateActionGift } from "@/lib/action-gifts";
+import { calculateAnnualFamilyAllowance, type AllowanceParent } from "@/lib/family-allowance";
+import { calculateHouseholdIncome, initializeFamilyCareer, isFamilyGuardianRelation, type FamilyCareer } from "@/lib/family-career";
 
 export interface ActionInput {
   actionId: string;
   freeInput?: string;
   worldId?: string;
   attributes?: Record<string, number>;
+  npcIds?: string[];
+  npcNames?: string[];
+  familyMemberId?: string;
 }
 
 export interface TechniqueUpdate {
@@ -78,6 +84,13 @@ export interface DaoXiaoSummary {
   breakthroughCount: number;
   reincarnationCount: number;
   totalExp: number;
+}
+
+class AllowanceConflictError extends Error {
+  constructor() {
+    super("年度零花钱额度已被并发更新");
+    this.name = "AllowanceConflictError";
+  }
 }
 
 export interface CombatPenalty {
@@ -168,6 +181,44 @@ export async function executeAction(
   );
   const summaryText = buildSummaryFromEntries(currentEntries);
 
+  // 零花钱只能由服务端已验证的在世家人结算，客户端名称仅用于定位候选人。
+  const selectedFamilyName = input.npcNames?.[0]?.trim();
+  const familyMembers = await prisma.familyMember?.findMany?.({
+    where: { cultivatorId: cultivator.id, alive: true },
+    select: {
+      id: true, name: true, relation: true, age: true, alive: true, intimacy: true, incomeLevel: true,
+      careerCategory: true, careerLevel: true, careerStatus: true, monthlyIncome: true, careerUpdatedYear: true,
+    },
+  }) ?? [];
+  const guardians = familyMembers.filter((member: any) => isFamilyGuardianRelation(member.relation));
+  const targetFamily = guardians.find((member: any) =>
+    input.familyMemberId ? member.id === input.familyMemberId : member.name === selectedFamilyName
+  ) ?? null;
+  // 未完成迁移的旧家庭成员也按确定性默认职业计算，绝不采信客户端收入。
+  const householdIncome = calculateHouseholdIncome(familyMembers.map((member: any): FamilyCareer => {
+    if (member.careerCategory) return member as FamilyCareer;
+    return initializeFamilyCareer({
+      relation: member.relation,
+      age: member.age,
+      alive: member.alive,
+      worldYear: (cultivator as { worldYear?: number }).worldYear ?? 2025,
+    });
+  }));
+  // 非当前年份记录只可能是跨年事务前的旧快照；不给它临时额度，避免覆盖跨年重置。
+  const currentAllowance = cultivator.allowanceYear === cultivator.age
+    ? Math.max(0, cultivator.allowanceRemaining ?? 0)
+    : cultivator.allowanceYear === null
+      ? calculateAnnualFamilyAllowance(cultivator.age, guardians as AllowanceParent[], householdIncome)
+      : 0;
+  const giftDecision = evaluateActionGift({
+    actionId: action.id,
+    freeInput,
+    cultivatorAge: cultivator.age,
+    targetFamily,
+    householdIncome,
+    allowanceRemaining: currentAllowance,
+  });
+
   const narrativeResult = await generateActionNarrative({
     cultivatorName: cultivator.name,
     spiritualRoot: cultivator.spiritualRoot,
@@ -178,10 +229,13 @@ export async function executeAction(
     actionName: action.name,
     actionDescription: action.description,
     freeInput,
+    npcIds: input.npcIds,
+    npcNames: input.npcNames,
     expGained: 0,
     isAwakened: isAwakened(newRealm),
     awakenEvent: !!awakenEvent,
     storySummary: summaryText || undefined,
+    giftDecision: { givesGold: giftDecision.givesGold, reason: giftDecision.reason },
     state: {
       ...stateFromCultivator(cultivator),
       realm: newRealm,
@@ -213,7 +267,17 @@ export async function executeAction(
     realmLevel: newRealmLevel,
     storyEntries: JSON.stringify(updatedEntries),
     storyEntriesUpdatedAt: new Date(),
+    stamina: Math.max(0, (cultivator.stamina ?? 0) - action.actionPointCost),
   };
+  const allowanceDeduction = giftDecision.givesGold > 0
+    ? {
+      allowanceYear: cultivator.allowanceYear === cultivator.age ? cultivator.age : undefined,
+      allowanceRemaining: cultivator.allowanceYear === cultivator.age
+        ? Math.max(0, cultivator.allowanceRemaining ?? 0)
+        : undefined,
+      nextAllowanceRemaining: giftDecision.remainingAllowance,
+    }
+    : null;
 
   let combatResult: CombatResultLike | null = null;
   let combatExpGain = 0;
@@ -328,7 +392,6 @@ export async function executeAction(
   }
 
   const effects: NarrativeEffect[] = [
-    { kind: "stamina", delta: -action.actionPointCost },
   ];
   let combatGold = 0;
   if (combatResult?.enemy?.id && combatResult.enemy.id !== "none") {
@@ -338,6 +401,9 @@ export async function executeAction(
     if (combatGold !== 0) {
       effects.push({ kind: "gold", delta: combatGold });
     }
+  }
+  if (giftDecision.givesGold > 0) {
+    effects.push({ kind: "gold", delta: giftDecision.givesGold });
   }
   const deniedKinds = checkEffectWhitelist(
     effects,
@@ -360,8 +426,6 @@ export async function executeAction(
     currentStamina: cultivator.stamina,
     maxStamina: calculateMaxStamina(cultivator.age, safeAttrs),
   };
-
-  const { stamina: _s, gold: _g, ...restUpdateData } = updateData;
 
   const techniqueUpdateOps: TechniqueUpdate[] = [];
   let techniqueEvents: ActionResultData["techniqueEvents"] = [];
@@ -403,12 +467,34 @@ export async function executeAction(
   }
 
   const updated = await prisma.$transaction(async (tx) => {
+    // 以读取时的完整年度额度作为条件写入，避免并发行动用同一旧余额重复发放。
+    if (allowanceDeduction) {
+      const allowanceUpdated = await tx.cultivator.updateMany({
+        where: allowanceDeduction.allowanceYear === undefined
+          ? {
+            id: cultivator.id,
+            allowanceYear: null,
+          }
+          : {
+            id: cultivator.id,
+            allowanceYear: allowanceDeduction.allowanceYear,
+            allowanceRemaining: allowanceDeduction.allowanceRemaining,
+          },
+        data: {
+          allowanceYear: cultivator.age,
+          allowanceRemaining: allowanceDeduction.nextAllowanceRemaining,
+        },
+      });
+      if (allowanceUpdated.count === 0) {
+        throw new AllowanceConflictError();
+      }
+    }
     if (clamped.length > 0) {
       await applyEffects(clamped, tx, ctx);
     }
     const cultivatorUpdate = await tx.cultivator.update({
       where: { id: cultivator.id },
-      data: restUpdateData,
+      data: updateData,
     });
     let actionEventId: string | undefined;
     if (combatResult?.enemy?.id && combatResult.enemy.id !== "none") {
@@ -462,7 +548,17 @@ export async function executeAction(
       });
     }
     return { cultivator: cultivatorUpdate, actionEventId };
+  }).catch((error: unknown) => {
+    if (
+      error instanceof AllowanceConflictError
+      || (typeof error === "object" && error !== null && (error as { name?: string }).name === "AllowanceConflictError")
+    ) return null;
+    throw error;
   });
+
+  if (!updated) {
+    return { status: "error", message: "本年度可支配的零花钱已被其他行动使用，请重试", code: 409 };
+  }
 
   return {
     status: "success",

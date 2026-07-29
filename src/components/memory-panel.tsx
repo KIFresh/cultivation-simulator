@@ -104,7 +104,11 @@ export default function MemoryPanel({ cultivatorId, entries, onEntriesChange }: 
       const data = await res.json();
       if (data.entries) {
         onEntriesChange(data.entries);
-        toast.success(data.message || "记忆已压缩");
+        if (data.compressed === false) {
+          toast.success(data.message || "没有可压缩的普通记忆");
+        } else {
+          toast.success(data.message || "记忆已压缩");
+        }
       }
     } catch {
       toast.error("压缩失败");
@@ -191,15 +195,23 @@ export default function MemoryPanel({ cultivatorId, entries, onEntriesChange }: 
 
           <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground">
             <span>共 {entries.length} 条 · {summaryText.length} 字</span>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 text-xs"
-              onClick={handleCompress}
-              disabled={compressing}
-            >
-              {compressing ? "压缩中..." : "🔄 压缩记忆"}
-            </Button>
+            <div className="relative group">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={handleCompress}
+                disabled={compressing || entries.filter(e => !e.important).length === 0}
+              >
+                {compressing ? "压缩中..." : "🔄 压缩记忆"}
+              </Button>
+              {entries.filter(e => !e.important).length === 0 && !compressing && (
+                <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-800 text-white text-[10px] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                  无可压缩记忆
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

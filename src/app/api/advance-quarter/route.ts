@@ -24,14 +24,17 @@ import { decideClique, getCliqueBonus, getCliqueInfo, type CliqueKey } from "@/l
 import { calcPocketMoney, calcSavingsInterest, type ParentLike } from "@/lib/savings";
 import { calcQuarterlyHealthRecovery, checkHealthZero, MAX_HEALTH } from "@/lib/health";
 import { parseClassEnroll, applyClassBenefits } from "@/lib/class-enroll";
-
-/** 每季度自然消退的丹毒量（GDD: decayToxicity -3/季） */
-export const DETOX_PER_QUARTER = 3;
-
-/** 纯函数：应用丹毒季度衰减，返回新值（最低 0） */
-export function decayToxicity(current: number): number {
-  return Math.max(0, current - DETOX_PER_QUARTER);
-}
+import { calculateAnnualFamilyAllowance, type AllowanceParent } from "@/lib/family-allowance";
+import {
+  calculateHouseholdIncome,
+  evolveFamilyCareer,
+  getCareerDisplayName,
+  initializeFamilyCareer,
+  isFamilyGuardianRelation,
+  type FamilyCareer,
+} from "@/lib/family-career";
+import { getWorldEra } from "@/lib/world-era";
+import { decayToxicity } from "@/lib/quarter-effects";
 
 export async function POST(request: NextRequest) {
   try {
@@ -61,6 +64,8 @@ export async function POST(request: NextRequest) {
 
     const nextQuarter = currentQuarter >= 4 ? 1 : currentQuarter + 1;
     const yearWrapped = currentQuarter >= 4;
+    const currentWorldYear = cultivator.worldYear;
+    const nextWorldYear = yearWrapped ? currentWorldYear + 1 : currentWorldYear;
 
 // ── 季度的固定副作用：体力回满 + 丹毒衰减 + 健康恢复 ──
     const maxStamina = calculateMaxStamina(cultivator.age, savedAttrs);
@@ -93,6 +98,10 @@ export async function POST(request: NextRequest) {
     let pocketMoneyResult: { granted: number; interest: number } | null = null;
     let classBenefitsResult: { optionCount: number; totalCost: number } | null = null;
     let classGoldDeduction = 0;
+    let annualAllowance: number | undefined;
+    let householdIncome: ReturnType<typeof calculateHouseholdIncome> | undefined;
+    let evolvedFamilyMembers: Array<{ id: string; career: FamilyCareer; occupation: string }> = [];
+    let familyCareerChanges: Array<{ relation: string; name: string; previousStatus: string; status: string; previousLevel: number; level: number; occupation: string }> = [];
 
     if (yearWrapped) {
       oldAge = cultivator.age;
@@ -176,23 +185,82 @@ export async function POST(request: NextRequest) {
         };
       }
 
-      // ── 零花钱（学龄阶段） + 储蓄利息 ────────────────
-      if (cultivator.worldId === "earth" && schoolStage && schoolStage.name !== "幼儿园") {
+      // ── 家庭职业与统一经济：跨年只计算一次，稍后与乐观锁在同一事务持久化 ──
+      if (cultivator.worldId === "earth") {
         try {
           const familyMembers = await prisma.familyMember.findMany({
             where: { cultivatorId: cultivator.id, alive: true },
-            select: { relation: true, intimacy: true, incomeLevel: true },
+            select: {
+              id: true, relation: true, name: true, age: true, alive: true, intimacy: true,
+              occupation: true, incomeLevel: true, careerCategory: true, careerLevel: true,
+              careerStatus: true, monthlyIncome: true, careerUpdatedYear: true,
+            },
           });
-          const parents: ParentLike[] = familyMembers
-            .filter((m) => ["父亲", "母亲", "爸爸", "妈妈"].includes(m.relation))
-            .map((m) => ({ intimacy: m.intimacy, incomeLevel: m.incomeLevel ?? 1 }));
-          const pm = calcPocketMoney(schoolStage.name, parents);
-          const interest = calcSavingsInterest(cultivator.savings ?? 0);
-          if (pm.granted > 0 || interest > 0) {
-            currentSavings = (cultivator.savings ?? 0) + pm.granted + interest;
-            pocketMoneyResult = { granted: pm.granted, interest };
+          evolvedFamilyMembers = familyMembers.map((member) => {
+            // 旧存档的空值或非法类别以成员稳定 ID、旧职业文本和年份确定性归一化。
+            const initial = initializeFamilyCareer({
+              relation: member.relation,
+              age: member.age,
+              alive: member.alive,
+              worldYear: currentWorldYear,
+              categoryHint: member.careerCategory ?? member.occupation ?? undefined,
+              levelHint: member.careerLevel,
+            });
+            const validStatus = ["employed", "unemployed", "retired"].includes(member.careerStatus);
+            const validExisting = Boolean(member.careerCategory && initial.careerCategory === member.careerCategory && validStatus);
+            const needsNormalization = !validExisting || member.careerUpdatedYear === null;
+            const previous: FamilyCareer = validExisting
+              ? {
+                relation: member.relation, age: member.age, alive: member.alive,
+                careerCategory: initial.careerCategory, careerLevel: member.careerLevel,
+                careerStatus: member.careerStatus as FamilyCareer["careerStatus"],
+                monthlyIncome: Math.max(0, member.monthlyIncome), incomeLevel: member.incomeLevel ?? 0,
+                careerUpdatedYear: member.careerUpdatedYear,
+              }
+              : initial;
+            const career = evolveFamilyCareer({
+              career: previous,
+              memberAge: Math.min(member.age + 1, 120),
+              worldYear: nextWorldYear,
+              seed: `${cultivator.id}|${member.id}|${nextWorldYear}`,
+            });
+            const occupation = getCareerDisplayName(career.careerCategory, career.careerLevel, nextWorldYear);
+            if (previous.careerStatus !== career.careerStatus || previous.careerLevel !== career.careerLevel || needsNormalization) {
+              familyCareerChanges.push({
+                relation: member.relation, name: member.name, previousStatus: previous.careerStatus,
+                status: career.careerStatus, previousLevel: previous.careerLevel,
+                level: career.careerLevel, occupation,
+              });
+            }
+            return { id: member.id, career, occupation };
+          });
+          householdIncome = calculateHouseholdIncome(evolvedFamilyMembers.map((member) => member.career));
+          const parents: AllowanceParent[] = evolvedFamilyMembers
+            .map((evolved, idx) => ({
+              intimacy: familyMembers[idx]?.intimacy ?? 0,
+              incomeLevel: evolved.career.incomeLevel,
+            }))
+            .filter((_, idx) => isFamilyGuardianRelation(familyMembers[idx]?.relation ?? ""));
+          annualAllowance = calculateAnnualFamilyAllowance(newAge, parents, householdIncome);
+
+          if (schoolStage && schoolStage.name !== "幼儿园") {
+            const parentsForSavings: ParentLike[] = evolvedFamilyMembers
+              .map((evolved, idx) => ({
+                intimacy: familyMembers[idx]?.intimacy ?? 0,
+                incomeLevel: evolved.career.incomeLevel,
+              }))
+              .filter((_, idx) => isFamilyGuardianRelation(familyMembers[idx]?.relation ?? ""));
+            const pm = calcPocketMoney(schoolStage.name, parentsForSavings, householdIncome);
+            const interest = calcSavingsInterest(cultivator.savings ?? 0);
+            if (pm.granted > 0 || interest > 0) {
+              currentSavings = (cultivator.savings ?? 0) + pm.granted + interest;
+              pocketMoneyResult = { granted: pm.granted, interest };
+            }
           }
-        } catch { /* 零花钱计算失败不阻塞跨年 */ }
+        } catch (error) {
+          console.error("跨年家庭职业结算失败", { cultivatorId: cultivator.id, error });
+          return apiError("家庭职业结算失败，请稍后重试", 500, "FAMILY_CAREER_SETTLEMENT_FAILED");
+        }
       }
 
       // ── 职业自动切换 ──────────────────────────────────
@@ -241,6 +309,7 @@ export async function POST(request: NextRequest) {
 
     if (yearWrapped) {
       updateData.age = newAge;
+      updateData.worldYear = nextWorldYear;
       updateData.stamina = calculateMaxStamina(newAge, newAttributes);
       updateData.maxAge = maxAge;
       // 重伤 debuff 按年递减
@@ -265,6 +334,11 @@ export async function POST(request: NextRequest) {
       if (classGoldDeduction > 0) {
         updateData.gold = (cultivator.gold ?? 0) - classGoldDeduction;
       }
+      // 年度家人零花钱额度持久化
+      if (annualAllowance !== undefined) {
+        updateData.allowanceYear = newAge;
+        updateData.allowanceRemaining = annualAllowance;
+      }
       // 零花钱 + 储蓄利息持久化
       if (currentSavings !== undefined) {
         updateData.savings = currentSavings;
@@ -282,29 +356,55 @@ export async function POST(request: NextRequest) {
       updateData.realmLevel = newRealmLevel;
     }
 
-    // ── 乐观锁条件更新：防止并发重复推进 ──────────────
-    // 以 id + 当前 quarter + 当前 age 作为条件；仅当数据库实际值匹配时才更新
-    const updatedCultivator = await prisma.cultivator.updateMany({
-      where: {
-        id: cultivator.id,
-        quarter: currentQuarter,
-        age: cultivator.age,
-      },
-      data: updateData,
-    });
+    // ── 乐观锁与跨年职业持久化：在同一事务中执行 ────────
+    // 先抢占 id + quarter + age，失败时绝不写入家人职业，确保并发跨年只结算一次。
+    let transactionResult;
+    try {
+      transactionResult = await prisma.$transaction(async (tx) => {
+        const updatedCultivator = await tx.cultivator.updateMany({
+          where: {
+            id: cultivator.id,
+            quarter: currentQuarter,
+            age: cultivator.age,
+          },
+          data: updateData,
+        });
+        if (updatedCultivator.count === 0) return null;
 
-    if (updatedCultivator.count === 0) {
-      // 并发冲突：记录已变更，返回 409 让前端重新加载
+        for (const member of evolvedFamilyMembers) {
+          await tx.familyMember.update({
+            where: { id: member.id },
+            data: {
+              age: member.career.age,
+              occupation: member.occupation,
+              incomeLevel: member.career.incomeLevel,
+              careerCategory: member.career.careerCategory,
+              careerLevel: member.career.careerLevel,
+              careerStatus: member.career.careerStatus,
+              monthlyIncome: member.career.monthlyIncome,
+              careerUpdatedYear: member.career.careerUpdatedYear,
+            },
+          });
+        }
+        return tx.cultivator.findUnique({ where: { id: cultivator.id } });
+      });
+    } catch (error) {
+      if (yearWrapped && cultivator.worldId === "earth") {
+        console.error("跨年家庭职业结算持久化失败", { cultivatorId: cultivator.id, error });
+        return apiError("家庭职业结算失败，请稍后重试", 500, "FAMILY_CAREER_SETTLEMENT_FAILED");
+      }
+      throw error;
+    }
+
+    if (!transactionResult) {
       return NextResponse.json(
         { error: "状态已变化，已刷新最新进度", code: "SEASON_CONFLICT" },
         { status: 409 },
       );
     }
 
-    // ── 重新读取最新记录 ────────────────────────────────
-    const freshCultivator = await prisma.cultivator.findUnique({
-      where: { id: cultivator.id },
-    });
+    // ── 读取事务提交后的最新记录 ─────────────────────────
+    const freshCultivator = transactionResult;
     if (!freshCultivator) {
       return apiError("修炼者不存在", 404, "NO_CULTIVATOR");
     }
@@ -321,6 +421,9 @@ export async function POST(request: NextRequest) {
       cultivator: freshCultivator,
       quarter: nextQuarter,
       yearWrapped,
+      worldYear: nextWorldYear,
+      era: getWorldEra(nextWorldYear),
+      familyCareerChanges,
       oldAge,
       newAge,
       awakenEvent,

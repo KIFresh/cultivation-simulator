@@ -71,6 +71,11 @@ describe('Cultivator API - POST 创建修炼者', () => {
     const d = await res.json();
     expect(res.status).toBe(200);
     expect(d.user.cultivator.name).toBe('小明');
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        cultivator: { create: expect.objectContaining({ worldYear: 2025 }) },
+      }),
+    }));
   });
 
   it('已有修炼者时返回 409', async () => {
@@ -91,6 +96,11 @@ describe('Cultivator API - POST 创建修炼者', () => {
     const d = await res.json();
     expect(res.status).toBe(200);
     expect(d.user.cultivator.name).toBe('小刚');
+    expect(mockPrisma.user.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        cultivator: { create: expect.objectContaining({ worldYear: 2025 }) },
+      }),
+    }));
   });
 
   it('用户名已存在返回 409', async () => {

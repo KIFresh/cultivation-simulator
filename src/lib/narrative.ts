@@ -462,12 +462,15 @@ export async function generateNPCDialogue(params: {
 export async function generateActionNarrative(params: {
   cultivatorName: string; spiritualRoot: string; realm: string; realmLevel: number;
   age: number; worldId?: string; actionName: string; actionDescription: string;
-  freeInput?: string; expGained: number; isAwakened: boolean; awakenEvent: boolean;
+  freeInput?: string; npcIds?: string[]; npcNames?: string[]; expGained: number; isAwakened: boolean; awakenEvent: boolean;
   storySummary?: string;
   state?: CultivatorState;
+  giftDecision?: { givesGold: number; reason: string };
 }): Promise<NarrativeResult> {
   const realmStr = params.realm === "凡人" ? "凡人" : `${params.realm} ${formatRealmLevel(params.realm, params.realmLevel)}`;
   const ageContext = params.age <= 3 ? "幼儿" : params.age <= 6 ? "孩童" : params.age <= 12 ? "少年" : params.age <= 15 ? "即将成年的少年" : "修炼者";
+  const selectedNpcNames = (params.npcNames ?? []).filter((name): name is string => typeof name === "string" && name.trim().length > 0).map((name) => name.trim());
+  const selectedTargetText = selectedNpcNames.join("、");
   let prompt = `写一段行动叙事，现代背景、现代白话。
 
 【角色】${params.cultivatorName}，${params.age}岁${ageContext}，灵根${params.spiritualRoot}，境界${realmStr}
@@ -475,7 +478,24 @@ ${params.isAwakened ? "" : "- 尚未觉醒，仍为凡人"}
 ${params.awakenEvent ? "- 觉醒时刻！" : ""}
 【行动】${params.actionName}：${params.actionDescription}
 ${params.freeInput ? `玩家描述：${params.freeInput}` : ""}
+${selectedTargetText ? `【本次行动目标】${selectedTargetText}。玩家已明确选中该角色；即使玩家描述未出现其姓名或称谓，也必须理解为主角主动对该目标执行本次行动。` : ""}
 获得修炼值：${params.expGained}
+${params.giftDecision ? `【服务端结算】本次行动馈赠：获得金币 ${params.giftDecision.givesGold}；原因：${params.giftDecision.reason}` : ""}
+
+【叙事规则】
+- 若【服务端结算】中本次行动馈赠金币为 0，不得描写主角收到现金、零花钱、红包、转账或具体金额；可写 NPC 安抚、拒绝、承诺以后再说、给了口头鼓励等。
+- 若【服务端结算】中本次行动馈赠金币大于 0，可描写主角获得零花钱/资助，但金额必须以服务端结算值为准，不得擅自写成其他数额或额外财物。
+- 输入框内容是主角当前主动要做的事，不是别人要求主角做。
+- 叙事必须保持主语一致：主角是动作发出者。若玩家输入是“叫妈妈”，必须写成主角主动叫，不能写成“母亲让我叫妈妈”“被人叫着叫妈妈”。
+- 【本次行动目标】存在时，该目标是主角本次行动的明确对象而非普通背景人物；即使玩家描述未出现其姓名或称谓，也必须围绕主角主动对该目标的行为来写，不能改写为对其他角色的互动。
+- 若通过 npcNames 传入了选中角色（如"赵母"、"母亲"），该角色必须出现在正文中作为主要互动对象或明确参与者，不得无依据将其替换为其他未选中角色（如父亲、陌生人等）。其他角色可作为背景出现，但不能抢占玩家指定对象的互动主线。
+- 若玩家输入明确指向"妈妈/母亲/爸爸/父亲"等具体关系，其优先级高于 AI 自行补充的其他家庭成员。
+- 只在玩家输入基础上做合理补全，不要改写基本意图，不要擅自增加角色间的命令关系。
+- 合理性约束：NPC 是否会答应/给予，要结合年龄、关系、情境与常理判断，不能无条件满足。例如：1岁幼儿向父亲要钱，父亲更可能摇头/哄孩子/给少量零花钱或直接拒绝；成年人/学生要钱可能给，但也要符合人物性格与经济状况。
+- 叙事结果必须与合理性一致：若请求不合理，可写“父亲皱了皱眉，摸了摸他的头说等他再大一点再说”；若合理，可写“父亲犹豫了一下，掏出10块钱递给他”。不要为了剧情爽点强行改写人物反应。
+- 年龄行为约束：不同年龄的行为要符合现实。1-3 岁以被动照料为主，4-6 岁可做简单互动，7-12 岁可自主表达，13-18 岁可表达复杂意愿但仍有监护人约束。不要写低龄角色主动大额索要现金、独自复杂交易。
+- 关系行为约束：亲属、师生、朋友、陌生人应对方式不同。对陌生人不要轻易信任、不要随意接受大量馈赠；对亲人可撒娇但也要符合家庭情境。
+- 语气对应：玩家若用礼貌请求，NPC 更可能答应；若用命令/威胁式语气，NPC 更可能拒绝或仅小幅让步。
 
 【叙事尺度——必须做到】
 - 只写这一次具体行动：主角做了什么、当场发生了什么、和哪些人（邻居/家人/同事/陌生人）或事物（一盆花、一件旧物、一只猫、一道墙）产生了怎样的关系或互动
@@ -492,16 +512,45 @@ ${params.freeInput ? `玩家描述：${params.freeInput}` : ""}
     prompt += `\n\n【已发生的剧情】\n${params.storySummary}\n\n请基于以上已发生的剧情，继续写接下来的故事。`;
   }
 
+  const trimmedFreeInput = (params.freeInput ?? "").trim();
+  const hasSpecificIntent = /[\u4e00-\u9fff]/.test(trimmedFreeInput);
+  const fallbackAction = selectedTargetText
+    ? `${params.cultivatorName}主动走到${selectedTargetText}面前${hasSpecificIntent ? `，${trimmedFreeInput}` : `，进行${params.actionName}`}`
+    : hasSpecificIntent
+      ? `${params.cultivatorName}${trimmedFreeInput}`
+      : `${params.cultivatorName}${params.actionName}`;
+
+  let postHint = "继续探索";
+  if (params.actionName === "与人交谈") postHint = "找人多聊聊";
+  if (params.actionName === "四处闲逛") postHint = "走走看看";
+  if (params.actionName === "自由探索") postHint = "随心行动";
+
   try {
     const text = await callAI({ systemPrompt: buildSystemPrompt(params.worldId), userPrompt: prompt, maxTokens: 800, temperature: 0.85 });
-    const result: RegularNarrative = extractJson(text, { type: "ACTION", title: params.actionName, narrative: `${params.cultivatorName}${params.actionName}。${params.actionDescription}`, mood: "悟", hint: "继续修炼", summary: `${params.cultivatorName}${params.actionName}。` });
+    const result: RegularNarrative = extractJson(text, { type: "ACTION", title: params.actionName, narrative: `${params.cultivatorName}${params.actionName}。${params.actionDescription}`, mood: "悟", hint: postHint, summary: `${params.cultivatorName}${params.actionName}。` });
     if (!result.narrative || !result.narrative.trim()) {
-      result.narrative = `${params.cultivatorName}${params.actionName}，有所感悟。`;
+      if (hasSpecificIntent) {
+        result.narrative = `${fallbackAction}。`;
+        result.title = (trimmedFreeInput.slice(0, 10) || params.actionName);
+        result.summary = `${fallbackAction}。`;
+      } else {
+        result.narrative = selectedTargetText ? `${fallbackAction}。` : `${params.cultivatorName}${params.actionName}，有所感悟。`;
+      }
     }
     return result;
   } catch (e) {
     console.error("行动叙事AI生成失败:", e);
-    return { type: "ACTION", title: params.actionName, narrative: `${params.cultivatorName}${params.actionName}，顺手把事做完了。`, mood: "静", hint: "把手头的事接着做下去", summary: `${params.cultivatorName}${params.actionName}。` };
+    if (hasSpecificIntent || selectedTargetText) {
+      return {
+        type: "ACTION",
+        title: trimmedFreeInput.slice(0, 10) || params.actionName,
+        narrative: `${fallbackAction}。`,
+        mood: "静",
+        hint: postHint,
+        summary: `${fallbackAction}。`,
+      };
+    }
+    return { type: "ACTION", title: params.actionName, narrative: `${params.cultivatorName}${params.actionName}，顺手把事做完了。`, mood: "静", hint: postHint, summary: `${params.cultivatorName}${params.actionName}。` };
   }
 }
 

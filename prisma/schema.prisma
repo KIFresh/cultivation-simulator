@@ -27,6 +27,7 @@ model Cultivator {
   worldId               String?
   age                   Int                   @default(1)
   quarter               Int                   @default(1)
+  worldYear             Int                   @default(2025)
   /// 预留字段，当前不参与任何业务结算。待后续设计确定后再启用。
   quarterAccum          String?               @default("{}")
   location              String?
@@ -73,6 +74,8 @@ model Cultivator {
   pet                   String?
   classEnroll           String?
   savings               Int?                  @default(0)
+  allowanceYear         Int?
+  allowanceRemaining    Int                   @default(0)
   arcadeStats           String?
   readingLog            String?
   createdAt             DateTime              @default(now())
@@ -109,6 +112,11 @@ model FamilyMember {
   dialogueHistory String?
   occupation      String?
   incomeLevel     Int?
+  careerCategory    String?
+  careerLevel       Int        @default(0)
+  careerStatus      String     @default("employed")
+  monthlyIncome     Int        @default(0)
+  careerUpdatedYear Int?
   contribution    String?
   savings         Int        @default(0)
   Cultivator      Cultivator @relation(fields: [cultivatorId], references: [id], onDelete: Cascade)

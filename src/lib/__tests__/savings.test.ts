@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import type { HouseholdIncome } from "@/lib/family-career";
 import {
   calcPocketMoney,
   calcSavingsInterest,
@@ -97,6 +98,14 @@ describe("calcPocketMoney — 父母收入系数", () => {
   it("缺省 incomeLevel 视为 1（×1）", () => {
     const r = calcPocketMoney("小学", [parent(50, undefined as unknown as number)]);
     expect(r.incomeMult).toBe(1);
+  });
+
+  it("统一 HouseholdIncome 档位覆盖父母排列顺序", () => {
+    const household: HouseholdIncome = { monthlyIncome: 9000, contributingMembers: 2, incomeLevel: 2 };
+    const firstLow = calcPocketMoney("小学", [parent(50, 0), parent(50, 2)], household);
+    const firstHigh = calcPocketMoney("小学", [parent(50, 2), parent(50, 0)], household);
+    expect(firstLow.incomeMult).toBe(1.5);
+    expect(firstLow.granted).toBe(firstHigh.granted);
   });
 });
 

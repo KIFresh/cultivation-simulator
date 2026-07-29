@@ -44,7 +44,7 @@ export function useNpcChat(onDataSync: (data: any) => void): NpcChatState {
       sync: (data: any) => void
     ) => {
       if (!userId || !cultivator || !chat) return;
-      if (cultivator.stamina < 2) {
+      if (cultivator.stamina < 1) {
         return;
       }
       const res = await fetch(`/api/npc-chat`, {
@@ -58,6 +58,9 @@ export function useNpcChat(onDataSync: (data: any) => void): NpcChatState {
         }),
       });
       const data = await res.json();
+      if (!res.ok) {
+        return data;
+      }
       if (data.cultivator) sync({ cultivator: data.cultivator, syncFull: true });
       if (data.goldChanged) return;
       if (data.itemChanged) return;
