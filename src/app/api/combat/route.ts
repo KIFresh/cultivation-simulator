@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveCombat, type PlayerCombatData } from "@/lib/combat-engine";
 import { requireCultivator } from "@/lib/auth-helpers";
 import { applyEffects, clampEffectsArray, type NarrativeEffect, type ClampConfig } from "@/lib/narrative-effects";
+import { parseAttributes, parseInventory, mergeInventoryItems } from "@/lib/inventory-utils";
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
         injuryDebuff: cultivator.injuryDebuff || 0,
         mindDemon: cultivator.mindDemon || 0,
       },
-      attributes: {},
+      attributes: parseAttributes(cultivator.attributes),
       equippedItems: inventory.filter((i) => i.equipped),
       inventory,
       techniqueRecords: techniqueRecords.map((r) => ({
@@ -56,14 +57,10 @@ export async function POST(request: NextRequest) {
       })),
     };
 
-    // 尝试从请求体获取属性
-    if (body.attributes) {
-      player.attributes = body.attributes;
-    }
-
     const result = await resolveCombat(player, enemyId, locationId);
 
     // 持久化战斗结果
+    let updatedCultivator: any = null;
     if (result.enemy && result.enemy.id !== "none") {
       const effects: NarrativeEffect[] = [];
 
@@ -106,6 +103,11 @@ export async function POST(request: NextRequest) {
             extraData.cultivationExp = { increment: result.loot.exp };
             extraData.totalExp = { increment: result.loot.exp };
           }
+          if (result.loot.items && result.loot.items.length > 0) {
+            const currentInv = parseInventory(cultivator.inventory);
+            const mergedInv = mergeInventoryItems(currentInv, result.loot.items);
+            extraData.inventory = JSON.stringify(mergedInv);
+          }
         }
         if (!result.win && result.penalty) {
           if (result.penalty.injuryDebuff > 0) extraData.injuryDebuff = result.penalty.injuryDebuff;
@@ -126,7 +128,7 @@ export async function POST(request: NextRequest) {
           }
         }
         if (Object.keys(extraData).length > 0) {
-          await tx.cultivator.update({ where: { id: cultivator.id }, data: extraData });
+          updatedCultivator = await tx.cultivator.update({ where: { id: cultivator.id }, data: extraData });
         }
 
         // 记录战斗事件
@@ -136,7 +138,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({ ...result });
+    return NextResponse.json({ ...result, ...(updatedCultivator ? { cultivator: updatedCultivator } : {}) });
   } catch (error) {
     console.error("战斗失败:", error);
     return NextResponse.json({ error: "战斗失败" }, { status: 500 });
