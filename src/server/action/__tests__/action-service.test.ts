@@ -426,6 +426,46 @@ describe("executeAction - 核心成功路径", () => {
     expect(tx.cultivator.update).not.toHaveBeenCalled();
     expect(tx.gameEvent.create).not.toHaveBeenCalled();
   });
+
+  it("MEDITATE 后经验值增量持久化并且响应返回新经验", async () => {
+    const { prisma } = await import("@/lib/prisma");
+    const tx = mockTx();
+    tx.cultivator.update = vi.fn().mockResolvedValue({
+      ...BASE_CULTIVATOR,
+      cultivationExp: 130,
+      totalExp: 530,
+      stamina: 75,
+    });
+    (prisma.$transaction as any).mockImplementation((fn: any) => fn(tx));
+    (prisma.cultivatorTechnique.findMany as any).mockResolvedValue([]);
+
+    const result = await executeAction({ actionId: "MEDITATE" }, BASE_CULTIVATOR);
+    expect(result.status).toBe("success");
+    if (result.status === "success") {
+      expect(result.data.expGained).toBeGreaterThan(0);
+      expect(result.data.cultivator.cultivationExp).toBe(130);
+      expect(result.data.cultivator.totalExp).toBe(530);
+    }
+  });
+
+  it("MEDITATE 后 updateData 包含经验增量而非旧值", async () => {
+    const { prisma } = await import("@/lib/prisma");
+    const tx = mockTx();
+    tx.cultivator.update = vi.fn().mockResolvedValue({
+      ...BASE_CULTIVATOR, cultivationExp: 130, totalExp: 530, stamina: 75,
+    });
+    (prisma.$transaction as any).mockImplementation((fn: any) => fn(tx));
+    (prisma.cultivatorTechnique.findMany as any).mockResolvedValue([]);
+
+    await executeAction({ actionId: "MEDITATE" }, BASE_CULTIVATOR);
+    const updateCall = tx.cultivator.update.mock.calls[0]?.[0];
+    expect(updateCall.data.cultivationExp).not.toBe(BASE_CULTIVATOR.cultivationExp);
+    if (typeof updateCall.data.cultivationExp === "object") {
+      expect(updateCall.data.cultivationExp.increment).toBeGreaterThan(0);
+    } else {
+      expect(updateCall.data.cultivationExp).toBeGreaterThan(BASE_CULTIVATOR.cultivationExp);
+    }
+  });
 });
 
 describe("executeAction - EXPLORE 战斗分支", () => {

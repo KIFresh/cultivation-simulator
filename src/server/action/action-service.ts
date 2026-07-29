@@ -262,8 +262,8 @@ export async function executeAction(
   }
 
   const updateData: Record<string, any> = {
-    cultivationExp: cultivator.cultivationExp,
-    totalExp: cultivator.totalExp,
+    cultivationExp: { increment: expGained },
+    totalExp: { increment: expGained },
     realm: newRealm,
     realmLevel: newRealmLevel,
     storyEntries: JSON.stringify(updatedEntries),
@@ -569,9 +569,9 @@ export async function executeAction(
       expGained,
       combatExpGain,
       canBreakthrough: canBreakthrough(
-        newRealm,
-        newRealmLevel,
-        cultivator.cultivationExp,
+        updated.cultivator.realm,
+        updated.cultivator.realmLevel,
+        updated.cultivator.cultivationExp,
         cultivator.spiritualRoot
       ),
       awakenEvent,
