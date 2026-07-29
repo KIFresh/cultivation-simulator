@@ -33,17 +33,15 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "行动力不足" }, { status: 400 });
       }
       const gain = REST_HEALTH_BASE + (hasBedFurniture(cultivator) ? REST_HEALTH_BED_BONUS : 0);
-      const oldHealth = cultivator.health ?? 100;
-      const newHealth = Math.min(100, oldHealth + gain);
-      const newStamina = Math.max(0, cultivator.stamina - REST_STAMINA_COST);
+      const healAmount = Math.min(100 - (cultivator.health ?? 100), gain);
       const updated = await prisma.cultivator.update({
         where: { id: cultivator.id },
-        data: { health: newHealth, stamina: newStamina },
+        data: { health: { increment: healAmount }, stamina: { decrement: REST_STAMINA_COST } },
       });
       const narrative = hasBedFurniture(cultivator)
         ? { title: "榻上安眠", narrative: "你在舒适的床榻上酣睡一夜，气血大为恢复。", mood: "静" }
         : { title: "闭目养神", narrative: "你闭目养神歇息片刻，气血有所恢复。", mood: "静" };
-      return NextResponse.json({ cultivator: updated, narrative, healthDelta: newHealth - oldHealth });
+      return NextResponse.json({ cultivator: updated, narrative, healthDelta: healAmount });
     }
 
     // clinic：花金回血

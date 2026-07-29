@@ -40,11 +40,7 @@ export async function POST(request: NextRequest) {
 
     switch (effect.type) {
       case "recoverStamina": {
-        const newStamina = Math.min(
-          (cultivator.stamina || 0) + effect.value * quantity,
-          999
-        );
-        updateData.stamina = newStamina;
+        updateData.stamina = { increment: effect.value * quantity };
         message = `体力 +${effect.value * quantity}`;
         break;
       }

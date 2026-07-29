@@ -81,19 +81,19 @@ export async function POST(request: NextRequest) {
       storyEntriesUpdatedAt: new Date(),
     };
 
-    const breakthroughEvent = await prisma.gameEvent.create({
-      data: {
-        cultivatorId: cultivator.id,
-        type: "BREAKTHROUGH",
-        title: narrativeResult.title,
-        narrative: narrativeResult.narrative,
-        reward: JSON.stringify({ fromRealm: cultivator.realm, toRealm: next.newRealm, protector: protector || null }),
-      },
+    const [updatedCultivator, breakthroughEvent] = await prisma.$transaction(async (tx) => {
+      const event = await tx.gameEvent.create({
+        data: {
+          cultivatorId: cultivator.id,
+          type: "BREAKTHROUGH",
+          title: narrativeResult.title,
+          narrative: narrativeResult.narrative,
+          reward: JSON.stringify({ fromRealm: cultivator.realm, toRealm: next.newRealm, protector: protector || null }),
+        },
+      });
+      const updated = await tx.cultivator.update({ where: { id: cultivator.id }, data: updateData });
+      return [updated, event];
     });
-
-    const [updatedCultivator] = await prisma.$transaction([
-      prisma.cultivator.update({ where: { id: cultivator.id }, data: updateData }),
-    ]);
 
     const canBreak = canBreakthrough(
       updatedCultivator.realm,

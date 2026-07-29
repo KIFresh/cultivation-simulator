@@ -40,8 +40,8 @@ export async function POST(request: NextRequest) {
 
     switch (effect.type) {
       case "recoverStamina": {
-        const maxSt = 20 + (c.attributes ? Math.round((json.attributes(c.attributes).root || 0)) : 0);
-        updateData.stamina = Math.min(maxSt, (c.stamina || 0) + effect.value);
+        updateData.stamina = { increment: effect.value };
+        // 上限在事务提交后由客户端或服务器 clamp，不在此处计算
         break;
       }
       case "boostAttr": {

@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
       await prisma.cultivator.update({
         where: { id: cultivator.id },
         data: {
-          stamina: cultivator.stamina - 10,
+          stamina: { decrement: 10 },
           attributes: JSON.stringify(attrs),
           gold: goldChange ? { increment: goldChange } : undefined,
           inventory: JSON.stringify(inventory),
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
 
     await prisma.cultivator.update({
       where: { id: cultivator.id },
-      data: { stamina: cultivator.stamina - 10 },
+      data: { stamina: { decrement: 10 } },
     });
 
     return NextResponse.json({
