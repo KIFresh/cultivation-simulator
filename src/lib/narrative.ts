@@ -478,7 +478,7 @@ ${params.isAwakened ? "" : "- 尚未觉醒，仍为凡人"}
 ${params.awakenEvent ? "- 觉醒时刻！" : ""}
 【行动】${params.actionName}：${params.actionDescription}
 ${params.freeInput ? `玩家描述：${params.freeInput}` : ""}
-${selectedTargetText ? `【本次行动目标】${selectedTargetText}。玩家已明确选中该角色；即使玩家描述未出现其姓名或称谓，也必须理解为主角主动对该目标执行本次行动。` : ""}
+${selectedTargetText ? `【本次行动目标】${selectedTargetText}。玩家已明确选中该角色；即使玩家描述未出现其姓名或称谓，也必须理解为主角主动对该目标执行本次行动。` : "【本次行动目标】无。请围绕主角独自行动或现场随机对象展开，不要凭空添加未指定的NPC。"}
 获得修炼值：${params.expGained}
 ${params.giftDecision ? `【服务端结算】本次行动馈赠：获得金币 ${params.giftDecision.givesGold}；原因：${params.giftDecision.reason}` : ""}
 

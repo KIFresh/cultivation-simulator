@@ -14,6 +14,8 @@ interface NarrativePanelProps {
   cultivator: any;
   currentNPCs?: any[];
   familyMembers?: any[];
+  isAwake?: boolean;
+  currentLoc?: string;
   onExpandToggle: () => void;
   narrativeExpanded: boolean;
   onActionClick: (actionId: string, selectedNpcIds: string[]) => void;
@@ -29,6 +31,8 @@ export const NarrativePanel = React.memo(function NarrativePanel({
   cultivator,
   currentNPCs = [],
   familyMembers = [],
+  isAwake = false,
+  currentLoc = "home",
   onExpandToggle,
   narrativeExpanded,
   onActionClick,
@@ -40,7 +44,7 @@ export const NarrativePanel = React.memo(function NarrativePanel({
   useEffect(() => {
     setDraft("");
     setSelectedNpcs([]);
-  }, [activeActionId]);
+  }, [activeActionId, currentLoc]);
 
   const toggleNpc = useCallback((npcId: string) => {
     setSelectedNpcs((prev) => (prev.includes(npcId) ? prev.filter((id) => id !== npcId) : [...prev, npcId]));
@@ -55,6 +59,22 @@ export const NarrativePanel = React.memo(function NarrativePanel({
   }, [draft, selectedNpcs, onActionSubmit]);
 
   const mergedNpcs = useMemo(() => mergeNpcs(familyMembers, currentNPCs), [familyMembers, currentNPCs]);
+
+  const selectedNpcNames = useMemo(() => {
+    return mergedNpcs.filter((npc: any) => selectedNpcs.includes(npc.name));
+  }, [mergedNpcs, selectedNpcs]) as any[];
+
+  const actionPlaceholder = useMemo(() => {
+    if (selectedNpcNames.length === 1) {
+      const npc = selectedNpcNames[0];
+      return `对【${npc.name}】说些什么…`;
+    }
+    if (selectedNpcNames.length > 1) {
+      const names = selectedNpcNames.map((n: any) => n.name).join("、");
+      return `向【${names}】行动…`;
+    }
+    return "描述你想怎么做…";
+  }, [selectedNpcNames]);
 
   const visibleActions = useMemo(
     () => availableActions.filter((a) => a.id !== "FREE").slice(0, 6),
@@ -71,7 +91,7 @@ export const NarrativePanel = React.memo(function NarrativePanel({
             {streamingText !== null ? "✍️ 叙事流转中…" : narrative?.title}
           </h3>
           <p className="text-[10px] font-bold uppercase tracking-widest text-[#D49B4B]">
-            {streamingText !== null ? "Streaming" : "Main Event"}
+            {streamingText !== null ? "Streaming" : isAwake ? "Awake" : "Main Event"}
           </p>
         </div>
       </div>
@@ -142,7 +162,16 @@ export const NarrativePanel = React.memo(function NarrativePanel({
                 </button>
                 {isActive && !actionLoading && (
                   <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-1 duration-150">
-                    <div className="flex flex-wrap gap-1">
+                    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedNpcs([])}
+                        className={`shrink-0 rounded-xl border px-2.5 py-1.5 text-[11px] transition-colors ${
+                          selectedNpcs.length === 0 ? "border-[#B83227] bg-[#FDF2F0] text-[#B83227]" : "border-[#EADCD0] bg-white text-[#2C1E1E] hover:border-[#B83227]/40"
+                        }`}
+                      >
+                        不指定 NPC
+                      </button>
                       {mergedNpcs.map((npc: any) => {
                         const active = selectedNpcs.includes(npc.name);
                         return (
@@ -150,11 +179,14 @@ export const NarrativePanel = React.memo(function NarrativePanel({
                             key={npc._key}
                             type="button"
                             onClick={() => toggleNpc(npc.name)}
-                            className={`rounded-lg border px-2 py-1 text-[10px] transition-colors ${
-                              active ? "border-[#B83227] bg-[#FDF2F0] text-[#B83227]" : "border-[#EADCD0] bg-white text-[#2C1E1E]"
+                            className={`shrink-0 rounded-xl border px-2.5 py-1.5 text-[11px] transition-colors ${
+                              active ? "border-[#B83227] bg-[#FDF2F0] text-[#B83227]" : "border-[#EADCD0] bg-white text-[#2C1E1E] hover:border-[#B83227]/40"
                             }`}
                           >
-                            {npc._src === "family" ? "👨‍👩‍👧‍👦" : npc.avatar} {npc.name}
+                            <span className="mr-1">{npc._src === "family" ? "👨‍👩‍👧‍👦" : npc.avatar}</span>
+                            <span className="font-bold">{npc.name}</span>
+                            {npc.age != null ? <span className="ml-1 font-normal opacity-70 text-[9px]">({npc.age}岁)</span> : null}
+                            {npc._src !== "family" && isAwake && npc.realm ? <span className="ml-1 font-normal opacity-70 text-[9px]">{npc.realm}</span> : null}
                           </button>
                         );
                       })}
@@ -170,7 +202,7 @@ export const NarrativePanel = React.memo(function NarrativePanel({
                           }
                         }}
                         className="h-7 flex-1 rounded-lg border border-[#EADCD0] bg-white px-2 text-[11px] text-[#2C1E1E] focus:outline-none focus:border-[#B83227]"
-                        placeholder="描述你想怎么做…"
+                        placeholder={actionPlaceholder}
                         autoFocus
                         disabled={actionLoading}
                       />
@@ -185,6 +217,19 @@ export const NarrativePanel = React.memo(function NarrativePanel({
                         <span className="text-xs">➤</span>
                       </button>
                     </div>
+                    <Chips actionId={action.id} onPick={(text) => { setDraft(text); handleSubmitAction(action.id); }} />
+                    {selectedNpcs.length > 0 && (
+                      <div className="flex items-center justify-between text-[10px] text-gray-400">
+                        <span>已选：{selectedNpcNames.map((n: any) => n.name).join("、")}</span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedNpcs([])}
+                          className="text-[#B83227] hover:underline"
+                        >
+                          取消选择
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -195,6 +240,33 @@ export const NarrativePanel = React.memo(function NarrativePanel({
           <p className="py-2 text-center text-xs text-gray-400">当前无可用的行动</p>
         )}
       </div>
+    </div>
+  );
+});
+
+const ACTION_CHIPS: Record<string, string[]> = {
+  TALK: ["闲聊", "问候", "陪陪", "请教"],
+  TRAIN: ["切磋", "请教", "对练", "陪练"],
+  EXPLORE: ["仔细查看", "打听", "搜寻", "逛逛"],
+  WORK: ["帮忙", "接活", "打听机会", "讨教经验"],
+  STUDY: ["请教问题", "复习", "借笔记", "讨论"],
+  DEFAULT: ["闲聊", "切磋", "请教", "陪陪", "帮忙", "逛逛"],
+};
+
+const Chips = React.memo(function Chips({ actionId, onPick }: { actionId: string; onPick: (text: string) => void }) {
+  const items = ACTION_CHIPS[actionId] ?? ACTION_CHIPS.DEFAULT;
+  return (
+    <div className="flex flex-wrap gap-1 pt-1">
+      {items.map((text) => (
+        <button
+          key={text}
+          type="button"
+          onClick={() => onPick(text)}
+          className="rounded-full border border-[#EADCD0] bg-white px-2 py-1 text-[10px] text-[#2C1E1E] hover:border-[#B83227]/60"
+        >
+          {text}
+        </button>
+      ))}
     </div>
   );
 });

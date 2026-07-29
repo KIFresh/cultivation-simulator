@@ -248,6 +248,7 @@ export default function DashboardPage() {
             cultivator={cultivator}
             currentNPCs={mergedNpcs}
             familyMembers={[]}
+            isAwake={isAwake}
             narrativeExpanded={narrativeExpanded}
             onExpandToggle={() => setNarrativeExpanded(!narrativeExpanded)}
             onActionClick={handleActionClick}
