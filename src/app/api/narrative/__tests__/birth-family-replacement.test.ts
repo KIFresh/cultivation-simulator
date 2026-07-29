@@ -19,7 +19,7 @@ const h = vi.hoisted(() => ({
     occupation: null, gender: null, schoolRank: 0, storySummary: null,
     storySummaryUpdatedAt: null, storyEntries: null, storyEntriesUpdatedAt: null,
     breakthroughBuff: 0, npcRelations: null, attributeExp: '{}', subjectExp: '{}',
-    physique: null, fate: null, talentSlots: null,
+    physique: null, fate: null, talentSlots: null, worldYear: 2055,
   },
   /** 出生叙事返回的新家庭（陈建国、刘秀梅） */
   birthNarrative: {
@@ -35,6 +35,7 @@ const h = vi.hoisted(() => ({
 
 /** 记录对 mock DB 的调用：deleteMany 和 createMany 的参数 */
 const dbCalls: { action: string; data?: unknown; count?: number }[] = [];
+const careerInitializeCalls: Array<Record<string, unknown>> = [];
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -96,6 +97,17 @@ vi.mock('@/lib/narrative-stream', () => ({
     })),
 }));
 
+vi.mock('@/lib/family-career', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/family-career')>();
+  return {
+    ...actual,
+    initializeFamilyCareer: vi.fn((input) => {
+      careerInitializeCalls.push(input);
+      return actual.initializeFamilyCareer(input);
+    }),
+  };
+});
+
 vi.mock('@/lib/narrative', () => ({
   generateBirthNarrative: vi.fn(() => h.birthNarrative),
   generateDailyCultivationNarrative: vi.fn(() => ({ type: 'DAILY_CULTIVATION' })),
@@ -129,6 +141,7 @@ describe('BIRTH 家庭替换：旧家庭成员被完整替换', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     dbCalls.length = 0;
+    careerInitializeCalls.length = 0;
     mockRequire.mockResolvedValue({ cultivator: h.cultivator });
   });
 
@@ -169,6 +182,32 @@ describe('BIRTH 家庭替换：旧家庭成员被完整替换', () => {
     expect(body.family[0].relation).toBe(h.birthNarrative.family[0].relation);
     expect(body.family[1].relation).toBe('母亲');
     expect(body.narrative?.suggestedName || body.suggestedName).toBe('陈念安');
+  });
+
+  it('AI occupation 与 birthTier 均不改变固定家庭成员的持久化职业和收入', async () => {
+    const writeFor = async (birthTier: string, occupation: string) => {
+      dbCalls.length = 0;
+      careerInitializeCalls.length = 0;
+      h.birthNarrative.family[0].occupation = occupation;
+      const res = await POST(makeRequest({ type: 'BIRTH', birthTier }));
+      expect(res.status).toBe(200);
+      const create = dbCalls.find((call) => call.action === 'createMany');
+      const member = (create?.data as { data: Array<{ name: string; occupation: string; careerCategory: string; careerLevel: number; monthlyIncome: number; incomeLevel: number }> })
+        .data.find((item) => item.name === '陈建国');
+      expect(member).toBeDefined();
+      expect(careerInitializeCalls[0]).toMatchObject({
+        relation: '父亲',
+        worldYear: h.cultivator.worldYear,
+        familyBackground: 2,
+      });
+      expect(careerInitializeCalls[0]).not.toHaveProperty('categoryHint');
+      return member!;
+    };
+
+    const teacherFromPoorBirth = await writeFor('贫寒', '教师');
+    const merchantFromWealthyBirth = await writeFor('显赫世家', '富商');
+
+    expect(merchantFromWealthyBirth).toEqual(teacherFromPoorBirth);
   });
 
   it('API 不返回旧家庭中的姓名', async () => {

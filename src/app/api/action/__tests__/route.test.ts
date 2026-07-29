@@ -1,5 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+
+const mockExecuteAction = vi.hoisted(() => vi.fn());
+
+vi.mock('@/server/action/action-service', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/server/action/action-service')>();
+  return {
+    ...actual,
+    executeAction: async (...args: Parameters<typeof actual.executeAction>) => {
+      mockExecuteAction(...args);
+      return actual.executeAction(...args);
+    },
+  };
+});
+
 import { POST } from '../route';
 
 const mockRequireCultivator = vi.hoisted(() => vi.fn());
@@ -168,15 +182,34 @@ describe('Action API', () => {
       expect(data.cultivator).toBeDefined();
     });
 
-    it('体力不足时返回 400', async () => {
-      mockRequireCultivator.mockResolvedValueOnce({ cultivator: { ...baseCultivator, stamina: 3 } });
-      const req = new NextRequest('http://test/api/action', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': 'u1' },
-        body: JSON.stringify({ actionId: 'MEDITATE' }),
+    it('将 NPC 选择转发给行动服务', async () => {
+      const req = makeRequest({
+        actionId: 'MEDITATE',
+        freeInput: '递上一杯热茶',
+        npcIds: ['赵母', '', 7],
+        npcNames: ['赵母', '  ', null],
       });
       const res = await POST(req);
+      expect(res.status).toBe(200);
+
+      expect(mockExecuteAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          freeInput: '递上一杯热茶',
+          npcIds: ['赵母'],
+          npcNames: ['赵母'],
+        }),
+        baseCultivator
+      );
+    });
+
+    it('体力不足时返回 400', async () => {
+      const lowStaminaCultivator = { ...baseCultivator, stamina: 3 };
+      mockRequireCultivator.mockResolvedValueOnce({ cultivator: lowStaminaCultivator } as any);
+      const req = makeRequest({ actionId: 'MEDITATE' });
+      const res = await POST(req);
       expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.error).toBe('行动力不足');
     });
   });
 });

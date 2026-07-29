@@ -30,6 +30,10 @@ import { NARRATIVE_EFFECT_WHITELISTS, checkEffectWhitelist } from "@/lib/narrati
 import { sanitizeAttributes } from "@/lib/utils";
 import { calculateMaxStamina } from "@/lib/cultivation-data";
 import { requireCultivator } from "@/lib/auth-helpers";
+import { getCareerDisplayName, initializeFamilyCareer } from "@/lib/family-career";
+
+// 身份选择尚无服务端持久化字段，不能信任出生文案参数；职业经济初始化固定使用中性背景。
+const NEUTRAL_FAMILY_ECONOMIC_BACKGROUND = 2;
 
 // POST — 生成叙事 + 处理突破
 export async function POST(request: NextRequest) {
@@ -108,7 +112,7 @@ export async function POST(request: NextRequest) {
 
         let event;
         let updatedCultivator;
-        let savedFamily: { relation: string; name: string; age: number; alive: boolean; occupation: string | null; intimacy: number }[] = [];
+        let savedFamily: Array<{ relation: string; name: string; age: number; alive: boolean; occupation: string; intimacy: number; careerCategory: string; careerLevel: number; careerStatus: string; monthlyIncome: number; incomeLevel: number; careerUpdatedYear: number | null }> = [];
 
         try {
           // 单事务：姓名 + GameEvent + storyEntries + 家庭成员一起写入
@@ -152,15 +156,30 @@ export async function POST(request: NextRequest) {
             await tx.familyMember.deleteMany({ where: { cultivatorId: cultivator.id } });
             const members = (narrative.family || [])
               .filter((m: BirthFamilyMember) => m.relation?.trim() && m.name?.trim())
-              .map((m: BirthFamilyMember) => ({
-                cultivatorId: cultivator.id,
-                relation: m.relation.trim(),
-                name: m.name.trim(),
-                age: m.age,
-                alive: m.alive,
-                occupation: m.occupation || null,
-                intimacy: 50,
-              }));
+              .map((m: BirthFamilyMember) => {
+                const career = initializeFamilyCareer({
+                  relation: m.relation.trim(),
+                  age: m.age,
+                  worldYear: cultivator.worldYear,
+                  familyBackground: NEUTRAL_FAMILY_ECONOMIC_BACKGROUND,
+                  alive: m.alive,
+                });
+                return {
+                  cultivatorId: cultivator.id,
+                  relation: m.relation.trim(),
+                  name: m.name.trim(),
+                  age: m.age,
+                  alive: m.alive,
+                  occupation: getCareerDisplayName(career.careerCategory, career.careerLevel, cultivator.worldYear),
+                  incomeLevel: career.incomeLevel,
+                  careerCategory: career.careerCategory,
+                  careerLevel: career.careerLevel,
+                  careerStatus: career.careerStatus,
+                  monthlyIncome: career.monthlyIncome,
+                  careerUpdatedYear: career.careerUpdatedYear,
+                  intimacy: 50,
+                };
+              });
             if (members.length > 0) {
               await tx.familyMember.createMany({ data: members });
             }

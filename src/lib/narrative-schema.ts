@@ -41,8 +41,8 @@ export const NARRATIVE_EFFECT_WHITELISTS: Record<string, EffectWhitelist> = {
   NPC_DIALOGUE: ["gold", "intimacy", "storyEntry", "mood"] as const,
   /** 家庭对话：金币、亲密度、记忆 */
   FAMILY_DIALOGUE: ["gold", "intimacy", "storyEntry", "mood"] as const,
-  /** 行动叙事：金币、体力、健康、属性经验、记忆 */
-  ACTION: ["gold", "stamina", "health", "attrExp", "storyEntry", "mood"] as const,
+  /** 行动叙事：金币、健康、属性经验、记忆（体力由 actionPointCost  deterministic 扣除，不走 AI effects） */
+  ACTION: ["gold", "health", "attrExp", "storyEntry", "mood"] as const,
   /** 出生叙事：不允许任何游戏效果（姓名/家庭由服务端专项处理） */
   BIRTH: [] as const,
   /** 年志叙事：属性经验、记忆 */

@@ -167,6 +167,18 @@ export default function CreatePage() {
       localStorage.setItem("cultivatorName", finalName);
       localStorage.setItem("family", JSON.stringify({ members: family }));
 
+      // 首次进入修炼前预热 AI（不阻塞进入仪表盘）
+      try {
+        const warmupRes = await fetch("/api/ai/warmup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-user-id": newUserId },
+          body: JSON.stringify({ narrative: "预热AI叙事生成" }),
+        });
+        if (!warmupRes.ok) console.warn("AI 预热失败:", await warmupRes.text());
+      } catch (warmupErr) {
+        console.warn("AI 预热请求失败:", warmupErr);
+      }
+
       router.replace("/dashboard");
     } catch (err) { console.error(err); alert("创建失败"); setLoading(false); setStreamingText(null); }
   };

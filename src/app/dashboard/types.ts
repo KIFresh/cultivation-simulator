@@ -10,6 +10,7 @@ export interface CultivatorData {
   totalExp: number;
   stamina: number;
   age: number;
+  worldYear: number;
   quarter?: number;
   quarterAccum?: string | null;
   worldId: string | null;
@@ -70,6 +71,13 @@ export interface FamilyMember {
   alive: boolean;
   age?: number;
   intimacy?: number;
+  occupation?: string | null;
+  incomeLevel?: number | null;
+  careerCategory?: import("@/lib/family-career").CareerCategory | null;
+  careerLevel?: number;
+  careerStatus?: import("@/lib/family-career").CareerStatus;
+  monthlyIncome?: number;
+  careerUpdatedYear?: number | null;
 }
 
 export interface AwakenEvent {

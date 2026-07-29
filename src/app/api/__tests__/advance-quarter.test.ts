@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest, NextResponse } from 'next/server';
-import { POST, decayToxicity, DETOX_PER_QUARTER } from '../../api/advance-quarter/route';
+import { POST } from '../../api/advance-quarter/route';
+import { decayToxicity, DETOX_PER_QUARTER } from '@/lib/quarter-effects';
 
 // ── Mocks ──────────────────────────────────────────────────
 
@@ -13,6 +14,7 @@ const fakeCultivator: any = {
   realmLevel: 0,
   age: 8,
   quarter: 1,
+  worldYear: 2025,
   stamina: 20,
   toxicity: 5,
   injuryDebuff: 0,
@@ -39,12 +41,14 @@ const fakeCultivator: any = {
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
+    $transaction: vi.fn(),
     cultivator: {
       updateMany: vi.fn(),
       findUnique: vi.fn(),
     },
     familyMember: {
       findMany: vi.fn().mockResolvedValue([]),
+      update: vi.fn(),
     },
   },
 }));
@@ -76,6 +80,7 @@ function makeRequest(body: Record<string, unknown> = {}): NextRequest {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(prisma.$transaction).mockImplementation(async (callback: any) => callback(prisma));
   vi.mocked(prisma.cultivator.findUnique).mockReset();
 });
 
@@ -162,13 +167,27 @@ describe('POST /api/advance-quarter — 季度推进', () => {
     expect(updates.data.quarter).toBe(4);
   });
 
-  it('4→1 跨年（年龄+1）', async () => {
-    setupOk({ ...fakeCultivator, quarter: 4, age: 8 });
+  it('4→1 跨年（年龄与世界年份均 +1）', async () => {
+    setupOk({ ...fakeCultivator, quarter: 4, age: 8, worldYear: 2025 });
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.yearWrapped).toBe(true);
     expect(body.newAge).toBe(9);
+    expect(body.worldYear).toBe(2026);
+    expect(body.era).toMatchObject({ key: 'contemporary' });
+    const updates = vi.mocked(prisma.cultivator.updateMany).mock.calls[0][0];
+    expect(updates.data.worldYear).toBe(2026);
+  });
+
+  it('普通季度保持世界年份不变', async () => {
+    setupOk({ ...fakeCultivator, quarter: 2, worldYear: 2039 });
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.worldYear).toBe(2039);
+    const updates = vi.mocked(prisma.cultivator.updateMany).mock.calls[0][0];
+    expect(updates.data.worldYear).toBeUndefined();
   });
 
   // ── 体力回满专项测试 ─────────────────────────────────
@@ -235,6 +254,56 @@ describe('POST /api/advance-quarter — 跨年', () => {
     expect(typeof updates.data.attributes).toBe('string');
     expect(updates.data.occupation).toBeTruthy();
     expect(updates.data.schoolRank).not.toBeUndefined();
+  });
+
+  it('旧职业字段为空时归一化、演进并返回可展示变化', async () => {
+    const father = {
+      id: 'father-1', relation: '父亲', name: '张父', age: 40, alive: true, intimacy: 60,
+      careerCategory: null, careerLevel: 0, careerStatus: 'employed', monthlyIncome: 0,
+      incomeLevel: null, careerUpdatedYear: null,
+    };
+    vi.mocked(prisma.familyMember.findMany).mockResolvedValueOnce([father]);
+    vi.mocked(prisma.familyMember.update).mockResolvedValue({ ...father });
+    setupWrap({ ...fakeCultivator, quarter: 4, age: 8, worldYear: 2025 });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    expect(vi.mocked(prisma.familyMember.update)).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'father-1' },
+      data: expect.objectContaining({ careerCategory: expect.any(String), careerUpdatedYear: 2026 }),
+    }));
+    const body = await res.json();
+    expect(body.familyCareerChanges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ relation: '父亲', name: '张父' }),
+    ]));
+    expect(JSON.stringify(body.familyCareerChanges)).not.toContain('seed');
+  });
+
+  it('家庭职业读取失败时返回可观测错误而不推进跨年状态', async () => {
+    setupWrap({ ...fakeCultivator, quarter: 4, age: 8 });
+    vi.mocked(prisma.familyMember.findMany).mockRejectedValueOnce(new Error('family database unavailable'));
+
+    const res = await POST(makeRequest());
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toMatchObject({ code: 'FAMILY_CAREER_SETTLEMENT_FAILED' });
+    expect(vi.mocked(prisma.cultivator.updateMany)).not.toHaveBeenCalled();
+  });
+
+  it('家庭职业持久化失败时返回相同的可观测错误而不继续提交', async () => {
+    const father = {
+      id: 'father-1', relation: '父亲', name: '张父', age: 40, alive: true, intimacy: 60,
+      careerCategory: null, careerLevel: 0, careerStatus: 'employed', monthlyIncome: 0,
+      incomeLevel: null, careerUpdatedYear: null,
+    };
+    setupWrap({ ...fakeCultivator, quarter: 4, age: 8 });
+    vi.mocked(prisma.familyMember.findMany).mockResolvedValueOnce([father]);
+    vi.mocked(prisma.familyMember.update).mockRejectedValueOnce(new Error('family update unavailable'));
+
+    const res = await POST(makeRequest());
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toMatchObject({ code: 'FAMILY_CAREER_SETTLEMENT_FAILED' });
   });
 
   it('schoolRank 从 Int 转换并持久化', async () => {

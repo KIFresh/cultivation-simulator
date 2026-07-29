@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireCultivator } from "@/lib/auth-helpers";
 import { generateBirthNarrative } from "@/lib/narrative";
+import { getCareerDisplayName, initializeFamilyCareer } from "@/lib/family-career";
+
+// 身份选择尚无服务端持久化字段，不能信任重试文案参数；职业经济初始化固定使用中性背景。
+const NEUTRAL_FAMILY_ECONOMIC_BACKGROUND = 2;
 
 // POST — 重新生成某段叙事（如出生时生成失败或需要重写）
 export async function POST(request: NextRequest) {
@@ -62,18 +66,32 @@ export async function POST(request: NextRequest) {
         }).catch(() => {});
         const members = narrative.family
           .filter((m: any) => m.relation?.trim() && m.name?.trim())
-          .map((m: any) => ({
-            cultivatorId: cultivator.id,
-            relation: m.relation.trim(),
-            name: m.name.trim(),
-            age: m.age,
-            alive: m.alive,
-            occupation: m.occupation || null,
-            intimacy: 50,
-          }));
+          .map((m: any) => {
+            const career = initializeFamilyCareer({
+              relation: m.relation.trim(),
+              age: m.age,
+              worldYear: cultivator.worldYear,
+              familyBackground: NEUTRAL_FAMILY_ECONOMIC_BACKGROUND,
+              alive: m.alive,
+            });
+            return {
+              cultivatorId: cultivator.id,
+              relation: m.relation.trim(),
+              name: m.name.trim(),
+              age: m.age,
+              alive: m.alive,
+              occupation: getCareerDisplayName(career.careerCategory, career.careerLevel, cultivator.worldYear),
+              incomeLevel: career.incomeLevel,
+              careerCategory: career.careerCategory,
+              careerLevel: career.careerLevel,
+              careerStatus: career.careerStatus,
+              monthlyIncome: career.monthlyIncome,
+              careerUpdatedYear: career.careerUpdatedYear,
+              intimacy: 50,
+            };
+          });
         if (members.length > 0) {
-          await tx.familyMember.createMany({ data: members })
-            .catch((e: Error) => console.warn("BIRTH retry: 家庭成员写入失败", e.message));
+          await tx.familyMember.createMany({ data: members });
         }
       }
     });

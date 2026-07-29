@@ -8,6 +8,7 @@ import {
   createEntry,
   fallbackBirthName,
   validateBirthConsistency,
+  generateActionNarrative,
 } from '../narrative';
 import { getFateFirstMeetOffset } from '../encounter-data';
 
@@ -28,6 +29,11 @@ vi.mock('../cultivation-data', () => ({
 
 vi.mock('../worlds-data', () => ({
   getWorldAIPrompt: vi.fn(() => ''),
+}));
+
+vi.mock('../narrative/provider', () => ({
+  callAI: vi.fn(),
+  buildSystemPrompt: vi.fn(() => ''),
 }));
 
 describe('narrative', () => {

@@ -11,6 +11,7 @@ const mockPrisma = vi.hoisted(() => ({
     deleteMany: vi.fn(),
     update: vi.fn(),
   },
+  $transaction: vi.fn(),
 }));
 
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }));
@@ -45,6 +46,7 @@ const makeCultivator = (overrides: Record<string, unknown> = {}) => ({
   realmLevel: 1,
   gold: 50,
   worldId: 'earth',
+  worldYear: 2025,
   age: 18,
   location: 'home',
   attributes: null,
@@ -155,8 +157,10 @@ describe('POST /api/family', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockAuth.requireCultivator.mockResolvedValue({ cultivator: makeCultivator() });
+    mockPrisma.familyMember.findMany.mockResolvedValue([]);
     mockPrisma.familyMember.deleteMany.mockResolvedValue({ count: 0 });
     mockPrisma.familyMember.createMany.mockResolvedValue({ count: 2 });
+    mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma));
   });
 
   it('缺少 userId 时返回 401', async () => {
@@ -192,24 +196,66 @@ describe('POST /api/family', () => {
     expect(data.count).toBe(2);
   });
 
-  it('先删除旧家庭成员再创建新成员', async () => {
-    const members = [{ relation: '父亲', name: '张三', age: 45 }];
+  it('忽略客户端对已有成员 relation 和 alive 的修改', async () => {
+    const existing = {
+      id: 'm1', cultivatorId: 'c1', relation: '父亲', name: '张三', age: 45, alive: true, intimacy: 50,
+      occupation: '资深教师', incomeLevel: 3, careerCategory: 'education', careerLevel: 3,
+      careerStatus: 'employed', monthlyIncome: 12345, careerUpdatedYear: 2032,
+    };
+    mockPrisma.familyMember.findMany.mockResolvedValue([existing]);
+
+    await POST(makePostRequest({
+      userId: 'u1',
+      members: [{ id: 'm1', relation: '仇人', name: '张三', age: 1, alive: false, intimacy: 0 }],
+    }));
+
+    expect(mockPrisma.familyMember.createMany).toHaveBeenCalledWith({ data: [existing] });
+  });
+
+  it('成功保存已有成员时写入服务端职业快照', async () => {
+    const existing = {
+      id: 'm1', cultivatorId: 'c1', relation: '父亲', name: '张三', age: 45, alive: true, intimacy: 50,
+      occupation: '资深教师', incomeLevel: 3, careerCategory: 'education', careerLevel: 3,
+      careerStatus: 'employed', monthlyIncome: 12345, careerUpdatedYear: 2032,
+    };
+    mockPrisma.familyMember.findMany.mockResolvedValue([existing]);
+
+    const res = await POST(makePostRequest({
+      userId: 'u1',
+      members: [{ id: 'm1', relation: '父亲', name: '张三' }],
+    }));
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.familyMember.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({
+        occupation: '资深教师', incomeLevel: 3, careerCategory: 'education', careerLevel: 3,
+        careerStatus: 'employed', monthlyIncome: 12345, careerUpdatedYear: 2032,
+      })],
+    });
+  });
+
+  it('忽略客户端为新增成员注入的受管及职业字段', async () => {
+    const members = [{
+      relation: '弟弟', name: '张小', age: 10, alive: false, intimacy: 0,
+      occupation: '首席执行官', incomeLevel: 4, careerCategory: 'business', careerLevel: 4,
+      careerStatus: 'employed', monthlyIncome: 999999, careerUpdatedYear: 9999,
+    }];
+
     await POST(makePostRequest({ userId: 'u1', members }));
 
-    expect(mockPrisma.familyMember.deleteMany).toHaveBeenCalledWith({
-      where: { cultivatorId: 'c1' },
-    });
     expect(mockPrisma.familyMember.createMany).toHaveBeenCalledWith({
       data: [
         expect.objectContaining({
-          cultivatorId: 'c1',
-          relation: '父亲',
-          name: '张三',
-          age: 45,
-          alive: true,
-          intimacy: 50,
+          alive: true, intimacy: 50, careerCategory: expect.any(String), careerLevel: expect.any(Number),
+          careerStatus: 'unemployed', monthlyIncome: 0, incomeLevel: 0, careerUpdatedYear: expect.any(Number),
         }),
       ],
+    });
+    const created = mockPrisma.familyMember.createMany.mock.calls[0][0].data[0];
+    expect(created).not.toMatchObject({
+      alive: false, intimacy: 0, occupation: '首席执行官', incomeLevel: 4, careerCategory: 'business', careerLevel: 4,
+      careerStatus: 'employed', monthlyIncome: 999999, careerUpdatedYear: 9999,
     });
   });
 
@@ -219,10 +265,7 @@ describe('POST /api/family', () => {
 
     expect(mockPrisma.familyMember.createMany).toHaveBeenCalledWith({
       data: [
-        expect.objectContaining({
-          alive: true,
-          intimacy: 50,
-        }),
+        expect.objectContaining({ alive: true, intimacy: 50 }),
       ],
     });
   });
@@ -237,12 +280,36 @@ describe('POST /api/family', () => {
     expect(res.status).toBe(400);
   });
 
-  it('创建失败时返回 500', async () => {
+  it('createMany 失败时事务不会清空已有成员', async () => {
+    const existing = {
+      id: 'm1', cultivatorId: 'c1', relation: '父亲', name: '张三', age: 45, alive: true, intimacy: 50,
+      occupation: '教师', incomeLevel: 2, careerCategory: 'education', careerLevel: 2,
+      careerStatus: 'employed', monthlyIncome: 5000, careerUpdatedYear: 2025,
+    };
+    let persistedMembers = [existing];
+    mockPrisma.familyMember.findMany.mockResolvedValue(persistedMembers);
+    mockPrisma.familyMember.deleteMany.mockImplementation(async () => {
+      persistedMembers = [];
+      return { count: 1 };
+    });
     mockPrisma.familyMember.createMany.mockRejectedValue(new Error('DB error'));
+    mockPrisma.$transaction.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => {
+      const beforeTransaction = persistedMembers;
+      try {
+        return await callback(mockPrisma);
+      } catch (error) {
+        persistedMembers = beforeTransaction;
+        throw error;
+      }
+    });
+
     const res = await POST(makePostRequest({
       userId: 'u1',
-      members: [{ relation: '父亲', name: '张三', age: 45 }],
+      members: [{ id: 'm1', relation: '父亲', name: '张三' }],
     }));
+
     expect(res.status).toBe(500);
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(persistedMembers).toEqual([existing]);
   });
 });
