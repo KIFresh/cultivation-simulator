@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { POST } from '../route';
 
 const mockPrisma = vi.hoisted(() => ({
@@ -10,8 +10,10 @@ const mockPrisma = vi.hoisted(() => ({
 
 const mockGetItemById = vi.hoisted(() => vi.fn());
 const mockTechniques = vi.hoisted(() => ({}));
+const mockRequireCultivator = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }));
+vi.mock('@/lib/auth-helpers', () => ({ requireCultivator: mockRequireCultivator }));
 vi.mock('@/lib', () => ({
   getItemById: mockGetItemById,
   TECHNIQUES: mockTechniques,
@@ -33,14 +35,19 @@ const makeRequest = (body: any): NextRequest =>
 describe('Cultivator UseItem API - POST', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRequireCultivator.mockResolvedValue({ cultivator: makeCultivator() });
     mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', cultivator: makeCultivator() });
   });
 
-  it('缺少 userId 或 itemId 返回 400', async () => {
-    const res = await POST(makeRequest({ userId: 'u1' }));
+  it('缺少 itemId 返回 400', async () => {
+    const res = await POST(makeRequest({ itemId: 'pill' }));
     expect(res.status).toBe(400);
-    const res2 = await POST(makeRequest({ itemId: 'pill' }));
-    expect(res2.status).toBe(400);
+  });
+
+  it('无认证返回 401', async () => {
+    mockRequireCultivator.mockResolvedValueOnce({ error: { status: 401 } as NextResponse });
+    const res = await POST(makeRequest({ itemId: 'pill' }));
+    expect(res.status).toBe(401);
   });
 
   it('物品不存在返回 400', async () => {
@@ -65,11 +72,11 @@ describe('Cultivator UseItem API - POST', () => {
   it('recoverStamina 类型物品成功恢复体力', async () => {
     mockGetItemById.mockReturnValue({ id: 'stamina_pill', name: '体力丹', useEffect: { type: 'recoverStamina', value: 20 } });
     const c = makeCultivator({ stamina: 30, inventory: JSON.stringify([{ itemId: 'stamina_pill', quantity: 2, equipped: false }]) });
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', cultivator: c });
+    mockRequireCultivator.mockResolvedValueOnce({ cultivator: c });
     const updated = { ...c, stamina: 50, inventory: JSON.stringify([{ itemId: 'stamina_pill', quantity: 1, equipped: false }]) };
     mockPrisma.cultivator.update.mockResolvedValue(updated);
 
-    const res = await POST(makeRequest({ userId: 'u1', itemId: 'stamina_pill' }));
+    const res = await POST(makeRequest({ itemId: 'stamina_pill' }));
     const d = await res.json();
     expect(res.status).toBe(200);
     expect(d.success).toBe(true);
@@ -79,10 +86,10 @@ describe('Cultivator UseItem API - POST', () => {
   it('addExp 类型物品增加修炼值', async () => {
     mockGetItemById.mockReturnValue({ id: 'exp_pill', name: '修炼丹', useEffect: { type: 'addExp', value: 50 } });
     const c = makeCultivator({ cultivationExp: 100, totalExp: 200, inventory: JSON.stringify([{ itemId: 'exp_pill', quantity: 1, equipped: false }]) });
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', cultivator: c });
+    mockRequireCultivator.mockResolvedValueOnce({ cultivator: c });
     mockPrisma.cultivator.update.mockResolvedValue({ ...c, cultivationExp: 150, totalExp: 250 });
 
-    const res = await POST(makeRequest({ userId: 'u1', itemId: 'exp_pill' }));
+    const res = await POST(makeRequest({ itemId: 'exp_pill' }));
     const d = await res.json();
     expect(d.success).toBe(true);
     expect(d.message).toContain('修炼值');
@@ -93,10 +100,10 @@ describe('Cultivator UseItem API - POST', () => {
     mockTechniques['sword_foundation'] = { name: '剑道基础' };
     mockPrisma.cultivatorTechnique.findFirst.mockResolvedValue(null);
     const c = makeCultivator({ inventory: JSON.stringify([{ itemId: 'ancient_tome', quantity: 1, equipped: false }]) });
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', cultivator: c });
+    mockRequireCultivator.mockResolvedValueOnce({ cultivator: c });
     mockPrisma.cultivator.update.mockResolvedValue({ ...c, inventory: '[]' });
 
-    const res = await POST(makeRequest({ userId: 'u1', itemId: 'ancient_tome' }));
+    const res = await POST(makeRequest({ itemId: 'ancient_tome' }));
     const d = await res.json();
     expect(d.success).toBe(true);
     expect(d.message).toContain('领悟');

@@ -1,22 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { TECHNIQUES, type Technique } from "@/lib/technique-data";
+import { requireCultivator } from "@/lib/auth-helpers";
 
 // GET — 读取修炼者的功法列表
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
-    if (!userId) {
-      return NextResponse.json({ error: "缺少 userId" }, { status: 400 });
-    }
-
-    const cultivator = await prisma.cultivator.findUnique({
-      where: { userId },
-    });
-    if (!cultivator) {
-      return NextResponse.json({ error: "修炼者不存在" }, { status: 404 });
-    }
+    const auth = await requireCultivator(request);
+    if ("error" in auth) return auth.error;
+    const cultivator = auth.cultivator;
 
     const records = await prisma.cultivatorTechnique.findMany({
       where: { cultivatorId: cultivator.id },
@@ -32,19 +24,11 @@ export async function GET(request: NextRequest) {
 // POST — 装备/卸下功法
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireCultivator(request);
+    if ("error" in auth) return auth.error;
+    const cultivator = auth.cultivator;
     const body = await request.json();
-    const { action, userId } = body;
-
-    if (!userId) {
-      return NextResponse.json({ error: "缺少 userId" }, { status: 400 });
-    }
-
-    const cultivator = await prisma.cultivator.findUnique({
-      where: { userId },
-    });
-    if (!cultivator) {
-      return NextResponse.json({ error: "修炼者不存在" }, { status: 404 });
-    }
+    const { action } = body;
 
     // === 装备功法 ===
     if (action === "equip") {

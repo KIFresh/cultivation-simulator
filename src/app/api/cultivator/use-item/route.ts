@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getItemById, TECHNIQUES } from "@/lib";
+import { requireCultivator } from "@/lib/auth-helpers";
 
 // POST — 使用物品
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireCultivator(request);
+    if ("error" in auth) return auth.error;
+    const cultivator = auth.cultivator;
     const body = await request.json();
-    const { userId, itemId, quantity = 1 } = body;
+    const { itemId, quantity = 1 } = body;
 
-    if (!userId || !itemId) {
+    if (!itemId) {
       return NextResponse.json({ error: "缺少参数" }, { status: 400 });
     }
 
@@ -21,15 +25,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "该物品无法使用" }, { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { cultivator: true },
-    });
-    if (!user?.cultivator) {
-      return NextResponse.json({ error: "请先创建修炼者" }, { status: 400 });
-    }
-
-    const cultivator = user.cultivator;
     const inventory: { itemId: string; quantity: number; equipped: boolean }[] =
       JSON.parse(cultivator.inventory || "[]");
 
