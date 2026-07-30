@@ -65,14 +65,9 @@ describe("EXAM_EVENTS 结构合法", () => {
   });
   it("id 全局唯一（不与日常/饭桌/节日池撞车，避免 resolve-event 误匹配）", () => {
     const total =
-      MORTAL_EVENTS.length +
-      DINNER_EVENTS.length +
-      FESTIVAL_EVENTS.length +
-      EXAM_EVENTS.length;
+      MORTAL_EVENTS.length + DINNER_EVENTS.length + FESTIVAL_EVENTS.length + EXAM_EVENTS.length;
     const allIds = new Set(
-      [...MORTAL_EVENTS, ...DINNER_EVENTS, ...FESTIVAL_EVENTS, ...EXAM_EVENTS].map(
-        (e) => e.id,
-      ),
+      [...MORTAL_EVENTS, ...DINNER_EVENTS, ...FESTIVAL_EVENTS, ...EXAM_EVENTS].map((e) => e.id)
     );
     expect(allIds.size).toBe(total);
   });

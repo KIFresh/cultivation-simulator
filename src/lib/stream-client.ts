@@ -44,7 +44,11 @@ interface StreamChunk {
 export async function fetchStreamNarrative(
   url: string,
   body: unknown,
-  opts?: { onChunk?: (text: string) => void; signal?: AbortSignal; headers?: Record<string, string> },
+  opts?: {
+    onChunk?: (text: string) => void;
+    signal?: AbortSignal;
+    headers?: Record<string, string>;
+  }
 ): Promise<NarrativeResult> {
   const result: NarrativeResult = {};
   try {
@@ -116,7 +120,10 @@ export async function fetchStreamNarrative(
             continue;
           }
           if (chunk.error) {
-            const errMsg = typeof chunk.error === "string" ? chunk.error : (chunk.error as Record<string, unknown>)?.message;
+            const errMsg =
+              typeof chunk.error === "string"
+                ? chunk.error
+                : (chunk.error as Record<string, unknown>)?.message;
             if (!result.narrativeError) {
               result.narrativeError = {
                 type: "STREAM",
@@ -165,7 +172,8 @@ export async function fetchStreamNarrative(
 function extractNarrativeError(source: unknown): NarrativeErrorPayload | null {
   const e = source as any;
   if (e?.error?.narrativeError) return e.error.narrativeError as NarrativeErrorPayload;
-  if (typeof e?.error === "string") return { type: "STREAM", code: "STREAM_ERROR", message: e.error, gameEventId: null };
+  if (typeof e?.error === "string")
+    return { type: "STREAM", code: "STREAM_ERROR", message: e.error, gameEventId: null };
   if (e?.narrativeError) return e.narrativeError as NarrativeErrorPayload;
   return null;
 }
@@ -185,21 +193,24 @@ function extractNarrativeError(source: unknown): NarrativeErrorPayload | null {
  *   让流式预览直接展示可读叙事正文。JSON 不完整时（流中途）静默回退到已清洗文本。
  */
 const LEADING_FENCE = /^\s*```[a-zA-Z]*\s*(?:\n|(?=\{))|^\s*~~~[a-zA-Z]*\s*(?:\n|(?=\{))/;
-const LEADING_TAG = /^\s*<(?:function_calls?|function|tool_call|tool_use|think|thinking)\b[^>]*>\s*/i;
+const LEADING_TAG =
+  /^\s*<(?:function_calls?|function|tool_call|tool_use|think|thinking)\b[^>]*>\s*/i;
 const TRAILING_FENCE = /\s*(?:```|~~~)\s*$/;
 const TRAILING_TAG = /\s*<\/(?:function_calls?|function|tool_call|tool_use|think|thinking)>\s*$/i;
 
 /** 尝试从类 JSON 文本中提取 narr / narrative 字段；失败返回 null */
 function tryExtractNarrativeFromJson(text: string): string | null {
   const trimmed = text.trim();
-  if (!trimmed.startsWith('{')) return null;
+  if (!trimmed.startsWith("{")) return null;
   try {
     const obj = JSON.parse(trimmed);
-    if (obj && typeof obj === 'object') {
+    if (obj && typeof obj === "object") {
       const narr = obj.narr ?? obj.narrative ?? obj.content ?? null;
-      if (typeof narr === 'string' && narr.trim().length > 0) return narr;
+      if (typeof narr === "string" && narr.trim().length > 0) return narr;
     }
-  } catch { /* JSON 不完整或非法，静默回退 */ }
+  } catch {
+    /* JSON 不完整或非法，静默回退 */
+  }
   return null;
 }
 

@@ -57,7 +57,8 @@ export default function StreetsPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-[#0b1020] to-[#10202b] text-[#e3f0f5] flex flex-col items-center px-4 py-10">
-      <TopNav /><div className="w-full max-w-2xl">
+      <TopNav />
+      <div className="w-full max-w-2xl">
         <button
           onClick={() => router.push("/weather")}
           className="text-sm text-[#5B8aa8] hover:text-[#8fc2dd] mb-6 transition-colors"
@@ -66,9 +67,7 @@ export default function StreetsPage() {
         </button>
 
         <h1 className="text-2xl font-semibold tracking-wide mb-1">街遇录</h1>
-        <p className="text-xs text-[#5B8aa8] mb-8">
-          城市的缝隙里藏着道。挑一个街区，出门走走。
-        </p>
+        <p className="text-xs text-[#5B8aa8] mb-8">城市的缝隙里藏着道。挑一个街区，出门走走。</p>
 
         <div className="flex flex-wrap gap-2 mb-5">
           {DISTRICTS.map((d) => (

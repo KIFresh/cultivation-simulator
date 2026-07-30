@@ -31,9 +31,7 @@ export interface HealthRecoveryResult {
  * 每季度恢复 QUARTERLY_HEALTH_RECOVERY 点，上限 MAX_HEALTH。
  * 若当前健康 ≤ 0，则不恢复（需要主动治疗）。
  */
-export function calcQuarterlyHealthRecovery(
-  currentHealth: number,
-): HealthRecoveryResult {
+export function calcQuarterlyHealthRecovery(currentHealth: number): HealthRecoveryResult {
   if (currentHealth <= 0) {
     return { newHealth: currentHealth, delta: 0, critical: true };
   }

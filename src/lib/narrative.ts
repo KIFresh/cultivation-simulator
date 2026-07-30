@@ -14,8 +14,7 @@ function normalizeNarrativeKeys(o: unknown): void {
   const obj = o as Record<string, unknown>;
   // 正文：兼容 AI 各种拼写变体（narrative / narrary / narrable / narrrative 等）
   const narrKey = Object.keys(obj).find((k) => k.startsWith("narr"));
-  const body =
-    narrKey ? obj[narrKey] : obj.content ?? obj.text;
+  const body = narrKey ? obj[narrKey] : (obj.content ?? obj.text);
   if (typeof body === "string") obj.narrative = body;
   // 如果仍未找到 narrative，尝试找第一个包含中文的长字符串字段
   if (!obj.narrative || typeof obj.narrative !== "string" || !obj.narrative.trim()) {
@@ -39,27 +38,42 @@ export function extractJson(text: string, fallback: any): any {
   let parsed: unknown = null;
 
   // 1. 直接解析（AI 返回纯净 JSON 时）
-  try { parsed = JSON.parse(text); } catch {}
+  try {
+    parsed = JSON.parse(text);
+  } catch {}
 
   // 2. 从 markdown 代码块中提取 ```json {...} ```（支持无闭合的情况）
-  if (!parsed) try {
-    const m = text.match(/```(?:json)?\s*(\{[\s\S]*?\})(?:\s*```|$)/);
-    if (m) parsed = JSON.parse(m[1]);
-  } catch {}
+  if (!parsed)
+    try {
+      const m = text.match(/```(?:json)?\s*(\{[\s\S]*?\})(?:\s*```|$)/);
+      if (m) parsed = JSON.parse(m[1]);
+    } catch {}
 
   // 3. 括号计数法：提取第一个完整 JSON 对象（跳过字符串内的 {}）
-  if (!parsed) try {
-    let depth = 0;
-    let start = -1;
-    let inString = false;
-    for (let i = 0; i < text.length; i++) {
-      const ch = text[i];
-      if (ch === '"' && (i === 0 || text[i - 1] !== '\\')) { inString = !inString; continue; }
-      if (inString) continue;
-      if (ch === '{') { if (depth === 0) start = i; depth++; }
-      else if (ch === '}') { depth--; if (depth === 0 && start >= 0) { parsed = JSON.parse(text.slice(start, i + 1)); break; } }
-    }
-  } catch {}
+  if (!parsed)
+    try {
+      let depth = 0;
+      let start = -1;
+      let inString = false;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (ch === '"' && (i === 0 || text[i - 1] !== "\\")) {
+          inString = !inString;
+          continue;
+        }
+        if (inString) continue;
+        if (ch === "{") {
+          if (depth === 0) start = i;
+          depth++;
+        } else if (ch === "}") {
+          depth--;
+          if (depth === 0 && start >= 0) {
+            parsed = JSON.parse(text.slice(start, i + 1));
+            break;
+          }
+        }
+      }
+    } catch {}
 
   if (!parsed || typeof parsed !== "object") return fallback;
   normalizeNarrativeKeys(parsed);
@@ -71,12 +85,15 @@ export function extractJson(text: string, fallback: any): any {
  * 追加格式：【标题】叙事前60字…
  * 纯字符串操作，无 AI 调用。
  */
-export function appendToSummary(currentSummary: string | null, event: { title: string; narrative: string }): string {
+export function appendToSummary(
+  currentSummary: string | null,
+  event: { title: string; narrative: string }
+): string {
   const truncated = event.narrative.slice(0, 60);
-  const suffix = event.narrative.length > 60 ? '…' : '';
+  const suffix = event.narrative.length > 60 ? "…" : "";
   const summaryLine = `【${event.title}】${truncated}${suffix}`;
   if (!currentSummary) return summaryLine;
-  return currentSummary + '\n' + summaryLine;
+  return currentSummary + "\n" + summaryLine;
 }
 
 /**
@@ -84,11 +101,15 @@ export function appendToSummary(currentSummary: string | null, event: { title: s
  * 纯字符串长度判断，无 AI 调用。
  */
 export function shouldCompress(summary: string): boolean {
-  const text = summary.replace(/\n/g, '');
+  const text = summary.replace(/\n/g, "");
   return text.length > 1000;
 }
 
-import { SYSTEM_PROMPT_BASE, SYSTEM_PROMPT_CIVILIAN, buildSystemPrompt } from "./narrative/prompts/system";
+import {
+  SYSTEM_PROMPT_BASE,
+  SYSTEM_PROMPT_CIVILIAN,
+  buildSystemPrompt,
+} from "./narrative/prompts/system";
 export { SYSTEM_PROMPT_BASE, SYSTEM_PROMPT_CIVILIAN, buildSystemPrompt };
 
 // ============================================================
@@ -111,12 +132,25 @@ export interface CultivatorState {
   attributes?: unknown;
   occupation?: string | null;
   schoolRank?: number;
-  family?: Array<{ relation: string; name: string; age: number; alive?: boolean; occupation?: string | null }>;
+  family?: Array<{
+    relation: string;
+    name: string;
+    age: number;
+    alive?: boolean;
+    occupation?: string | null;
+  }>;
 }
 
 const ATTR_LABELS: Record<string, string> = {
-  root: "根骨", bone: "根骨", spirit: "灵性", insight: "悟性",
-  comprehension: "悟性", luck: "气运", fortune: "气运", charm: "魅力", mind: "心性",
+  root: "根骨",
+  bone: "根骨",
+  spirit: "灵性",
+  insight: "悟性",
+  comprehension: "悟性",
+  luck: "气运",
+  fortune: "气运",
+  charm: "魅力",
+  mind: "心性",
 };
 
 function safeParseAttrs(raw: unknown): Record<string, number> {
@@ -210,13 +244,22 @@ export function buildStateContext(s?: CultivatorState): string {
  */
 export function stateFromCultivator(
   c: {
-    name: string; age: number; realm: string; realmLevel?: number | null;
-    gold?: number | null; stamina?: number | null;
-    health?: number | null; maxAge?: number | null; toxicity?: number | null;
-    quarter?: number | null; location?: string | null;
-    attributes?: unknown; occupation?: string | null; schoolRank?: number | null;
+    name: string;
+    age: number;
+    realm: string;
+    realmLevel?: number | null;
+    gold?: number | null;
+    stamina?: number | null;
+    health?: number | null;
+    maxAge?: number | null;
+    toxicity?: number | null;
+    quarter?: number | null;
+    location?: string | null;
+    attributes?: unknown;
+    occupation?: string | null;
+    schoolRank?: number | null;
   },
-  family?: CultivatorState["family"],
+  family?: CultivatorState["family"]
 ): CultivatorState {
   return {
     name: c.name,
@@ -254,25 +297,28 @@ export interface StoryEntry {
  * 纯字符串操作，无 AI 调用。
  */
 export function buildSummaryFromEntries(entries: StoryEntry[]): string {
-  if (entries.length === 0) return '';
-  return entries.map(e =>
-    `${e.important ? '⭐ ' : ''}【${e.title}】${e.summary}`
-  ).join('\n');
+  if (entries.length === 0) return "";
+  return entries.map((e) => `${e.important ? "⭐ " : ""}【${e.title}】${e.summary}`).join("\n");
 }
 
 /**
  * 创建一条新的记忆条目。
  * @param truncate - 默认 true，截断 summary 到 60 字；压缩条目传 false
  */
-export function createEntry(title: string, summary: string, truncate = true, aiSummary?: string): StoryEntry {
+export function createEntry(
+  title: string,
+  summary: string,
+  truncate = true,
+  aiSummary?: string
+): StoryEntry {
   return {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
     title,
     summary: aiSummary
-        ? aiSummary.slice(0, 120) + (aiSummary.length > 120 ? '\u2026' : '')
-        : truncate
-          ? summary.slice(0, 60) + (summary.length > 60 ? '\u2026' : '')
-          : summary,
+      ? aiSummary.slice(0, 120) + (aiSummary.length > 120 ? "\u2026" : "")
+      : truncate
+        ? summary.slice(0, 60) + (summary.length > 60 ? "\u2026" : "")
+        : summary,
     important: false,
     createdAt: new Date().toISOString(),
   };
@@ -344,11 +390,11 @@ export interface RegularNarrative extends NarrativeBase {
 
 /** 出生叙事的家庭成员（由出生叙事 AI 生成） */
 export interface BirthFamilyMember {
-  relation: string;       // "父亲" "母亲" "祖母" "姐姐" 等家庭身份
-  name: string;           // 中文姓名
-  age: number;            // 合理年龄
-  alive: boolean;         // 是否在世
-  occupation?: string;    // 职业，如"教师" "厨师" "家庭主妇"
+  relation: string; // "父亲" "母亲" "祖母" "姐姐" 等家庭身份
+  name: string; // 中文姓名
+  age: number; // 合理年龄
+  alive: boolean; // 是否在世
+  occupation?: string; // 职业，如"教师" "厨师" "家庭主妇"
   livingTogether?: boolean; // 是否与主角同住
 }
 
@@ -360,22 +406,30 @@ export interface BirthNarrativeResult extends RegularNarrative {
 
 /** 统一的叙事结果类型 */
 export type UnifiedNarrative =
-  | RegularNarrative
-  | EncounterNarrative
-  | NPCDialogueNarrative
-  | FamilyDialogueNarrative;
+  RegularNarrative | EncounterNarrative | NPCDialogueNarrative | FamilyDialogueNarrative;
 
 /** @deprecated 使用 RegularNarrative 替代 */
 export type NarrativeResult = RegularNarrative;
 
-
 /** 生成日常修炼叙事 */
 export async function generateDailyCultivationNarrative(params: {
-  cultivatorName: string; spiritualRoot: SpiritualRoot; realm: string; realmLevel: number; taskType: string; taskDescription?: string; cultivationExp: number;
+  cultivatorName: string;
+  spiritualRoot: SpiritualRoot;
+  realm: string;
+  realmLevel: number;
+  taskType: string;
+  taskDescription?: string;
+  cultivationExp: number;
   storySummary?: string;
   state?: CultivatorState;
 }): Promise<NarrativeResult> {
-  const taskNames: Record<string, string> = { STUDY: "悟道", EXERCISE: "锻体", SLEEP: "静修", MEDITATE: "打坐", CUSTOM: "历练" };
+  const taskNames: Record<string, string> = {
+    STUDY: "悟道",
+    EXERCISE: "锻体",
+    SLEEP: "静修",
+    MEDITATE: "打坐",
+    CUSTOM: "历练",
+  };
   let prompt = `生成一段现代背景的修炼日常叙事。
 
 【修炼者信息】道号：${params.cultivatorName}，灵根：${params.spiritualRoot}，境界：${params.realm} ${formatRealmLevel(params.realm, params.realmLevel)}，修炼值：${params.cultivationExp}
@@ -392,8 +446,20 @@ export async function generateDailyCultivationNarrative(params: {
   }
 
   try {
-    const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 800, temperature: 0.8 });
-    const result = extractJson(text, { type: "DAILY_CULTIVATION" as const, title: "日常修炼", narrative: "", mood: "静", hint: "持之以恒", summary: `${params.cultivatorName}潜心修炼。` });
+    const text = await callAI({
+      systemPrompt: buildSystemPrompt(),
+      userPrompt: prompt,
+      maxTokens: 800,
+      temperature: 0.8,
+    });
+    const result = extractJson(text, {
+      type: "DAILY_CULTIVATION" as const,
+      title: "日常修炼",
+      narrative: "",
+      mood: "静",
+      hint: "持之以恒",
+      summary: `${params.cultivatorName}潜心修炼。`,
+    });
     if (!result.narrative) throw new Error("AI返回内容为空");
     return result;
   } catch (e) {
@@ -404,12 +470,21 @@ export async function generateDailyCultivationNarrative(params: {
 
 /** 生成境界突破叙事 */
 export async function generateBreakthroughNarrative(params: {
-  cultivatorName: string; spiritualRoot: SpiritualRoot; fromRealm: string; fromLevel: number; toRealm: string; toLevel: number; totalExp: number; breakthroughCount: number;
+  cultivatorName: string;
+  spiritualRoot: SpiritualRoot;
+  fromRealm: string;
+  fromLevel: number;
+  toRealm: string;
+  toLevel: number;
+  totalExp: number;
+  breakthroughCount: number;
   storySummary?: string;
   state?: CultivatorState;
 }): Promise<NarrativeResult> {
   const isNewRealm = params.fromRealm !== params.toRealm;
-  const scene = isNewRealm ? `突破大境界：从 ${params.fromRealm} 到 ${params.toRealm}！` : `${params.fromRealm} ${formatRealmLevel(params.fromRealm, params.fromLevel)} → ${formatRealmLevel(params.fromRealm, params.toLevel)}`;
+  const scene = isNewRealm
+    ? `突破大境界：从 ${params.fromRealm} 到 ${params.toRealm}！`
+    : `${params.fromRealm} ${formatRealmLevel(params.fromRealm, params.fromLevel)} → ${formatRealmLevel(params.fromRealm, params.toLevel)}`;
   let prompt = `生成一段境界突破的叙事（现代背景）。
 
 【修炼者】${params.cultivatorName}，灵根${params.spiritualRoot}，第${params.breakthroughCount + 1}次突破，累计修炼${params.totalExp}
@@ -425,8 +500,20 @@ export async function generateBreakthroughNarrative(params: {
   }
 
   try {
-    const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 1000, temperature: 0.9 });
-    const result = extractJson(text, { type: "BREAKTHROUGH" as const, title: `${params.toRealm}突破！`, narrative: "", mood: "燃", hint: "恭喜突破", summary: `${params.cultivatorName}成功突破至${params.toRealm}。` });
+    const text = await callAI({
+      systemPrompt: buildSystemPrompt(),
+      userPrompt: prompt,
+      maxTokens: 1000,
+      temperature: 0.9,
+    });
+    const result = extractJson(text, {
+      type: "BREAKTHROUGH" as const,
+      title: `${params.toRealm}突破！`,
+      narrative: "",
+      mood: "燃",
+      hint: "恭喜突破",
+      summary: `${params.cultivatorName}成功突破至${params.toRealm}。`,
+    });
     if (!result.narrative) throw new Error("AI返回内容为空");
     return result;
   } catch (e) {
@@ -437,7 +524,10 @@ export async function generateBreakthroughNarrative(params: {
 
 /** 生成随机奇遇叙事 */
 export async function generateEncounterNarrative(params: {
-  cultivatorName: string; spiritualRoot: SpiritualRoot; realm: string; realmLevel: number;
+  cultivatorName: string;
+  spiritualRoot: SpiritualRoot;
+  realm: string;
+  realmLevel: number;
   storySummary?: string;
   state?: CultivatorState;
 }): Promise<EncounterNarrative> {
@@ -455,8 +545,24 @@ export async function generateEncounterNarrative(params: {
   }
 
   try {
-    const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 800, temperature: 0.9 });
-    const result = extractJson(text, { type: "ENCOUNTER" as const, title: "意外发现", narrative: "", choices: [{ text: "小心探查", risk: "low", hint: "稳扎稳打" }, { text: "深入探索", risk: "medium", hint: "风险与机遇并存" }, { text: "全力闯入", risk: "high", hint: "富贵险中求" }], mood: "奇", summary: `${params.cultivatorName}发现一处不对劲的地方。` });
+    const text = await callAI({
+      systemPrompt: buildSystemPrompt(),
+      userPrompt: prompt,
+      maxTokens: 800,
+      temperature: 0.9,
+    });
+    const result = extractJson(text, {
+      type: "ENCOUNTER" as const,
+      title: "意外发现",
+      narrative: "",
+      choices: [
+        { text: "小心探查", risk: "low", hint: "稳扎稳打" },
+        { text: "深入探索", risk: "medium", hint: "风险与机遇并存" },
+        { text: "全力闯入", risk: "high", hint: "富贵险中求" },
+      ],
+      mood: "奇",
+      summary: `${params.cultivatorName}发现一处不对劲的地方。`,
+    });
     if (!result.narrative) throw new Error("AI返回内容为空");
     return result;
   } catch (e) {
@@ -467,7 +573,12 @@ export async function generateEncounterNarrative(params: {
 
 /** 生成 NPC 对话 */
 export async function generateNPCDialogue(params: {
-  npcName: string; npcPersonality: string; npcRealm: string; cultivatorName: string; cultivatorRealm: string; historySummary?: string;
+  npcName: string;
+  npcPersonality: string;
+  npcRealm: string;
+  cultivatorName: string;
+  cultivatorRealm: string;
+  historySummary?: string;
 }): Promise<NPCDialogueNarrative> {
   const prompt = `生成一段NPC对话（现代背景）。
 
@@ -478,8 +589,20 @@ export async function generateNPCDialogue(params: {
 返回JSON：{"type":"NPC_DIALOGUE","title":"与${params.npcName}的对话","narrative":"对话内容","mood":"？","npcMood":"友善/冷淡/严厉","reward":{...}或null","summary":"30字内概述"}`;
 
   try {
-    const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 800, temperature: 0.8 });
-    const result = extractJson(text, { type: "NPC_DIALOGUE" as const, title: `与${params.npcName}的对话`, narrative: "", mood: "奇", npcMood: "友善", summary: `与${params.npcName}交谈。` });
+    const text = await callAI({
+      systemPrompt: buildSystemPrompt(),
+      userPrompt: prompt,
+      maxTokens: 800,
+      temperature: 0.8,
+    });
+    const result = extractJson(text, {
+      type: "NPC_DIALOGUE" as const,
+      title: `与${params.npcName}的对话`,
+      narrative: "",
+      mood: "奇",
+      npcMood: "友善",
+      summary: `与${params.npcName}交谈。`,
+    });
     if (!result.narrative) throw new Error("AI返回内容为空");
     return result;
   } catch (e) {
@@ -490,16 +613,41 @@ export async function generateNPCDialogue(params: {
 
 /** 生成行动叙事 */
 export async function generateActionNarrative(params: {
-  cultivatorName: string; spiritualRoot: string; realm: string; realmLevel: number;
-  age: number; worldId?: string; actionName: string; actionDescription: string;
-  freeInput?: string; npcIds?: string[]; npcNames?: string[]; expGained: number; isAwakened: boolean; awakenEvent: boolean;
+  cultivatorName: string;
+  spiritualRoot: string;
+  realm: string;
+  realmLevel: number;
+  age: number;
+  worldId?: string;
+  actionName: string;
+  actionDescription: string;
+  freeInput?: string;
+  npcIds?: string[];
+  npcNames?: string[];
+  expGained: number;
+  isAwakened: boolean;
+  awakenEvent: boolean;
   storySummary?: string;
   state?: CultivatorState;
   giftDecision?: { givesGold: number; reason: string };
 }): Promise<NarrativeResult> {
-  const realmStr = params.realm === "凡人" ? "凡人" : `${params.realm} ${formatRealmLevel(params.realm, params.realmLevel)}`;
-  const ageContext = params.age <= 3 ? "幼儿" : params.age <= 6 ? "孩童" : params.age <= 12 ? "少年" : params.age <= 15 ? "即将成年的少年" : "修炼者";
-  const selectedNpcNames = (params.npcNames ?? []).filter((name): name is string => typeof name === "string" && name.trim().length > 0).map((name) => name.trim());
+  const realmStr =
+    params.realm === "凡人"
+      ? "凡人"
+      : `${params.realm} ${formatRealmLevel(params.realm, params.realmLevel)}`;
+  const ageContext =
+    params.age <= 3
+      ? "幼儿"
+      : params.age <= 6
+        ? "孩童"
+        : params.age <= 12
+          ? "少年"
+          : params.age <= 15
+            ? "即将成年的少年"
+            : "修炼者";
+  const selectedNpcNames = (params.npcNames ?? [])
+    .filter((name): name is string => typeof name === "string" && name.trim().length > 0)
+    .map((name) => name.trim());
   const selectedTargetText = selectedNpcNames.join("、");
   let prompt = `写一段行动叙事，现代背景、现代白话。
 
@@ -551,8 +699,20 @@ ${params.giftDecision ? `【服务端结算】本次行动馈赠：获得金币 
   if (params.actionName === "自由探索") postHint = "随心行动";
 
   try {
-    const text = await callAI({ systemPrompt: buildSystemPrompt(params.worldId), userPrompt: prompt, maxTokens: 800, temperature: 0.85 });
-    const result = extractJson(text, { type: "ACTION" as const, title: params.actionName, narrative: "", mood: "悟", hint: postHint, summary: `${params.cultivatorName}${params.actionName}。` });
+    const text = await callAI({
+      systemPrompt: buildSystemPrompt(params.worldId),
+      userPrompt: prompt,
+      maxTokens: 800,
+      temperature: 0.85,
+    });
+    const result = extractJson(text, {
+      type: "ACTION" as const,
+      title: params.actionName,
+      narrative: "",
+      mood: "悟",
+      hint: postHint,
+      summary: `${params.cultivatorName}${params.actionName}。`,
+    });
     if (!result.narrative || !result.narrative.trim()) {
       throw new Error("AI返回内容为空");
     }
@@ -565,12 +725,22 @@ ${params.giftDecision ? `【服务端结算】本次行动馈赠：获得金币 
 
 /** 生成年志叙事 */
 export async function generateYearAdvanceNarrative(params: {
-  cultivatorName: string; spiritualRoot: string; realm: string; realmLevel: number;
-  oldAge: number; newAge: number; totalExp: number; worldId?: string; extraContext?: string;
+  cultivatorName: string;
+  spiritualRoot: string;
+  realm: string;
+  realmLevel: number;
+  oldAge: number;
+  newAge: number;
+  totalExp: number;
+  worldId?: string;
+  extraContext?: string;
   storySummary?: string;
   state?: CultivatorState;
 }): Promise<NarrativeResult> {
-  const realmStr = params.realm === "凡人" ? "凡人" : `${params.realm} ${formatRealmLevel(params.realm, params.realmLevel)}`;
+  const realmStr =
+    params.realm === "凡人"
+      ? "凡人"
+      : `${params.realm} ${formatRealmLevel(params.realm, params.realmLevel)}`;
   let prompt = `写一段现代背景下的时间推进叙事。
 
 【角色】${params.cultivatorName}，${params.oldAge}岁→${params.newAge}岁（这是仅有的一个年龄变化！必须聚焦这一年发生的事，不要跨越多年、不要写"X至Y岁期间"这种多年跨度），灵根${params.spiritualRoot}，境界${realmStr}，累计修炼${params.totalExp}
@@ -592,8 +762,20 @@ ${params.extraContext ? `\n【背景】${params.extraContext}` : ""}
   }
 
   try {
-    const text = await callAI({ systemPrompt: buildSystemPrompt(params.worldId), userPrompt: prompt, maxTokens: 600, temperature: 0.8 });
-    const result = extractJson(text, { type: "YEAR_ADVANCE" as const, title: `${params.cultivatorName}的第${params.newAge}年`, narrative: "", mood: "静", hint: "岁月不居", summary: `${params.cultivatorName}又长大了一岁。` });
+    const text = await callAI({
+      systemPrompt: buildSystemPrompt(params.worldId),
+      userPrompt: prompt,
+      maxTokens: 600,
+      temperature: 0.8,
+    });
+    const result = extractJson(text, {
+      type: "YEAR_ADVANCE" as const,
+      title: `${params.cultivatorName}的第${params.newAge}年`,
+      narrative: "",
+      mood: "静",
+      hint: "岁月不居",
+      summary: `${params.cultivatorName}又长大了一岁。`,
+    });
     if (!result.narrative) throw new Error("AI返回内容为空");
     return result;
   } catch (e) {
@@ -604,14 +786,24 @@ ${params.extraContext ? `\n【背景】${params.extraContext}` : ""}
 
 /** 生成家庭对话 */
 export async function generateFamilyDialogue(params: {
-  familyMemberName: string; familyMemberRelation: string; familyMemberAge: number;
-  intimacy: number; cultivatorName: string; cultivatorAge: number; cultivatorRealm: string; cultivatorRealmLevel: number;
-  playerMessage: string; dialogueHistory: { role: "player" | "npc"; content: string }[];
+  familyMemberName: string;
+  familyMemberRelation: string;
+  familyMemberAge: number;
+  intimacy: number;
+  cultivatorName: string;
+  cultivatorAge: number;
+  cultivatorRealm: string;
+  cultivatorRealmLevel: number;
+  playerMessage: string;
+  dialogueHistory: { role: "player" | "npc"; content: string }[];
   worldId?: string;
   storySummary?: string;
   state?: CultivatorState;
 }): Promise<FamilyDialogueNarrative> {
-  const recentHistory = params.dialogueHistory.slice(-5).map((d) => `${d.role === "player" ? "主角" : params.familyMemberRelation}：${d.content}`).join("\n");
+  const recentHistory = params.dialogueHistory
+    .slice(-5)
+    .map((d) => `${d.role === "player" ? "主角" : params.familyMemberRelation}：${d.content}`)
+    .join("\n");
   let prompt = `生成一段家庭日常对话。
 
 【NPC】${params.familyMemberName}（${params.familyMemberRelation}），${params.familyMemberAge}岁，亲密度${params.intimacy}/100
@@ -629,8 +821,21 @@ ${recentHistory ? `【最近对话】\n${recentHistory}` : ""}
   }
 
   try {
-    const text = await callAI({ systemPrompt: buildSystemPrompt(params.worldId), userPrompt: prompt, maxTokens: 500, temperature: 0.85 });
-    const result = extractJson(text, { type: "FAMILY_DIALOGUE" as const, title: "家庭对话", narrative: "", mood: "静", intimacyDelta: 0, npcMood: "平淡", summary: `与${params.familyMemberRelation}交谈。` });
+    const text = await callAI({
+      systemPrompt: buildSystemPrompt(params.worldId),
+      userPrompt: prompt,
+      maxTokens: 500,
+      temperature: 0.85,
+    });
+    const result = extractJson(text, {
+      type: "FAMILY_DIALOGUE" as const,
+      title: "家庭对话",
+      narrative: "",
+      mood: "静",
+      intimacyDelta: 0,
+      npcMood: "平淡",
+      summary: `与${params.familyMemberRelation}交谈。`,
+    });
     if (!result.narrative) throw new Error("AI返回内容为空");
     return result;
   } catch (e) {
@@ -641,13 +846,13 @@ ${recentHistory ? `【最近对话】\n${recentHistory}` : ""}
 
 /** 先天禀赋 → 中性（非修仙）描述，避免叙事中出现世界观字眼 */
 const BIRTH_TRAIT_MAP: Record<string, string> = {
-  "废柴": "先天体弱，需要更多呵护",
-  "凡人": "资质寻常，和大多数孩子一样",
-  "俊杰": "天资聪颖，显得格外机灵",
-  "天骄": "天赋卓绝，从小便引人注目",
-  "妖孽": "百年难遇的异禀之才",
-  "谪仙转世": "带着一分说不清的神秘气韵",
-  "大道之子": "仿佛自出生便被命运眷顾",
+  废柴: "先天体弱，需要更多呵护",
+  凡人: "资质寻常，和大多数孩子一样",
+  俊杰: "天资聪颖，显得格外机灵",
+  天骄: "天赋卓绝，从小便引人注目",
+  妖孽: "百年难遇的异禀之才",
+  谪仙转世: "带着一分说不清的神秘气韵",
+  大道之子: "仿佛自出生便被命运眷顾",
 };
 
 /** 出生叙事备用名 — 当 AI 返回无效姓名时使用 */
@@ -663,11 +868,14 @@ export function fallbackBirthName(): string {
 export function validateBirthConsistency(
   narrative: string,
   suggestedName: string,
-  family: BirthFamilyMember[],
+  family: BirthFamilyMember[]
 ): string[] {
   const errors: string[] = [];
 
-  if (!narrative) { errors.push("叙事正文为空"); return errors; }
+  if (!narrative) {
+    errors.push("叙事正文为空");
+    return errors;
+  }
 
   // 1) 主角姓名必须在正文中出现
   if (suggestedName && !narrative.includes(suggestedName)) {
@@ -701,14 +909,14 @@ export function validateBirthConsistency(
     // 关系去重（仅对核心直系关系做精确匹配）
     const coreRel = (() => {
       for (const [core, syns] of Object.entries({
-        "父亲": ["父亲", "爸爸", "爹"],
-        "母亲": ["母亲", "妈妈", "娘"],
-        "祖父": ["祖父", "爷爷"],
-        "祖母": ["祖母", "奶奶"],
-        "哥哥": ["哥哥", "兄"],
-        "姐姐": ["姐姐", "姐", "姊"],
-        "弟弟": ["弟弟", "弟"],
-        "妹妹": ["妹妹", "妹"],
+        父亲: ["父亲", "爸爸", "爹"],
+        母亲: ["母亲", "妈妈", "娘"],
+        祖父: ["祖父", "爷爷"],
+        祖母: ["祖母", "奶奶"],
+        哥哥: ["哥哥", "兄"],
+        姐姐: ["姐姐", "姐", "姊"],
+        弟弟: ["弟弟", "弟"],
+        妹妹: ["妹妹", "妹"],
       })) {
         if (syns.includes(m.relation) || m.relation === core) return core;
       }
@@ -726,16 +934,16 @@ export function validateBirthConsistency(
   // 3) 如果正文提到了核心家庭成员关系词，检查是否在 family 中有对应
   // 口语与书面语映射
   const relationSynonyms: Record<string, string[]> = {
-    "父亲": ["父亲", "爸爸", "爹"],
-    "母亲": ["母亲", "妈妈", "娘"],
-    "祖父": ["祖父", "爷爷", "阿公"],
-    "祖母": ["祖母", "奶奶", "阿婆"],
-    "外公": ["外公", "外祖父"],
-    "外婆": ["外婆", "外祖母"],
-    "哥哥": ["哥哥", "兄"],
-    "姐姐": ["姐姐", "姐", "姊"],
-    "弟弟": ["弟弟", "弟"],
-    "妹妹": ["妹妹", "妹"],
+    父亲: ["父亲", "爸爸", "爹"],
+    母亲: ["母亲", "妈妈", "娘"],
+    祖父: ["祖父", "爷爷", "阿公"],
+    祖母: ["祖母", "奶奶", "阿婆"],
+    外公: ["外公", "外祖父"],
+    外婆: ["外婆", "外祖母"],
+    哥哥: ["哥哥", "兄"],
+    姐姐: ["姐姐", "姐", "姊"],
+    弟弟: ["弟弟", "弟"],
+    妹妹: ["妹妹", "妹"],
   };
   // 扁平化：口语词 → 核心关系
   const colToCore: Record<string, string> = {};
@@ -772,7 +980,11 @@ export function validateBirthConsistency(
   for (const core of mentionedCoreRelations) {
     if (!familyCoreRelations.has(core)) {
       // 特殊处理："弟弟"/"妹妹" 可能指代主角本人，如果 suggestedName 出现在附近则跳过
-      if ((core === "弟弟" || core === "妹妹") && suggestedName && narrative.includes(suggestedName)) {
+      if (
+        (core === "弟弟" || core === "妹妹") &&
+        suggestedName &&
+        narrative.includes(suggestedName)
+      ) {
         continue;
       }
       const example = relationSynonyms[core]?.[0] || core;
@@ -785,16 +997,22 @@ export function validateBirthConsistency(
 
 /** 生成出生叙事（凡人写实风格，不出现任何修仙/世界观设定） */
 export async function generateBirthNarrative(params: {
-  cultivatorName?: string; spiritualRoot?: string; worldName?: string; identityName?: string;
-  age?: number; worldId?: string; family?: BirthFamilyMember[];
+  cultivatorName?: string;
+  spiritualRoot?: string;
+  worldName?: string;
+  identityName?: string;
+  age?: number;
+  worldId?: string;
+  family?: BirthFamilyMember[];
   storySummary?: string;
   birthTier?: string;
   state?: CultivatorState;
 }): Promise<BirthNarrativeResult> {
-  const trait = params.birthTier ? (BIRTH_TRAIT_MAP[params.birthTier] || params.birthTier) : "寻常";
+  const trait = params.birthTier ? BIRTH_TRAIT_MAP[params.birthTier] || params.birthTier : "寻常";
   const identityStr = params.identityName ? `家庭背景：${params.identityName}。` : "";
   // 出生叙事始终聚焦出生现场，无论 params.age 为何值
-  const ageHint = "请聚焦在主角出生当天或刚出生不久的场景（分娩、产房或家中迎接新生儿、家人第一次见到孩子、取名等出生现场），不要写周岁日常、学步、吃饭、玩耍等一岁生活片段，也不要跨越多个年龄阶段。";
+  const ageHint =
+    "请聚焦在主角出生当天或刚出生不久的场景（分娩、产房或家中迎接新生儿、家人第一次见到孩子、取名等出生现场），不要写周岁日常、学步、吃饭、玩耍等一岁生活片段，也不要跨越多个年龄阶段。";
   let prompt = `写一个普通人在现代社会的故事片段，温暖而有烟火气。
 
 ${identityStr}这孩子的先天禀赋：${trait}。
@@ -826,7 +1044,12 @@ ${ageHint}
   }
 
   try {
-    const text = await callAI({ systemPrompt: SYSTEM_PROMPT_CIVILIAN, userPrompt: prompt, maxTokens: 1000, temperature: 0.85 });
+    const text = await callAI({
+      systemPrompt: SYSTEM_PROMPT_CIVILIAN,
+      userPrompt: prompt,
+      maxTokens: 1000,
+      temperature: 0.85,
+    });
     const result = extractJson(text, {
       type: "BIRTH",
       title: "新生命降临",
@@ -839,7 +1062,9 @@ ${ageHint}
     });
     if (!result.narrative || !result.narrative.trim()) {
       const snippet = text.length > 400 ? text.slice(0, 400) + "..." : text;
-      throw new Error(`出生叙事AI返回内容为空。AI原始响应(前400字): ${snippet.replace(/\n/g, " ")}`);
+      throw new Error(
+        `出生叙事AI返回内容为空。AI原始响应(前400字): ${snippet.replace(/\n/g, " ")}`
+      );
     }
     // ── suggestedName 验证 ──────────────────────────────
     const raw = (result.suggestedName || "").trim();
@@ -855,8 +1080,31 @@ ${ageHint}
     }
 
     // 过滤：只保留直系亲属（父母、兄弟姐妹）
-    const IMMEDIATE_RELATIONS = new Set(["父亲", "母亲", "爸爸", "妈妈", "爹", "娘", "哥哥", "姐姐", "弟弟", "妹妹", "兄长", "长兄", "大哥", "二哥", "小弟", "大姐", "二姐", "小妹", "兄弟", "姐妹"]);
-    result.family = result.family.filter((m: BirthFamilyMember) => IMMEDIATE_RELATIONS.has(m.relation));
+    const IMMEDIATE_RELATIONS = new Set([
+      "父亲",
+      "母亲",
+      "爸爸",
+      "妈妈",
+      "爹",
+      "娘",
+      "哥哥",
+      "姐姐",
+      "弟弟",
+      "妹妹",
+      "兄长",
+      "长兄",
+      "大哥",
+      "二哥",
+      "小弟",
+      "大姐",
+      "二姐",
+      "小妹",
+      "兄弟",
+      "姐妹",
+    ]);
+    result.family = result.family.filter((m: BirthFamilyMember) =>
+      IMMEDIATE_RELATIONS.has(m.relation)
+    );
 
     // ── 三方一致性校验 ──────────────────────────────────
     const named = result.suggestedName || "";
@@ -865,8 +1113,13 @@ ${ageHint}
       console.warn("出生叙事家庭一致性校验发现不一致:", errors.join("; "));
       // 尝试一次 AI 修正：将错误列表发给 AI 重新生成
       try {
-        const fixPrompt = `${prompt}\n\n【以上输出存在不一致，请修正后重新输出完整JSON】\n不一致问题：\n${errors.map((e,i) => `${i+1}. ${e}`).join("\n")}\n\n请重新生成JSON，确保正文、suggestedName、family 三者完全一致。`;
-        const fixText = await callAI({ systemPrompt: SYSTEM_PROMPT_CIVILIAN, userPrompt: fixPrompt, maxTokens: 1000, temperature: 0.7 });
+        const fixPrompt = `${prompt}\n\n【以上输出存在不一致，请修正后重新输出完整JSON】\n不一致问题：\n${errors.map((e, i) => `${i + 1}. ${e}`).join("\n")}\n\n请重新生成JSON，确保正文、suggestedName、family 三者完全一致。`;
+        const fixText = await callAI({
+          systemPrompt: SYSTEM_PROMPT_CIVILIAN,
+          userPrompt: fixPrompt,
+          maxTokens: 1000,
+          temperature: 0.7,
+        });
         const fixResult: BirthNarrativeResult = extractJson(fixText, {
           type: "BIRTH",
           title: result.title || "新生命降临",
@@ -882,7 +1135,11 @@ ${ageHint}
           const fixName = fixResult.suggestedName.trim();
           const fixNameOk = /^[\u4e00-\u9fff]{2,4}$/.test(fixName);
           const fixedName = fixNameOk ? fixName : named;
-          const fixErrors = validateBirthConsistency(fixResult.narrative, fixedName, fixResult.family || []);
+          const fixErrors = validateBirthConsistency(
+            fixResult.narrative,
+            fixedName,
+            fixResult.family || []
+          );
           if (fixErrors.length === 0) {
             // 修正通过
             result.narrative = fixResult.narrative;
@@ -918,8 +1175,8 @@ export async function compressStorySummary(
   entries: StoryEntry[],
   cultivatorName: string
 ): Promise<string> {
-  const importantEntries = entries.filter(e => e.important);
-  const normalEntries = entries.filter(e => !e.important);
+  const importantEntries = entries.filter((e) => e.important);
+  const normalEntries = entries.filter((e) => !e.important);
 
   let prompt = `你是一个小说编辑。将以下剧情概要压缩到500字以内。
 
@@ -928,10 +1185,10 @@ export async function compressStorySummary(
 `;
 
   if (importantEntries.length > 0) {
-    prompt += `重要事件（必须保留）：\n${importantEntries.map(e => `⭐ 【${e.title}】${e.summary}`).join('\n')}\n\n`;
+    prompt += `重要事件（必须保留）：\n${importantEntries.map((e) => `⭐ 【${e.title}】${e.summary}`).join("\n")}\n\n`;
   }
   if (normalEntries.length > 0) {
-    prompt += `其他事件（可精简合并）：\n${normalEntries.map(e => `【${e.title}】${e.summary}`).join('\n')}\n\n`;
+    prompt += `其他事件（可精简合并）：\n${normalEntries.map((e) => `【${e.title}】${e.summary}`).join("\n")}\n\n`;
   }
 
   prompt += `要求：重要事件必须完整保留，其他事件可合并或精简。直接输出压缩后的纯文本，不要 JSON 格式。`;
@@ -945,7 +1202,10 @@ export async function compressStorySummary(
     });
     return text.slice(0, 500);
   } catch {
-    return [...importantEntries.map(e => `⭐ 【${e.title}】${e.summary}`), ...normalEntries.map(e => `【${e.title}】${e.summary}`)].join('\n');
+    return [
+      ...importantEntries.map((e) => `⭐ 【${e.title}】${e.summary}`),
+      ...normalEntries.map((e) => `【${e.title}】${e.summary}`),
+    ].join("\n");
   }
 }
 
@@ -969,7 +1229,8 @@ export async function generateCombatNarrative(params: {
     comedy: `${params.cultivatorName}被一块石头绊倒，${params.enemyName}一脸困惑地看着你。`,
     crushed: `${params.cultivatorName}连${params.enemyName}的衣角都没碰到就被打飞出去。`,
   };
-  const defaultText = styleMap[params.style] || `${params.cultivatorName}与${params.enemyName}展开了战斗。`;
+  const defaultText =
+    styleMap[params.style] || `${params.cultivatorName}与${params.enemyName}展开了战斗。`;
 
   const prompt = `写一段战斗叙事（现代背景），不超过150字。
 
@@ -982,7 +1243,12 @@ export async function generateCombatNarrative(params: {
 直接输出叙事文本，不要 JSON。`;
 
   try {
-    const text = await callAI({ systemPrompt: "你是一个现代背景小说的战斗描写作者。", userPrompt: prompt, maxTokens: 300, temperature: 0.8 });
+    const text = await callAI({
+      systemPrompt: "你是一个现代背景小说的战斗描写作者。",
+      userPrompt: prompt,
+      maxTokens: 300,
+      temperature: 0.8,
+    });
     return text.slice(0, 300) || defaultText;
   } catch {
     return defaultText;

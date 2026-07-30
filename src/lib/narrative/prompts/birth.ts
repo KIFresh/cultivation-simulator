@@ -9,13 +9,13 @@ import { logger } from "@/lib/logger";
 
 /** 先天禀赋 → 中性（非修仙）描述，避免叙事中出现世界观字眼 */
 const BIRTH_TRAIT_MAP: Record<string, string> = {
-  "废柴": "先天体弱，需要更多呵护",
-  "凡人": "资质寻常，和大多数孩子一样",
-  "俊杰": "天资聪颖，显得格外机灵",
-  "天骄": "天赋卓绝，从小便引人注目",
-  "妖孽": "百年难遇的异禀之才",
-  "谪仙转世": "带着一分说不清的神秘气韵",
-  "大道之子": "仿佛自出生便被命运眷顾",
+  废柴: "先天体弱，需要更多呵护",
+  凡人: "资质寻常，和大多数孩子一样",
+  俊杰: "天资聪颖，显得格外机灵",
+  天骄: "天赋卓绝，从小便引人注目",
+  妖孽: "百年难遇的异禀之才",
+  谪仙转世: "带着一分说不清的神秘气韵",
+  大道之子: "仿佛自出生便被命运眷顾",
 };
 
 /** 出生叙事备用名 — 当 AI 返回无效姓名时使用 */
@@ -31,11 +31,14 @@ export function fallbackBirthName(): string {
 export function validateBirthConsistency(
   narrative: string,
   suggestedName: string,
-  family: BirthFamilyMember[],
+  family: BirthFamilyMember[]
 ): string[] {
   const errors: string[] = [];
 
-  if (!narrative) { errors.push("叙事正文为空"); return errors; }
+  if (!narrative) {
+    errors.push("叙事正文为空");
+    return errors;
+  }
 
   // 1) 主角姓名必须在正文中出现
   if (suggestedName && !narrative.includes(suggestedName)) {
@@ -66,14 +69,14 @@ export function validateBirthConsistency(
 
     const coreRel = (() => {
       for (const [core, syns] of Object.entries({
-        "父亲": ["父亲", "爸爸", "爹"],
-        "母亲": ["母亲", "妈妈", "娘"],
-        "祖父": ["祖父", "爷爷"],
-        "祖母": ["祖母", "奶奶"],
-        "哥哥": ["哥哥", "兄"],
-        "姐姐": ["姐姐", "姐", "姊"],
-        "弟弟": ["弟弟", "弟"],
-        "妹妹": ["妹妹", "妹"],
+        父亲: ["父亲", "爸爸", "爹"],
+        母亲: ["母亲", "妈妈", "娘"],
+        祖父: ["祖父", "爷爷"],
+        祖母: ["祖母", "奶奶"],
+        哥哥: ["哥哥", "兄"],
+        姐姐: ["姐姐", "姐", "姊"],
+        弟弟: ["弟弟", "弟"],
+        妹妹: ["妹妹", "妹"],
       })) {
         if (syns.includes(m.relation) || m.relation === core) return core;
       }
@@ -90,21 +93,24 @@ export function validateBirthConsistency(
 
   // 3) 如果正文提到了核心家庭成员关系词，检查是否在 family 中有对应
   const relationSynonyms: Record<string, string[]> = {
-    "父亲": ["父亲", "爸爸", "爹"],
-    "母亲": ["母亲", "妈妈", "娘"],
-    "祖父": ["祖父", "爷爷", "阿公"],
-    "祖母": ["祖母", "奶奶", "阿婆"],
-    "外公": ["外公", "外祖父"],
-    "外婆": ["外婆", "外祖母"],
-    "哥哥": ["哥哥", "兄"],
-    "姐姐": ["姐姐", "姐", "姊"],
-    "弟弟": ["弟弟", "弟"],
-    "妹妹": ["妹妹", "妹"],
+    父亲: ["父亲", "爸爸", "爹"],
+    母亲: ["母亲", "妈妈", "娘"],
+    祖父: ["祖父", "爷爷", "阿公"],
+    祖母: ["祖母", "奶奶", "阿婆"],
+    外公: ["外公", "外祖父"],
+    外婆: ["外婆", "外祖母"],
+    哥哥: ["哥哥", "兄"],
+    姐姐: ["姐姐", "姐", "姊"],
+    弟弟: ["弟弟", "弟"],
+    妹妹: ["妹妹", "妹"],
   };
 
   for (const [core, cols] of Object.entries(relationSynonyms)) {
     for (const col of cols) {
-      if (narrative.includes(col) && !family.some((m) => m.relation === col || m.relation === core)) {
+      if (
+        narrative.includes(col) &&
+        !family.some((m) => m.relation === col || m.relation === core)
+      ) {
         errors.push(`正文提到了"${col}"，但 family 中没有对应成员（期望关系"${core}"）`);
       }
     }
@@ -125,9 +131,14 @@ export async function generateBirthNarrative(params: {
   storySummary?: string;
 }): Promise<BirthNarrativeResult> {
   const traitDesc = BIRTH_TRAIT_MAP[params.birthTier] || "普通的孩子";
-  const familyDesc = params.family.length > 0
-    ? params.family.map((m) => `${m.relation} ${m.name}（${m.age}岁${m.occupation ? `，${m.occupation}` : ""}）`).join("，")
-    : "待定";
+  const familyDesc =
+    params.family.length > 0
+      ? params.family
+          .map(
+            (m) => `${m.relation} ${m.name}（${m.age}岁${m.occupation ? `，${m.occupation}` : ""}）`
+          )
+          .join("，")
+      : "待定";
 
   let prompt = `你是一个写实风格的生活叙事引擎。请生成一段【出生当天】的叙事。
 
@@ -156,7 +167,12 @@ ${params.cultivatorName ? `【备用名】${params.cultivatorName}` : ""}
   }
 
   try {
-    const text = await callAI({ systemPrompt: SYSTEM_PROMPT_CIVILIAN, userPrompt: prompt, maxTokens: 1000, temperature: 0.85 });
+    const text = await callAI({
+      systemPrompt: SYSTEM_PROMPT_CIVILIAN,
+      userPrompt: prompt,
+      maxTokens: 1000,
+      temperature: 0.85,
+    });
     const result: BirthNarrativeResult = extractJson(text, {
       type: "BIRTH",
       title: "新生命降临",
@@ -169,7 +185,9 @@ ${params.cultivatorName ? `【备用名】${params.cultivatorName}` : ""}
     });
     if (!result.narrative || !result.narrative.trim()) {
       const snippet = text.length > 400 ? text.slice(0, 400) + "..." : text;
-      throw new Error(`出生叙事AI返回内容为空。AI原始响应(前400字): ${snippet.replace(/\n/g, " ")}`);
+      throw new Error(
+        `出生叙事AI返回内容为空。AI原始响应(前400字): ${snippet.replace(/\n/g, " ")}`
+      );
     }
     // ── suggestedName 验证 ──────────────────────────────
     const raw = (result.suggestedName || "").trim();
@@ -181,7 +199,7 @@ ${params.cultivatorName ? `【备用名】${params.cultivatorName}` : ""}
     }
     // 确保 family 非空
     if (!result.family || result.family.length === 0) {
-      result.family = (params.family && params.family.length > 0) ? params.family : [];
+      result.family = params.family && params.family.length > 0 ? params.family : [];
     }
 
     // ── 三方一致性校验 ──────────────────────────────────
@@ -190,8 +208,13 @@ ${params.cultivatorName ? `【备用名】${params.cultivatorName}` : ""}
     if (errors.length > 0) {
       console.warn("出生叙事家庭一致性校验发现不一致:", errors.join("; "));
       try {
-        const fixPrompt = `${prompt}\n\n【以上输出存在不一致，请修正后重新输出完整JSON】\n不一致问题：\n${errors.map((e,i) => `${i+1}. ${e}`).join("\n")}\n\n请重新生成JSON，确保正文、suggestedName、family 三者完全一致。`;
-        const fixText = await callAI({ systemPrompt: SYSTEM_PROMPT_CIVILIAN, userPrompt: fixPrompt, maxTokens: 1000, temperature: 0.7 });
+        const fixPrompt = `${prompt}\n\n【以上输出存在不一致，请修正后重新输出完整JSON】\n不一致问题：\n${errors.map((e, i) => `${i + 1}. ${e}`).join("\n")}\n\n请重新生成JSON，确保正文、suggestedName、family 三者完全一致。`;
+        const fixText = await callAI({
+          systemPrompt: SYSTEM_PROMPT_CIVILIAN,
+          userPrompt: fixPrompt,
+          maxTokens: 1000,
+          temperature: 0.7,
+        });
         const fixResult: BirthNarrativeResult = extractJson(fixText, {
           type: "BIRTH",
           title: result.title || "新生命降临",
@@ -204,7 +227,11 @@ ${params.cultivatorName ? `【备用名】${params.cultivatorName}` : ""}
         });
         if (fixResult.narrative && fixResult.narrative.trim()) {
           // 再次验证修正后的结果
-          const fixErrors = validateBirthConsistency(fixResult.narrative, fixResult.suggestedName || "", fixResult.family || []);
+          const fixErrors = validateBirthConsistency(
+            fixResult.narrative,
+            fixResult.suggestedName || "",
+            fixResult.family || []
+          );
           if (fixErrors.length === 0) {
             return fixResult;
           } else {

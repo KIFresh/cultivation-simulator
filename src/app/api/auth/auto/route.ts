@@ -26,10 +26,7 @@ async function handler(request: NextRequest) {
   const { name, password } = await parseJsonBody(request);
 
   if (!name || !password) {
-    return NextResponse.json(
-      { action: "error", message: "请输入账号名和密码" },
-      { status: 400 }
-    );
+    return NextResponse.json({ action: "error", message: "请输入账号名和密码" }, { status: 400 });
   }
 
   const existing = await prisma.user.findUnique({
@@ -48,10 +45,7 @@ async function handler(request: NextRequest) {
     const [salt, storedHash] = existing.password.split(":");
     const { hash } = hashPassword(password, salt);
     if (!crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(storedHash))) {
-      return NextResponse.json(
-        { action: "error", message: "密码错误" },
-        { status: 401 }
-      );
+      return NextResponse.json({ action: "error", message: "密码错误" }, { status: 401 });
     }
     const { password: _pw, ...safeExisting } = existing;
     const response = NextResponse.json({ action: "login", user: safeExisting });
@@ -61,10 +55,7 @@ async function handler(request: NextRequest) {
 
   // 账号不存在 → 自动创建（仅 user，无 cultivator）
   if (password.length < 4) {
-    return NextResponse.json(
-      { action: "error", message: "密码至少 4 位" },
-      { status: 400 }
-    );
+    return NextResponse.json({ action: "error", message: "密码至少 4 位" }, { status: 400 });
   }
 
   const { hash, salt } = hashPassword(password);

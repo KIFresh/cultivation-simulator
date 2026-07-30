@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 
@@ -59,9 +54,7 @@ export default function DaoXiaoModal({
             <p>· 累计修炼：{summary.totalExp}</p>
             <p>· 轮回次数：{summary.reincarnationCount} 次</p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            下一世将获得「前世记忆」天赋加成
-          </p>
+          <p className="text-xs text-muted-foreground">下一世将获得「前世记忆」天赋加成</p>
           <Button className="w-full" onClick={handleClose}>
             返回洞府
           </Button>

@@ -13,31 +13,21 @@ import crypto from "node:crypto";
 
 export const SESSION_COOKIE_NAME = "cs_session";
 
-const SECRET =
-  process.env.SESSION_SECRET || "cultivation-dev-secret-please-change-in-prod";
+const SECRET = process.env.SESSION_SECRET || "cultivation-dev-secret-please-change-in-prod";
 
 function b64url(buf: Buffer): string {
-  return buf
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
+  return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
 function b64urlDecode(s: string): Buffer {
   const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4));
-  return Buffer.from(
-    s.replace(/-/g, "+").replace(/_/g, "/") + pad,
-    "base64"
-  );
+  return Buffer.from(s.replace(/-/g, "+").replace(/_/g, "/") + pad, "base64");
 }
 
 /** 为指定用户签发会话 token */
 export function signSession(userId: string): string {
   const payload = b64url(Buffer.from(userId, "utf8"));
-  const sig = b64url(
-    crypto.createHmac("sha256", SECRET).update(payload).digest()
-  );
+  const sig = b64url(crypto.createHmac("sha256", SECRET).update(payload).digest());
   return `${payload}.${sig}`;
 }
 
@@ -48,9 +38,7 @@ export function verifySession(token: string | undefined | null): string | null {
   if (parts.length !== 2) return null;
 
   const [payload, sig] = parts;
-  const expected = b64url(
-    crypto.createHmac("sha256", SECRET).update(payload).digest()
-  );
+  const expected = b64url(crypto.createHmac("sha256", SECRET).update(payload).digest());
 
   const a = Buffer.from(sig);
   const b = Buffer.from(expected);

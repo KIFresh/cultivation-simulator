@@ -25,12 +25,21 @@ import { getGoldMaxGainByRealm } from "@/lib/gold";
 import { canBreakthrough, performBreakthrough } from "@/lib";
 import { TECHNIQUES, addProficiency, calculateTechniqueBonuses } from "@/lib/technique-data";
 import { streamNarrativeResult } from "@/lib/narrative-stream";
-import { applyEffects, clampEffectsArray, type NarrativeEffect, type ApplyContext } from "@/lib/narrative-effects";
+import {
+  applyEffects,
+  clampEffectsArray,
+  type NarrativeEffect,
+  type ApplyContext,
+} from "@/lib/narrative-effects";
 import { NARRATIVE_EFFECT_WHITELISTS, checkEffectWhitelist } from "@/lib/narrative-schema";
 import { sanitizeAttributes } from "@/lib/utils";
 import { calculateMaxStamina } from "@/lib/cultivation-data";
 import { requireCultivator } from "@/lib/auth-helpers";
-import { getCareerDisplayName, initializeFamilyCareer, NEUTRAL_FAMILY_ECONOMIC_BACKGROUND } from "@/lib/family-career";
+import {
+  getCareerDisplayName,
+  initializeFamilyCareer,
+  NEUTRAL_FAMILY_ECONOMIC_BACKGROUND,
+} from "@/lib/family-career";
 import { withApiErrorHandling, badRequest, parseJsonBody } from "@/lib/api-error";
 import { logger } from "@/lib/logger";
 
@@ -46,14 +55,11 @@ async function handler(request: NextRequest) {
     const isStream = new URL(request.url).searchParams.get("stream") === "true";
 
     if (!type) {
-      return NextResponse.json(
-        { error: "缺少必填参数" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "缺少必填参数" }, { status: 400 });
     }
 
     // 读取当前 entries
-    const currentEntries: StoryEntry[] = JSON.parse(cultivator.storyEntries || '[]');
+    const currentEntries: StoryEntry[] = JSON.parse(cultivator.storyEntries || "[]");
     const summaryText = buildSummaryFromEntries(currentEntries);
 
     // 保存 entries 的通用操作
@@ -65,7 +71,7 @@ async function handler(request: NextRequest) {
       if (newEntries.length > 50 || newSummaryText.length > 1000) {
         const compressedText = await compressStorySummary(newEntries, cultivator.name);
         const compressedEntry = createEntry("📜 记忆凝练", compressedText, false);
-        const importantEntries = newEntries.filter(e => e.important);
+        const importantEntries = newEntries.filter((e) => e.important);
         finalEntries = [...importantEntries, compressedEntry];
       }
 
@@ -79,12 +85,15 @@ async function handler(request: NextRequest) {
     };
 
     // 记忆压缩辅助函数（事务内使用，只计算不写库）
-    const buildFinalEntries = async (newEntries: StoryEntry[], cultivatorName: string): Promise<StoryEntry[]> => {
+    const buildFinalEntries = async (
+      newEntries: StoryEntry[],
+      cultivatorName: string
+    ): Promise<StoryEntry[]> => {
       const summaryText = buildSummaryFromEntries(newEntries);
       if (newEntries.length > 50 || summaryText.length > 1000) {
         const compressedText = await compressStorySummary(newEntries, cultivatorName);
         const compressedEntry = createEntry("📜 记忆凝练", compressedText, false);
-        const importantEntries = newEntries.filter(e => e.important);
+        const importantEntries = newEntries.filter((e) => e.important);
         return [...importantEntries, compressedEntry];
       }
       return newEntries;
@@ -99,7 +108,6 @@ async function handler(request: NextRequest) {
           birthTier: body.birthTier,
           worldId: body.worldId,
           family: body.family || [],
-
         });
 
         // ── suggestedName 验证 ────────────────────────────
@@ -107,11 +115,24 @@ async function handler(request: NextRequest) {
         const finalName = (narrative.suggestedName || "").trim();
         const safeName = /^[\u4e00-\u9fff]{2,4}$/.test(finalName)
           ? finalName
-          : (cultivator.name || ["小石头","小宝","阿福"][Math.floor(Math.random()*3)]);
+          : cultivator.name || ["小石头", "小宝", "阿福"][Math.floor(Math.random() * 3)];
 
         let event;
         let updatedCultivator;
-        let savedFamily: Array<{ relation: string; name: string; age: number; alive: boolean; occupation: string; intimacy: number; careerCategory: string; careerLevel: number; careerStatus: string; monthlyIncome: number; incomeLevel: number; careerUpdatedYear: number | null }> = [];
+        let savedFamily: Array<{
+          relation: string;
+          name: string;
+          age: number;
+          alive: boolean;
+          occupation: string;
+          intimacy: number;
+          careerCategory: string;
+          careerLevel: number;
+          careerStatus: string;
+          monthlyIncome: number;
+          incomeLevel: number;
+          careerUpdatedYear: number | null;
+        }> = [];
 
         try {
           // 单事务：姓名 + GameEvent + storyEntries + 家庭成员一起写入
@@ -134,13 +155,18 @@ async function handler(request: NextRequest) {
             });
 
             // 3) 写入 storyEntries
-            const newEntry = createEntry(narrative.title, narrative.narrative, true, narrative.summary);
+            const newEntry = createEntry(
+              narrative.title,
+              narrative.narrative,
+              true,
+              narrative.summary
+            );
             let finalEntries = [...currentEntries, newEntry];
             const newSummaryText = buildSummaryFromEntries(finalEntries);
             if (finalEntries.length > 50 || newSummaryText.length > 1000) {
               const compressedText = await compressStorySummary(finalEntries, safeName);
               const compressedEntry = createEntry("📜 记忆凝练", compressedText, false);
-              const importantEntries = finalEntries.filter(e => e.important);
+              const importantEntries = finalEntries.filter((e) => e.important);
               finalEntries = [...importantEntries, compressedEntry];
             }
             await tx.cultivator.update({
@@ -169,7 +195,11 @@ async function handler(request: NextRequest) {
                   name: m.name.trim(),
                   age: m.age,
                   alive: m.alive,
-                  occupation: getCareerDisplayName(career.careerCategory, career.careerLevel, cultivator.worldYear),
+                  occupation: getCareerDisplayName(
+                    career.careerCategory,
+                    career.careerLevel,
+                    cultivator.worldYear
+                  ),
                   incomeLevel: career.incomeLevel,
                   careerCategory: career.careerCategory,
                   careerLevel: career.careerLevel,
@@ -191,13 +221,16 @@ async function handler(request: NextRequest) {
           savedFamily = result.family || [];
         } catch (e) {
           logger.error("BIRTH: 事务写入失败", e);
-          return NextResponse.json({ error: "出生叙事保存失败，请重试", code: "BIRTH_WRITE_FAILED" }, { status: 500 });
+          return NextResponse.json(
+            { error: "出生叙事保存失败，请重试", code: "BIRTH_WRITE_FAILED" },
+            { status: 500 }
+          );
         }
 
         const birthPayload = {
           event,
           narrative,
-          family: savedFamily,  // 来自实际落库的数据
+          family: savedFamily, // 来自实际落库的数据
           suggestedName: safeName,
           cultivator: updatedCultivator,
         };
@@ -230,7 +263,10 @@ async function handler(request: NextRequest) {
         }
 
         // 效果白名单校验（DAILY: gold/stamina/attrExp/storyEntry/mood）
-        const deniedKinds = checkEffectWhitelist(effects, NARRATIVE_EFFECT_WHITELISTS.DAILY_CULTIVATION);
+        const deniedKinds = checkEffectWhitelist(
+          effects,
+          NARRATIVE_EFFECT_WHITELISTS.DAILY_CULTIVATION
+        );
         if (deniedKinds.length > 0) {
           console.warn(`DAILY_CULTIVATION: 拒绝白名单外效果 kind: ${deniedKinds.join(", ")}`);
           const allowed = effects.filter((e) => !deniedKinds.includes(e.kind));
@@ -241,36 +277,57 @@ async function handler(request: NextRequest) {
         const clamped = clampEffectsArray(effects, {
           currentGold: cultivator.gold ?? 0,
           currentStamina: cultivator.stamina,
-          maxStamina: calculateMaxStamina(cultivator.age, sanitizeAttributes(cultivator.attributes) ?? undefined),
+          maxStamina: calculateMaxStamina(
+            cultivator.age,
+            sanitizeAttributes(cultivator.attributes) ?? undefined
+          ),
           maxGoldAbsDelta: getGoldMaxGainByRealm(cultivator.realmLevel ?? 0),
         });
         const ctx: ApplyContext = {
           cultivatorId: cultivator.id,
           currentGold: cultivator.gold ?? 0,
           currentStamina: cultivator.stamina,
-          maxStamina: calculateMaxStamina(cultivator.age, sanitizeAttributes(cultivator.attributes) ?? undefined),
+          maxStamina: calculateMaxStamina(
+            cultivator.age,
+            sanitizeAttributes(cultivator.attributes) ?? undefined
+          ),
         };
-        const goldEffect = clamped.find((e) => e.kind === "gold") as { kind: "gold"; delta: number } | undefined;
+        const goldEffect = clamped.find((e) => e.kind === "gold") as
+          { kind: "gold"; delta: number } | undefined;
         const actualGoldDelta = goldEffect?.delta ?? 0;
 
         // 事务化：游戏事件 + 记忆 + 效果契约
         const newEntry = createEntry(narrative.title, narrative.narrative, true, narrative.summary);
-        const finalEntries = await buildFinalEntries([...currentEntries, newEntry], cultivator.name);
+        const finalEntries = await buildFinalEntries(
+          [...currentEntries, newEntry],
+          cultivator.name
+        );
 
         // 增加功法熟练度
         const techniqueRecords = await prisma.cultivatorTechnique.findMany({
           where: { cultivatorId: cultivator.id, equipSlot: { not: null } },
         });
         let levelUpMessages: string[] = [];
-        const techniqueDataList: Array<{ id: string; data: { level: number; proficiency: number } }> = [];
+        const techniqueDataList: Array<{
+          id: string;
+          data: { level: number; proficiency: number };
+        }> = [];
         for (const r of techniqueRecords) {
           const t = TECHNIQUES[r.techniqueId];
           if (!t) continue;
-          const result = addProficiency(r.level, r.proficiency, t.upgradeProficiency, Math.floor(Math.random() * 6) + 5);
+          const result = addProficiency(
+            r.level,
+            r.proficiency,
+            t.upgradeProficiency,
+            Math.floor(Math.random() * 6) + 5
+          );
           if (result.leveledUp) {
             levelUpMessages.push(`${t.name} 升级至 Lv.${result.newLevel}！`);
           }
-          techniqueDataList.push({ id: r.id, data: { level: result.newLevel, proficiency: result.newProficiency } });
+          techniqueDataList.push({
+            id: r.id,
+            data: { level: result.newLevel, proficiency: result.newProficiency },
+          });
         }
 
         // 事务化：游戏事件 + 效果契约 + 记忆 + 功法熟练度
@@ -281,7 +338,11 @@ async function handler(request: NextRequest) {
               type: "DAILY_CULTIVATION",
               title: narrative.title,
               narrative: narrative.narrative,
-              reward: JSON.stringify({ mood: narrative.mood, hint: narrative.hint, goldChange: actualGoldDelta }),
+              reward: JSON.stringify({
+                mood: narrative.mood,
+                hint: narrative.hint,
+                goldChange: actualGoldDelta,
+              }),
             },
           });
           if (clamped.length > 0) {
@@ -299,9 +360,10 @@ async function handler(request: NextRequest) {
           return evt;
         });
         const finalHint = narrative.hint || "";
-        const narrativeHint = levelUpMessages.length > 0
-          ? finalHint + (finalHint ? " " : "") + levelUpMessages.join(" ")
-          : finalHint;
+        const narrativeHint =
+          levelUpMessages.length > 0
+            ? finalHint + (finalHint ? " " : "") + levelUpMessages.join(" ")
+            : finalHint;
 
         const canBreak = canBreakthrough(
           cultivator.realm,
@@ -310,7 +372,11 @@ async function handler(request: NextRequest) {
           cultivator.spiritualRoot as import("@/lib").SpiritualRoot
         );
 
-        const dailyResult = { event, narrative: { ...narrative, hint: narrativeHint, goldChange: actualGoldDelta }, canBreakthrough: canBreak };
+        const dailyResult = {
+          event,
+          narrative: { ...narrative, hint: narrativeHint, goldChange: actualGoldDelta },
+          canBreakthrough: canBreak,
+        };
         if (isStream) {
           return streamNarrativeResult(event.id, narrative, dailyResult, cultivator);
         }
@@ -337,10 +403,7 @@ async function handler(request: NextRequest) {
         );
 
         if (!result) {
-          return NextResponse.json(
-            { error: "无法突破" },
-            { status: 400 }
-          );
+          return NextResponse.json({ error: "无法突破" }, { status: 400 });
         }
 
         const narrative = await generateBreakthroughNarrative({
@@ -353,11 +416,18 @@ async function handler(request: NextRequest) {
           totalExp: cultivator.totalExp,
           breakthroughCount: cultivator.breakthroughCount,
 
-          state: { ...stateFromCultivator(cultivator), realm: result.newRealm, realmLevel: result.newLevel },
+          state: {
+            ...stateFromCultivator(cultivator),
+            realm: result.newRealm,
+            realmLevel: result.newLevel,
+          },
         });
 
         const newEntry = createEntry(narrative.title, narrative.narrative, true, narrative.summary);
-        const finalEntries = await buildFinalEntries([...currentEntries, newEntry], cultivator.name);
+        const finalEntries = await buildFinalEntries(
+          [...currentEntries, newEntry],
+          cultivator.name
+        );
 
         const [updatedCultivator, event] = await prisma.$transaction([
           prisma.cultivator.update({
@@ -388,7 +458,9 @@ async function handler(request: NextRequest) {
         ]);
 
         // 重新读取以获取最新的 storyEntries
-        const freshCultivator = await prisma.cultivator.findUnique({ where: { id: cultivator.id } });
+        const freshCultivator = await prisma.cultivator.findUnique({
+          where: { id: cultivator.id },
+        });
 
         const breakthroughResult = {
           event,
@@ -410,8 +482,13 @@ async function handler(request: NextRequest) {
           realmLevel: cultivator.realmLevel,
 
           state: {
-            name: cultivator.name, age: cultivator.age, realm: cultivator.realm, realmLevel: cultivator.realmLevel,
-            gold: cultivator.gold, stamina: cultivator.stamina, locationId: cultivator.location || "home",
+            name: cultivator.name,
+            age: cultivator.age,
+            realm: cultivator.realm,
+            realmLevel: cultivator.realmLevel,
+            gold: cultivator.gold,
+            stamina: cultivator.stamina,
+            locationId: cultivator.location || "home",
             attributes: cultivator.attributes,
           },
         });
@@ -444,19 +521,29 @@ async function handler(request: NextRequest) {
           const clamped = clampEffectsArray(effects, {
             currentGold: cultivator.gold ?? 0,
             currentStamina: cultivator.stamina,
-            maxStamina: calculateMaxStamina(cultivator.age, sanitizeAttributes(cultivator.attributes) ?? undefined),
+            maxStamina: calculateMaxStamina(
+              cultivator.age,
+              sanitizeAttributes(cultivator.attributes) ?? undefined
+            ),
             maxGoldAbsDelta: getGoldMaxGainByRealm(cultivator.realmLevel ?? 0),
           });
           const ctx: ApplyContext = {
             cultivatorId: cultivator.id,
             currentGold: cultivator.gold ?? 0,
             currentStamina: cultivator.stamina,
-            maxStamina: calculateMaxStamina(cultivator.age, sanitizeAttributes(cultivator.attributes) ?? undefined),
+            maxStamina: calculateMaxStamina(
+              cultivator.age,
+              sanitizeAttributes(cultivator.attributes) ?? undefined
+            ),
           };
-          const goldEffect = clamped.find((e) => e.kind === "gold") as { kind: "gold"; delta: number } | undefined;
+          const goldEffect = clamped.find((e) => e.kind === "gold") as
+            { kind: "gold"; delta: number } | undefined;
           const actualGoldDelta = goldEffect?.delta ?? 0;
 
-          const finalEntries = await buildFinalEntries([...currentEntries, newEntry], cultivator.name);
+          const finalEntries = await buildFinalEntries(
+            [...currentEntries, newEntry],
+            cultivator.name
+          );
 
           const event = await prisma.$transaction(async (tx) => {
             const evt = await tx.gameEvent.create({
@@ -476,12 +563,21 @@ async function handler(request: NextRequest) {
             // 记忆持久化
             await tx.cultivator.update({
               where: { id: cultivator.id },
-              data: { storyEntries: JSON.stringify(finalEntries), storyEntriesUpdatedAt: new Date() },
+              data: {
+                storyEntries: JSON.stringify(finalEntries),
+                storyEntriesUpdatedAt: new Date(),
+              },
             });
             return evt;
           });
 
-          const encounterResult = { event, narrative, chosenOption: choiceIndex, expBonus, goldChange: actualGoldDelta };
+          const encounterResult = {
+            event,
+            narrative,
+            chosenOption: choiceIndex,
+            expBonus,
+            goldChange: actualGoldDelta,
+          };
           if (isStream) {
             return streamNarrativeResult(event.id, narrative, encounterResult, cultivator);
           }
@@ -507,19 +603,29 @@ async function handler(request: NextRequest) {
         const clamped = clampEffectsArray(effects, {
           currentGold: cultivator.gold ?? 0,
           currentStamina: cultivator.stamina,
-          maxStamina: calculateMaxStamina(cultivator.age, sanitizeAttributes(cultivator.attributes) ?? undefined),
+          maxStamina: calculateMaxStamina(
+            cultivator.age,
+            sanitizeAttributes(cultivator.attributes) ?? undefined
+          ),
           maxGoldAbsDelta: getGoldMaxGainByRealm(cultivator.realmLevel ?? 0),
         });
         const ctx: ApplyContext = {
           cultivatorId: cultivator.id,
           currentGold: cultivator.gold ?? 0,
           currentStamina: cultivator.stamina,
-          maxStamina: calculateMaxStamina(cultivator.age, sanitizeAttributes(cultivator.attributes) ?? undefined),
+          maxStamina: calculateMaxStamina(
+            cultivator.age,
+            sanitizeAttributes(cultivator.attributes) ?? undefined
+          ),
         };
-        const goldEffect = clamped.find((e) => e.kind === "gold") as { kind: "gold"; delta: number } | undefined;
+        const goldEffect = clamped.find((e) => e.kind === "gold") as
+          { kind: "gold"; delta: number } | undefined;
         const actualGoldDelta = goldEffect?.delta ?? 0;
 
-        const finalEntries = await buildFinalEntries([...currentEntries, newEntry], cultivator.name);
+        const finalEntries = await buildFinalEntries(
+          [...currentEntries, newEntry],
+          cultivator.name
+        );
 
         // 事务化：事件 + 效果契约 + 记忆
         const event = await prisma.$transaction(async (tx) => {
@@ -551,16 +657,13 @@ async function handler(request: NextRequest) {
       }
 
       default:
-        return NextResponse.json(
-          { error: "未知叙事类型" },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: "未知叙事类型" }, { status: 400 });
     }
   } catch (error) {
     logger.error("叙事生成失败:", error);
     return NextResponse.json(
       { error: "叙事生成失败，请重试", code: "NARRATIVE_FAILED" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

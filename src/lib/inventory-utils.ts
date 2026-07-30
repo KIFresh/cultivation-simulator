@@ -11,20 +11,22 @@ export function parseInventory(raw: string | null | undefined): InventoryItem[] 
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter(isInventoryItemLike)
-      .map((it) => ({
-        itemId: it.itemId,
-        quantity: Number(it.quantity) || 0,
-        equipped: Boolean(it.equipped),
-      }));
+    return parsed.filter(isInventoryItemLike).map((it) => ({
+      itemId: it.itemId,
+      quantity: Number(it.quantity) || 0,
+      equipped: Boolean(it.equipped),
+    }));
   } catch {
     return [];
   }
 }
 
-function isInventoryItemLike(v: unknown): v is { itemId: string; quantity: number; equipped: boolean } {
-  return typeof v === "object" && v !== null && typeof (v as { itemId?: unknown }).itemId === "string";
+function isInventoryItemLike(
+  v: unknown
+): v is { itemId: string; quantity: number; equipped: boolean } {
+  return (
+    typeof v === "object" && v !== null && typeof (v as { itemId?: unknown }).itemId === "string"
+  );
 }
 
 export function hasItemById(inv: InventoryItem[], itemId: string): boolean {
@@ -37,7 +39,7 @@ export function getItemById(inv: InventoryItem[], itemId: string): InventoryItem
 
 /** 解析属性对象（接受 JSON 字符串或已解析对象）。 */
 export function parseAttributes(
-  raw: string | null | undefined | Record<string, number>,
+  raw: string | null | undefined | Record<string, number>
 ): Record<string, number> {
   if (!raw) return {};
   if (typeof raw === "object" && !Array.isArray(raw)) {
@@ -72,7 +74,7 @@ function coerceRecord(raw: Record<string, unknown>): Record<string, number> {
 export function consumeInventoryItem(
   inv: InventoryItem[],
   itemId: string,
-  qty: number,
+  qty: number
 ): InventoryItem[] | null {
   const target = inv.find((i) => i.itemId === itemId);
   if (!target || target.quantity < qty) return null;
@@ -94,7 +96,7 @@ export function consumeInventoryItem(
  */
 export function mergeInventoryItems(
   inventory: InventoryItem[],
-  itemIds: string[],
+  itemIds: string[]
 ): InventoryItem[] {
   const result = inventory.map((i) => ({ ...i }));
   for (const itemId of itemIds) {

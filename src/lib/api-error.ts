@@ -91,7 +91,7 @@ export function badRequest(
   message = "请求参数错误",
   code: ErrorCode = ErrorCode.INVALID_PARAM,
   cause?: unknown,
-  context?: Record<string, unknown>,
+  context?: Record<string, unknown>
 ): AppError {
   return new AppError({ code, message, status: 400, cause, context });
 }
@@ -121,9 +121,7 @@ export function serviceUnavailable(message = "服务暂时不可用", cause?: un
 }
 
 // ── 安全 JSON 解析 ──────────────────────────────────────────
-export async function parseJsonBody(
-  request: Request,
-): Promise<any> {
+export async function parseJsonBody(request: Request): Promise<any> {
   try {
     const body = await request.json();
     if (body && typeof body === "object" && !Array.isArray(body)) {
@@ -154,15 +152,15 @@ export function toApiErrorResponse(error: unknown): NextResponse {
 
   // 未知异常：脱敏后返回通用 500
   logger.error("[api-error] 未捕获的异常，已脱敏", error);
-  return NextResponse.json(
-    { error: "服务器内部错误", code: ErrorCode.INTERNAL },
-    { status: 500 },
-  );
+  return NextResponse.json({ error: "服务器内部错误", code: ErrorCode.INTERNAL }, { status: 500 });
 }
 
 // ── Handler 包装器 ──────────────────────────────────────────
 type NextContext = { params: Promise<Record<string, string | string[]>> };
-type ApiHandler = (request: NextRequest, context: NextContext) => Promise<Response | NextResponse<unknown>>;
+type ApiHandler = (
+  request: NextRequest,
+  context: NextContext
+) => Promise<Response | NextResponse<unknown>>;
 
 /**
  * 包装 API route handler，统一捕获未知异常并返回脱敏错误响应。

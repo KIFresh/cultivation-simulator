@@ -34,7 +34,7 @@ async function getHandler(request: NextRequest) {
 
   const relations = parseRelations(c.npcRelations);
   let neighbors = (Object.values(relations).filter(isNeighbor) as NeighborNpc[]).sort(
-    (a, b) => a.intimacy - b.intimacy,
+    (a, b) => a.intimacy - b.intimacy
   );
 
   if (neighbors.length === 0 && isMortal(c) && (c.age ?? 1) >= 3) {

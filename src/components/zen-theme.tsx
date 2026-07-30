@@ -33,7 +33,11 @@ export function ZenStyle() {
           z-index: 40;
         }
         .zen-halo {
-          background: radial-gradient(circle, rgba(244, 239, 230, 0.85) 0%, rgba(250, 248, 245, 0) 75%);
+          background: radial-gradient(
+            circle,
+            rgba(244, 239, 230, 0.85) 0%,
+            rgba(250, 248, 245, 0) 75%
+          );
           transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
         }
         .vermilion-underline {
@@ -52,9 +56,18 @@ export function ZenStyle() {
           transition: transform 0.4s ease;
         }
         @keyframes floatCloud {
-          0% { transform: translateY(0px) translateX(0px); opacity: 0.15; }
-          50% { transform: translateY(-12px) translateX(15px); opacity: 0.3; }
-          100% { transform: translateY(0px) translateX(0px); opacity: 0.15; }
+          0% {
+            transform: translateY(0px) translateX(0px);
+            opacity: 0.15;
+          }
+          50% {
+            transform: translateY(-12px) translateX(15px);
+            opacity: 0.3;
+          }
+          100% {
+            transform: translateY(0px) translateX(0px);
+            opacity: 0.15;
+          }
         }
         .cloud-float-1 {
           animation: floatCloud 28s ease-in-out infinite;
@@ -65,8 +78,12 @@ export function ZenStyle() {
           transition: transform 0.3s ease-out;
         }
         @keyframes rotateArray {
-          0% { transform: translate(-50%, -50%) rotate(0deg); }
-          100% { transform: translate(-50%, -50%) rotate(360deg); }
+          0% {
+            transform: translate(-50%, -50%) rotate(0deg);
+          }
+          100% {
+            transform: translate(-50%, -50%) rotate(360deg);
+          }
         }
         .zen-bagua-bg {
           position: absolute;
@@ -81,16 +98,44 @@ export function ZenStyle() {
           z-index: -5;
         }
         @keyframes seal-drop {
-          0% { transform: scale(1.8) rotate(18deg); opacity: 0; filter: blur(3px); }
-          100% { transform: scale(1) rotate(-4deg); opacity: 0.9; filter: blur(0px); }
+          0% {
+            transform: scale(1.8) rotate(18deg);
+            opacity: 0;
+            filter: blur(3px);
+          }
+          100% {
+            transform: scale(1) rotate(-4deg);
+            opacity: 0.9;
+            filter: blur(0px);
+          }
         }
         .seal-animation {
           animation: seal-drop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.2) forwards;
         }
-        .fret-corner-tl { top: 12px; left: 12px; border-top: 1px solid rgba(217, 161, 60, 0.25); border-left: 1px solid rgba(217, 161, 60, 0.25); }
-        .fret-corner-tr { top: 12px; right: 12px; border-top: 1px solid rgba(217, 161, 60, 0.25); border-right: 1px solid rgba(217, 161, 60, 0.25); }
-        .fret-corner-bl { bottom: 12px; left: 12px; border-bottom: 1px solid rgba(217, 161, 60, 0.25); border-left: 1px solid rgba(217, 161, 60, 0.25); }
-        .fret-corner-br { bottom: 12px; right: 12px; border-bottom: 1px solid rgba(217, 161, 60, 0.25); border-right: 1px solid rgba(217, 161, 60, 0.25); }
+        .fret-corner-tl {
+          top: 12px;
+          left: 12px;
+          border-top: 1px solid rgba(217, 161, 60, 0.25);
+          border-left: 1px solid rgba(217, 161, 60, 0.25);
+        }
+        .fret-corner-tr {
+          top: 12px;
+          right: 12px;
+          border-top: 1px solid rgba(217, 161, 60, 0.25);
+          border-right: 1px solid rgba(217, 161, 60, 0.25);
+        }
+        .fret-corner-bl {
+          bottom: 12px;
+          left: 12px;
+          border-bottom: 1px solid rgba(217, 161, 60, 0.25);
+          border-left: 1px solid rgba(217, 161, 60, 0.25);
+        }
+        .fret-corner-br {
+          bottom: 12px;
+          right: 12px;
+          border-bottom: 1px solid rgba(217, 161, 60, 0.25);
+          border-right: 1px solid rgba(217, 161, 60, 0.25);
+        }
       `}</style>
     </>
   );
@@ -116,10 +161,14 @@ export function ZenBackground() {
     const loop = () => {
       currentX += (targetX - currentX) * 0.05;
       currentY += (targetY - currentY) * 0.05;
-      if (halo1.current) halo1.current.style.transform = `translate(${currentX * 45}px, ${currentY * 45}px)`;
-      if (halo2.current) halo2.current.style.transform = `translate(${currentX * -45}px, ${currentY * -45}px)`;
-      if (cloud1.current) cloud1.current.style.transform = `translate(${currentX * -15}px, ${currentY * -10}px)`;
-      if (cloud2.current) cloud2.current.style.transform = `translate(${currentX * 20}px, ${currentY * 15}px)`;
+      if (halo1.current)
+        halo1.current.style.transform = `translate(${currentX * 45}px, ${currentY * 45}px)`;
+      if (halo2.current)
+        halo2.current.style.transform = `translate(${currentX * -45}px, ${currentY * -45}px)`;
+      if (cloud1.current)
+        cloud1.current.style.transform = `translate(${currentX * -15}px, ${currentY * -10}px)`;
+      if (cloud2.current)
+        cloud2.current.style.transform = `translate(${currentX * 20}px, ${currentY * 15}px)`;
       raf = requestAnimationFrame(loop);
     };
     window.addEventListener("mousemove", onMove);
@@ -152,7 +201,10 @@ export function ZenBackground() {
           <circle cx="100" cy="100" r="95" strokeDasharray="2,2" />
           <circle cx="100" cy="100" r="85" />
           <path d="M100,5 L100,15 M100,185 L100,195 M5,100 L15,100 M185,100 L195,100" />
-          <path d="M100,15 C53.6,15 15,53.6 15,100 C15,123 24.3,143.8 39.3,158.8 C54.3,173.8 75,185 100,185 C146.4,185 185,146.4 185,100 C185,53.6 146.4,15 100,15 Z" strokeDasharray="1,1" />
+          <path
+            d="M100,15 C53.6,15 15,53.6 15,100 C15,123 24.3,143.8 39.3,158.8 C54.3,173.8 75,185 100,185 C146.4,185 185,146.4 185,100 C185,53.6 146.4,15 100,15 Z"
+            strokeDasharray="1,1"
+          />
           <path d="M100,15 C123.5,15 142.5,34 142.5,57.5 C142.5,81 123.5,100 100,100 C76.5,100 57.5,119 57.5,142.5 C57.5,166 76.5,185 100,185" />
           <circle cx="100" cy="57.5" r="8" fill="currentColor" opacity="0.1" />
           <circle cx="100" cy="142.5" r="8" fill="none" stroke="currentColor" strokeWidth={0.5} />
@@ -234,13 +286,10 @@ export function ZenCard({
   const state = selected
     ? "border-[#8C2D19]/60 bg-[#8C2D19]/[0.03] shadow-md"
     : disabled
-    ? "border-gray-200/50 opacity-50"
-    : "border-gray-200/50 hover:border-gray-300/60 hover:shadow-md cursor-pointer";
+      ? "border-gray-200/50 opacity-50"
+      : "border-gray-200/50 hover:border-gray-300/60 hover:shadow-md cursor-pointer";
   return (
-    <div
-      onClick={disabled ? undefined : onClick}
-      className={`${base} ${state} ${className}`}
-    >
+    <div onClick={disabled ? undefined : onClick} className={`${base} ${state} ${className}`}>
       <div className="absolute w-3 h-3 fret-corner-tl" />
       <div className="absolute w-3 h-3 fret-corner-tr" />
       <div className="absolute w-3 h-3 fret-corner-bl" />

@@ -11,10 +11,7 @@ export function isValidUserId(id: unknown): id is string {
 
 // ── 统一错误响应 ──────────────────────────────────────────
 export function apiError(message: string, status = 400, code?: string) {
-  return NextResponse.json(
-    { error: message, ...(code ? { code } : {}) },
-    { status },
-  );
+  return NextResponse.json({ error: message, ...(code ? { code } : {}) }, { status });
 }
 
 // ── 安全解析 JSON body ────────────────────────────────────
@@ -29,10 +26,7 @@ export async function parseBody(request: Request): Promise<Record<string, unknow
 }
 
 // ── 必填字段校验 ──────────────────────────────────────────
-export function requireFields(
-  body: Record<string, unknown>,
-  fields: string[],
-): string | null {
+export function requireFields(body: Record<string, unknown>, fields: string[]): string | null {
   for (const f of fields) {
     if (body[f] === undefined || body[f] === null || body[f] === "") {
       return `缺少必填参数: ${f}`;
@@ -114,7 +108,7 @@ export interface CultivatorWithUser {
 }
 
 export async function requireCultivator(
-  request: NextRequest,
+  request: NextRequest
 ): Promise<{ error: NextResponse } | { cultivator: CultivatorWithUser }> {
   // 身份只信任 proxy.ts 注入的 x-user-id（由签名会话 cookie 验证），
   // 不再信任请求体/查询参数中的 userId（CUID 可枚举）。
@@ -138,9 +132,17 @@ export async function requireCultivator(
 // ── SSRF 防护：禁止内网地址 ────────────────────────────────
 function isPrivateIpv4(hostname: string): boolean {
   const parts = hostname.split(".").map(Number);
-  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return false;
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255))
+    return false;
   const [a, b] = parts;
-  return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168)
+  );
 }
 
 function isPrivateIpv6(hostname: string): boolean {
@@ -154,7 +156,10 @@ function isPrivateIpv6(hostname: string): boolean {
 
 /** 拒绝本机、私网、链路本地和 IPv4-mapped IPv6 主机。 */
 export function isPrivateOrLocalHostname(rawHostname: string): boolean {
-  const hostname = rawHostname.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
+  const hostname = rawHostname
+    .toLowerCase()
+    .replace(/^\[|\]$/g, "")
+    .replace(/\.$/, "");
   if (hostname === "localhost" || hostname.endsWith(".localhost")) return true;
   return isPrivateIpv4(hostname) || isPrivateIpv6(hostname);
 }

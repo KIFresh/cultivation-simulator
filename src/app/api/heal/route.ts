@@ -61,7 +61,12 @@ async function postHandler(request: NextRequest) {
     narrative: "你延请郎中问诊，大夫妙手回春，气血恢复了不少。",
     mood: "静",
   };
-  return NextResponse.json({ cultivator: updated, narrative, healthDelta: newHealth - oldHealth, goldChanged: -CLINIC_GOLD_COST });
+  return NextResponse.json({
+    cultivator: updated,
+    narrative,
+    healthDelta: newHealth - oldHealth,
+    goldChanged: -CLINIC_GOLD_COST,
+  });
 }
 
 export const POST = withApiErrorHandling(postHandler);

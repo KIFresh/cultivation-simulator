@@ -15,7 +15,11 @@ function parseInventory(inv: unknown[] | string | null): { name: string }[] {
   let arr: unknown[] = [];
   if (Array.isArray(inv)) arr = inv;
   else if (typeof inv === "string") {
-    try { arr = JSON.parse(inv || "[]"); } catch { arr = []; }
+    try {
+      arr = JSON.parse(inv || "[]");
+    } catch {
+      arr = [];
+    }
   }
   return arr.map((it, i) => {
     if (typeof it === "string") return { name: it };
@@ -40,7 +44,8 @@ export default function AssetsPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         const c = d?.user?.cultivator ?? d?.cultivator ?? null;
-        if (c) setData({ gold: c.gold ?? 0, inventory: c.inventory, spiritStone: c.spiritStone ?? 0 });
+        if (c)
+          setData({ gold: c.gold ?? 0, inventory: c.inventory, spiritStone: c.spiritStone ?? 0 });
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -64,12 +69,16 @@ export default function AssetsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="silk-card rounded-2xl p-5 text-center">
                 <span className="text-xs text-gray-500 block mb-1">世俗金钱</span>
-                <span className="font-mono font-bold text-2xl text-[#7A1F18]">{data.gold ?? 0}</span>
+                <span className="font-mono font-bold text-2xl text-[#7A1F18]">
+                  {data.gold ?? 0}
+                </span>
                 <span className="text-[10px] text-amber-900/60 block mt-1">文钱</span>
               </div>
               <div className="silk-card rounded-2xl p-5 text-center">
                 <span className="text-xs text-gray-500 block mb-1">下品灵石</span>
-                <span className="font-mono font-bold text-2xl text-emerald-700">{data.spiritStone ?? 0}</span>
+                <span className="font-mono font-bold text-2xl text-emerald-700">
+                  {data.spiritStone ?? 0}
+                </span>
                 <span className="text-[10px] text-emerald-800/60 block mt-1">块</span>
               </div>
             </div>
@@ -77,7 +86,9 @@ export default function AssetsPage() {
             <div className="silk-card rounded-3xl p-6">
               <h3 className="text-sm font-bold text-[#2C1E1E] flex items-center gap-2 pb-3 mb-3 border-b border-[#EADCD0]">
                 <Coins className="w-4 h-4 text-[#D49B4B]" /> 背包遗藏
-                <span className="text-xs font-normal text-gray-400 ml-auto">储物囊 {items.length} 件</span>
+                <span className="text-xs font-normal text-gray-400 ml-auto">
+                  储物囊 {items.length} 件
+                </span>
               </h3>
               {items.length === 0 ? (
                 <p className="text-xs text-gray-400 italic text-center py-3 bg-[#FAF4EB] rounded-xl border border-[#EADCD0]">
@@ -86,7 +97,10 @@ export default function AssetsPage() {
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {items.map((it, i) => (
-                    <div key={i} className="p-3 bg-white rounded-xl border border-[#EADCD0] flex items-center gap-3">
+                    <div
+                      key={i}
+                      className="p-3 bg-white rounded-xl border border-[#EADCD0] flex items-center gap-3"
+                    >
                       <div className="w-8 h-8 rounded-lg bg-[#FAF4EB] text-[#D49B4B] flex items-center justify-center">
                         <Gem className="w-4 h-4" />
                       </div>

@@ -1,0 +1,9 @@
+node_modules
+.next
+out
+build
+coverage
+*.db
+*.db-journal
+.reasonix
+prisma/manual-add-indexes.sql

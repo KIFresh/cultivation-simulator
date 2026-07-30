@@ -48,10 +48,7 @@ function toRecord(raw: unknown): ExpRecord {
  * 将 attributeExp / subjectExp 实时派生为「技能等级」。
  * 项目记忆：技能等级实时同步 —— 等级由经验值即时计算，无需额外存储。
  */
-export function deriveSkillLevels(
-  attributeExp: unknown,
-  subjectExp: unknown,
-): SkillLevel[] {
+export function deriveSkillLevels(attributeExp: unknown, subjectExp: unknown): SkillLevel[] {
   const attr = toRecord(attributeExp);
   const subj = toRecord(subjectExp);
   const skills: SkillLevel[] = [];
@@ -96,12 +93,8 @@ export function useDataSync(): UseDataSyncResult {
   const cultivator = useGameStore((s) => s.cultivator);
 
   const skills = useMemo(
-    () =>
-      deriveSkillLevels(
-        cultivator?.attributeExp ?? null,
-        cultivator?.subjectExp ?? null,
-      ),
-    [cultivator?.attributeExp, cultivator?.subjectExp],
+    () => deriveSkillLevels(cultivator?.attributeExp ?? null, cultivator?.subjectExp ?? null),
+    [cultivator?.attributeExp, cultivator?.subjectExp]
   );
 
   const sync = useCallback(() => {

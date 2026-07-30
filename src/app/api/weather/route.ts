@@ -15,11 +15,36 @@ interface WeatherDef {
 }
 
 const WEATHER_TYPES: WeatherDef[] = [
-  { key: "晴", label: "晴空万里", desc: "灵气平和，适合吐纳修行。", effect: { type: "spirit", value: 2 } },
-  { key: "雨", label: "灵雨纷飞", desc: "雨水润泽，悟性稍涨。", effect: { type: "insight", value: 2 } },
-  { key: "雷", label: "雷劫隐现", desc: "天雷淬体，凶险与机缘并存。", effect: { type: "root", value: 3 } },
-  { key: "雾", label: "迷雾笼罩", desc: "视野受阻，机缘稍减。", effect: { type: "luck", value: -1 } },
-  { key: "雪", label: "寒霜覆地", desc: "寒气侵体，需耗体力御寒。", effect: { type: "stamina", value: -3 } },
+  {
+    key: "晴",
+    label: "晴空万里",
+    desc: "灵气平和，适合吐纳修行。",
+    effect: { type: "spirit", value: 2 },
+  },
+  {
+    key: "雨",
+    label: "灵雨纷飞",
+    desc: "雨水润泽，悟性稍涨。",
+    effect: { type: "insight", value: 2 },
+  },
+  {
+    key: "雷",
+    label: "雷劫隐现",
+    desc: "天雷淬体，凶险与机缘并存。",
+    effect: { type: "root", value: 3 },
+  },
+  {
+    key: "雾",
+    label: "迷雾笼罩",
+    desc: "视野受阻，机缘稍减。",
+    effect: { type: "luck", value: -1 },
+  },
+  {
+    key: "雪",
+    label: "寒霜覆地",
+    desc: "寒气侵体，需耗体力御寒。",
+    effect: { type: "stamina", value: -3 },
+  },
 ];
 
 // POST — 感知当前天时（无请求体）

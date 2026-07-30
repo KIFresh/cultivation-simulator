@@ -104,22 +104,43 @@ export function useDashboardState() {
       setCultivator(storeCultivator);
       if (storeCultivator.storyEntries) {
         try {
-          const parsed = typeof storeCultivator.storyEntries === "string" ? JSON.parse(storeCultivator.storyEntries) : storeCultivator.storyEntries;
+          const parsed =
+            typeof storeCultivator.storyEntries === "string"
+              ? JSON.parse(storeCultivator.storyEntries)
+              : storeCultivator.storyEntries;
           setMemoryEntries(Array.isArray(parsed) ? parsed : []);
         } catch {}
       }
       if (storeCultivator.inventory) {
         try {
-          const backendInv = typeof storeCultivator.inventory === "string" ? JSON.parse(storeCultivator.inventory) : storeCultivator.inventory;
+          const backendInv =
+            typeof storeCultivator.inventory === "string"
+              ? JSON.parse(storeCultivator.inventory)
+              : storeCultivator.inventory;
           const invArray = Array.isArray(backendInv) ? backendInv : [];
           setInventory(invArray);
           localStorage.setItem(STORAGE_KEYS.inventory, JSON.stringify(invArray));
         } catch {}
       }
       setCurrentNPCs(getNPCsAtLocation(storeCultivator.location || "home"));
-      setAvailableActions(getActionsWithLockInfo(storeCultivator.worldId || "earth", storeCultivator.age, storeCultivator.realm, storeCultivator.location || "home"));
+      setAvailableActions(
+        getActionsWithLockInfo(
+          storeCultivator.worldId || "earth",
+          storeCultivator.age,
+          storeCultivator.realm,
+          storeCultivator.location || "home"
+        )
+      );
       if (isAwakened(storeCultivator.realm)) {
-        setCanBreak(canBreakthrough(storeCultivator.realm, storeCultivator.realmLevel, storeCultivator.cultivationExp, storeCultivator.spiritualRoot, storeCultivator.breakthroughBuff || 0));
+        setCanBreak(
+          canBreakthrough(
+            storeCultivator.realm,
+            storeCultivator.realmLevel,
+            storeCultivator.cultivationExp,
+            storeCultivator.spiritualRoot,
+            storeCultivator.breakthroughBuff || 0
+          )
+        );
       }
     }
   }, [storeCultivator]);
@@ -132,18 +153,24 @@ export function useDashboardState() {
         try {
           const parsed = parseFamily(raw);
           setFamilyMembers(parsed.members ?? []);
-        } catch { setFamilyMembers([]); }
-      } else { setFamilyMembers([]); }
+        } catch {
+          setFamilyMembers([]);
+        }
+      } else {
+        setFamilyMembers([]);
+      }
       return;
     }
     // 优先从 API 获取家庭数据
     fetch(`/api/family?userId=${userId}`)
-      .then((r) => r.ok ? r.json() : Promise.reject(new Error("API 失败")))
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("API 失败"))))
       .then((data) => {
         if (data?.members) {
           setFamilyMembers(data.members);
           // 同步写入 localStorage 作为兼容兜底
-          try { localStorage.setItem("family", JSON.stringify({ members: data.members })); } catch {}
+          try {
+            localStorage.setItem("family", JSON.stringify({ members: data.members }));
+          } catch {}
         } else {
           setFamilyMembers([]);
         }
@@ -155,8 +182,12 @@ export function useDashboardState() {
           try {
             const parsed = parseFamily(raw);
             setFamilyMembers(parsed.members ?? []);
-          } catch { setFamilyMembers([]); }
-        } else { setFamilyMembers([]); }
+          } catch {
+            setFamilyMembers([]);
+          }
+        } else {
+          setFamilyMembers([]);
+        }
       });
   }, [userId]);
 
@@ -189,7 +220,10 @@ export function useDashboardState() {
         setCultivator(data.user.cultivator);
         if (data.user.cultivator.storyEntries) {
           try {
-            const parsed = typeof data.user.cultivator.storyEntries === "string" ? JSON.parse(data.user.cultivator.storyEntries) : data.user.cultivator.storyEntries;
+            const parsed =
+              typeof data.user.cultivator.storyEntries === "string"
+                ? JSON.parse(data.user.cultivator.storyEntries)
+                : data.user.cultivator.storyEntries;
             setMemoryEntries(Array.isArray(parsed) ? parsed : []);
           } catch {}
         }
@@ -201,7 +235,10 @@ export function useDashboardState() {
           try {
             const backendInv = JSON.parse(data.user.cultivator.inventory);
             setInventory(Array.isArray(backendInv) ? backendInv : []);
-            localStorage.setItem(STORAGE_KEYS.inventory, JSON.stringify(Array.isArray(backendInv) ? backendInv : []));
+            localStorage.setItem(
+              STORAGE_KEYS.inventory,
+              JSON.stringify(Array.isArray(backendInv) ? backendInv : [])
+            );
           } catch {
             setInventory([]);
             localStorage.setItem(STORAGE_KEYS.inventory, JSON.stringify([]));
@@ -212,10 +249,23 @@ export function useDashboardState() {
         }
         const loc = data.user.cultivator.location || "home";
         setCurrentNPCs(getNPCsAtLocation(loc));
-        const actions = getActionsWithLockInfo(data.user.cultivator.worldId || "earth", data.user.cultivator.age, data.user.cultivator.realm, loc);
+        const actions = getActionsWithLockInfo(
+          data.user.cultivator.worldId || "earth",
+          data.user.cultivator.age,
+          data.user.cultivator.realm,
+          loc
+        );
         setAvailableActions(actions);
         if (isAwakened(data.user.cultivator.realm)) {
-          setCanBreak(canBreakthrough(data.user.cultivator.realm, data.user.cultivator.realmLevel, data.user.cultivator.cultivationExp, data.user.cultivator.spiritualRoot, data.user.cultivator.breakthroughBuff || 0));
+          setCanBreak(
+            canBreakthrough(
+              data.user.cultivator.realm,
+              data.user.cultivator.realmLevel,
+              data.user.cultivator.cultivationExp,
+              data.user.cultivator.spiritualRoot,
+              data.user.cultivator.breakthroughBuff || 0
+            )
+          );
         }
         // 不在这里设置 narrative，避免与 store 订阅冲突
       }
@@ -254,7 +304,10 @@ export function useDashboardState() {
         if (evData.events && evData.events.length > 0) {
           const history: NarrativeDisplay[] = evData.events.map((ev: any) => {
             let mood = "静";
-            try { const parsed = JSON.parse(ev.reward || "{}"); if (parsed.mood) mood = parsed.mood; } catch {}
+            try {
+              const parsed = JSON.parse(ev.reward || "{}");
+              if (parsed.mood) mood = parsed.mood;
+            } catch {}
             return { title: ev.title, narrative: ev.narrative, mood };
           });
           setNarrativeHistory(history);
@@ -287,14 +340,25 @@ export function useDashboardState() {
         setCultivator(c);
         if (c.storyEntries) {
           try {
-            const parsed = typeof c.storyEntries === "string" ? JSON.parse(c.storyEntries) : c.storyEntries;
+            const parsed =
+              typeof c.storyEntries === "string" ? JSON.parse(c.storyEntries) : c.storyEntries;
             setMemoryEntries(Array.isArray(parsed) ? parsed : []);
           } catch {}
         }
         if (isAwakened(c.realm)) {
-          setCanBreak(canBreakthrough(c.realm, c.realmLevel, c.cultivationExp, c.spiritualRoot, c.breakthroughBuff || 0));
+          setCanBreak(
+            canBreakthrough(
+              c.realm,
+              c.realmLevel,
+              c.cultivationExp,
+              c.spiritualRoot,
+              c.breakthroughBuff || 0
+            )
+          );
         }
-        setAvailableActions(getActionsWithLockInfo(c.worldId || "earth", c.age, c.realm, currentLoc));
+        setAvailableActions(
+          getActionsWithLockInfo(c.worldId || "earth", c.age, c.realm, currentLoc)
+        );
         setCurrentNPCs(getNPCsAtLocation(c.location || "home"));
       }
       if (awakenEvent) {
@@ -304,9 +368,12 @@ export function useDashboardState() {
       if (expGained) toast.success(`修炼值 +${expGained}`, { duration: 2000 });
       if (techniqueEvents && techniqueEvents.length > 0) {
         techniqueEvents.forEach((te: any) => {
-          const profMsg = te.eventNarrative ? te.eventNarrative : `${te.icon} ${te.techniqueName} 熟练度 +${te.profGained}`;
+          const profMsg = te.eventNarrative
+            ? te.eventNarrative
+            : `${te.icon} ${te.techniqueName} 熟练度 +${te.profGained}`;
           toast(profMsg, { duration: 3000 });
-          if (te.leveledUp) toast.success(`⚡ ${te.icon} ${te.techniqueName} 升级！`, { duration: 4000 });
+          if (te.leveledUp)
+            toast.success(`⚡ ${te.icon} ${te.techniqueName} 升级！`, { duration: 4000 });
         });
       }
     },
@@ -320,14 +387,25 @@ export function useDashboardState() {
         const c = data.cultivator;
         if (c.storyEntries) {
           try {
-            const parsed = typeof c.storyEntries === "string" ? JSON.parse(c.storyEntries) : c.storyEntries;
+            const parsed =
+              typeof c.storyEntries === "string" ? JSON.parse(c.storyEntries) : c.storyEntries;
             setMemoryEntries(Array.isArray(parsed) ? parsed : []);
           } catch {}
         }
         if (isAwakened(c.realm)) {
-          setCanBreak(canBreakthrough(c.realm, c.realmLevel, c.cultivationExp, c.spiritualRoot, c.breakthroughBuff || 0));
+          setCanBreak(
+            canBreakthrough(
+              c.realm,
+              c.realmLevel,
+              c.cultivationExp,
+              c.spiritualRoot,
+              c.breakthroughBuff || 0
+            )
+          );
         }
-        setAvailableActions(getActionsWithLockInfo(c.worldId || "earth", c.age, c.realm, currentLoc));
+        setAvailableActions(
+          getActionsWithLockInfo(c.worldId || "earth", c.age, c.realm, currentLoc)
+        );
         setCurrentNPCs(getNPCsAtLocation(c.location || "home"));
       }
       if (data.warnEarly) {
@@ -361,14 +439,26 @@ export function useDashboardState() {
         const parts: string[] = [];
         if (pm.granted > 0) parts.push(`零花钱 +${pm.granted}`);
         if (pm.interest > 0) parts.push(`利息 +${pm.interest}`);
-        if (parts.length > 0) toast.success(`🏦 ${parts.join('，')}`, { duration: 3000 });
+        if (parts.length > 0) toast.success(`🏦 ${parts.join("，")}`, { duration: 3000 });
       }
       if (data.classBenefits && data.classBenefits.optionCount > 0) {
-        toast.success(`📚 课外班属性加成，年费 -${data.classBenefits.totalCost}`, { duration: 3000 });
+        toast.success(`📚 课外班属性加成，年费 -${data.classBenefits.totalCost}`, {
+          duration: 3000,
+        });
       }
-      const newLocs = getUnlockedLocations(data.cultivator.age, isAwakened(data.cultivator.realm), unlockedLocs);
-      localStorage.setItem(STORAGE_KEYS.unlockedLocations, JSON.stringify(newLocs.map((l: any) => l.id)));
-      toast.success(`🌿 ${data.cultivator.name} ${data.yearWrapped ? `${data.newAge}岁` : `第${data.quarter}季`}`, { duration: 3000 });
+      const newLocs = getUnlockedLocations(
+        data.cultivator.age,
+        isAwakened(data.cultivator.realm),
+        unlockedLocs
+      );
+      localStorage.setItem(
+        STORAGE_KEYS.unlockedLocations,
+        JSON.stringify(newLocs.map((l: any) => l.id))
+      );
+      toast.success(
+        `🌿 ${data.cultivator.name} ${data.yearWrapped ? `${data.newAge}岁` : `第${data.quarter}季`}`,
+        { duration: 3000 }
+      );
       if (data.awakenEvent) {
         setAwakenEvent(data.awakenEvent);
         toast.success("🎉 灵气觉醒！", { duration: 5000 });
@@ -392,34 +482,55 @@ export function useDashboardState() {
     await actions.sendNpcMessage(trimmed, npcChat, nextHistory);
   };
 
-  const handleActionClick = useCallback((actionId: string, selectedNpcIds: string[] = []) => {
-    const cost = getActionById(actionId)?.actionPointCost || 0;
-    console.log("[useDashboardState] handleActionClick", { actionId, activeActionId, stamina: cultivator?.stamina, cost });
-    if (!cultivator) return;
-    if (cultivator.stamina < cost) {
-      toast.error(`体力不足（需要 ${cost}，当前 ${cultivator.stamina}）`, { duration: 2000 });
-      return;
-    }
-    if (activeActionId === actionId) {
-      useGameStore.getState().performAction(actionId, undefined, selectedNpcIds).catch(() => {});
-    }
-    else {
-      setActiveActionId(actionId);
-      setActionInput("");
-    }
-  }, [cultivator, activeActionId]);
+  const handleActionClick = useCallback(
+    (actionId: string, selectedNpcIds: string[] = []) => {
+      const cost = getActionById(actionId)?.actionPointCost || 0;
+      console.log("[useDashboardState] handleActionClick", {
+        actionId,
+        activeActionId,
+        stamina: cultivator?.stamina,
+        cost,
+      });
+      if (!cultivator) return;
+      if (cultivator.stamina < cost) {
+        toast.error(`体力不足（需要 ${cost}，当前 ${cultivator.stamina}）`, { duration: 2000 });
+        return;
+      }
+      if (activeActionId === actionId) {
+        useGameStore
+          .getState()
+          .performAction(actionId, undefined, selectedNpcIds)
+          .catch(() => {});
+      } else {
+        setActiveActionId(actionId);
+        setActionInput("");
+      }
+    },
+    [cultivator, activeActionId]
+  );
 
-  const handleSubmitWithInput = useCallback((actionId: string, input: string, selectedNpcIds: string[] = []) => {
-    const cost = getActionById(actionId)?.actionPointCost || 0;
-    if (!cultivator) return;
-    if (cultivator.stamina < cost) {
-      toast.error(`体力不足（需要 ${cost}，当前 ${cultivator.stamina}）`, { duration: 2000 });
-      return;
-    }
-    const trimmed = input?.trim();
-    if (trimmed) useGameStore.getState().performAction(actionId, trimmed, selectedNpcIds).catch(() => {});
-    else useGameStore.getState().performAction(actionId, undefined, selectedNpcIds).catch(() => {});
-  }, [cultivator]);
+  const handleSubmitWithInput = useCallback(
+    (actionId: string, input: string, selectedNpcIds: string[] = []) => {
+      const cost = getActionById(actionId)?.actionPointCost || 0;
+      if (!cultivator) return;
+      if (cultivator.stamina < cost) {
+        toast.error(`体力不足（需要 ${cost}，当前 ${cultivator.stamina}）`, { duration: 2000 });
+        return;
+      }
+      const trimmed = input?.trim();
+      if (trimmed)
+        useGameStore
+          .getState()
+          .performAction(actionId, trimmed, selectedNpcIds)
+          .catch(() => {});
+      else
+        useGameStore
+          .getState()
+          .performAction(actionId, undefined, selectedNpcIds)
+          .catch(() => {});
+    },
+    [cultivator]
+  );
 
   const handleBreakthrough = () => actions.handleBreakthrough();
   const advanceSeason = () => actions.advanceSeason();

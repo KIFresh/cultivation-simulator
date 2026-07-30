@@ -60,15 +60,23 @@ describe("settings route", () => {
   it("保存空 Key 时保持原密钥，明确 clear 才删除", async () => {
     mockPrisma.appSetting.upsert.mockResolvedValue({});
     mockPrisma.appSetting.deleteMany.mockResolvedValue({ count: 1 });
-    const response = await POST(request("POST", {
-      settings: {
-        AI_PROVIDER_1: "openai",
-        AI_PROVIDER_1_MODEL: "gpt-test",
-        AI_PROVIDER_1_KEY_ACTION: "clear",
-      },
-    }, ADMIN_KEY));
+    const response = await POST(
+      request(
+        "POST",
+        {
+          settings: {
+            AI_PROVIDER_1: "openai",
+            AI_PROVIDER_1_MODEL: "gpt-test",
+            AI_PROVIDER_1_KEY_ACTION: "clear",
+          },
+        },
+        ADMIN_KEY
+      )
+    );
     expect(response.status).toBe(200);
-    expect(mockPrisma.appSetting.deleteMany).toHaveBeenCalledWith({ where: { key: "AI_PROVIDER_1_KEY" } });
+    expect(mockPrisma.appSetting.deleteMany).toHaveBeenCalledWith({
+      where: { key: "AI_PROVIDER_1_KEY" },
+    });
     expect(mockNarrative.syncProviderConfig).toHaveBeenCalledOnce();
   });
 });

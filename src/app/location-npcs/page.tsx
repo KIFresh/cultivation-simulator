@@ -76,7 +76,7 @@ export default function LocationNpcsPage() {
                 npcs: p.npcs.map((n) => (n.name === name ? data.npc : n)),
                 gold: data.gold,
               }
-            : p,
+            : p
         );
       }
     } catch {
@@ -88,7 +88,8 @@ export default function LocationNpcsPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-[#0b1020] to-[#10202b] text-[#e3f0f5] flex flex-col items-center px-4 py-10">
-      <TopNav /><div className="w-full max-w-2xl">
+      <TopNav />
+      <div className="w-full max-w-2xl">
         <button
           onClick={() => router.push("/life")}
           className="text-sm text-[#5B8aa8] hover:text-[#8fc2dd] mb-6 transition-colors"
@@ -159,7 +160,9 @@ export default function LocationNpcsPage() {
             <p className="text-sm text-[#cfe6f0] mb-1">{result.flavor}</p>
             <p className="text-xs text-[#f5d98a]">
               ✦ 亲密度 +{result.intimacyDelta}
-              {result.attr && result.attrDelta ? ` · ${ATTR_LABEL[result.attr]} +${result.attrDelta}` : ""}
+              {result.attr && result.attrDelta
+                ? ` · ${ATTR_LABEL[result.attr]} +${result.attrDelta}`
+                : ""}
             </p>
             {result.goldDelta !== 0 && (
               <p className="text-xs text-[#9fe0c8]">

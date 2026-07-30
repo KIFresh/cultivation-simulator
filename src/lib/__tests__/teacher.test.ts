@@ -87,8 +87,22 @@ describe("getTeacherRankBonus", () => {
   });
   it("多老师取最高好感判定", () => {
     const rels: Record<string, NpcRelationData> = {
-      甲: { intimacy: 40, avatar: "🧑‍🏫", realm: "凡人", metAt: 6, category: "师长", type: TEACHER_TYPE },
-      乙: { intimacy: 75, avatar: "👨‍🏫", realm: "凡人", metAt: 6, category: "师长", type: TEACHER_TYPE },
+      甲: {
+        intimacy: 40,
+        avatar: "🧑‍🏫",
+        realm: "凡人",
+        metAt: 6,
+        category: "师长",
+        type: TEACHER_TYPE,
+      },
+      乙: {
+        intimacy: 75,
+        avatar: "👨‍🏫",
+        realm: "凡人",
+        metAt: 6,
+        category: "师长",
+        type: TEACHER_TYPE,
+      },
     };
     expect(getTeacherRankBonus(rels)).toBe(1);
   });

@@ -15,7 +15,11 @@ interface InventoryEntry {
 
 function parseInventory(raw: string | null | undefined): InventoryEntry[] {
   if (!raw) return [];
-  try { return JSON.parse(raw); } catch { return []; }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
 }
 
 async function getHandler(request: NextRequest) {
@@ -26,7 +30,8 @@ async function getHandler(request: NextRequest) {
   // 坊市（market）展示全部商品；普通商店展示所有商品但标注锁定状态
   const allItems = getShopItems(); // 不传 realm 获取全部
   const items = allItems.map((item) => {
-    const locked = !isMarket && item.minRealm && realm ? !isRealmSufficient(realm, item.minRealm) : false;
+    const locked =
+      !isMarket && item.minRealm && realm ? !isRealmSufficient(realm, item.minRealm) : false;
     return {
       ...item,
       locked,
@@ -54,7 +59,9 @@ async function postHandler(request: NextRequest) {
 
     const isMarket = c.location === "market";
     // 坊市可越境购买；普通商店按境界过滤
-    const shopItem = (isMarket ? getShopItems() : getShopItems(c.realm)).find((s) => s.itemId === itemId);
+    const shopItem = (isMarket ? getShopItems() : getShopItems(c.realm)).find(
+      (s) => s.itemId === itemId
+    );
     if (!shopItem) return NextResponse.json({ error: "商品不存在或境界不足" }, { status: 400 });
     if (!isMarket && shopItem.minRealm && !isRealmSufficient(c.realm, shopItem.minRealm)) {
       return NextResponse.json({ error: "境界不足，无法购买此商品" }, { status: 400 });
@@ -62,7 +69,10 @@ async function postHandler(request: NextRequest) {
 
     const totalCost = shopItem.price * qty;
     if ((c.gold ?? 0) < totalCost) {
-      return NextResponse.json({ error: `金币不足，需要${totalCost}，当前${c.gold ?? 0}` }, { status: 400 });
+      return NextResponse.json(
+        { error: `金币不足，需要${totalCost}，当前${c.gold ?? 0}` },
+        { status: 400 }
+      );
     }
 
     // 读取当前背包，合并新物品
@@ -85,7 +95,12 @@ async function postHandler(request: NextRequest) {
       }),
     ]);
 
-    return NextResponse.json({ cultivator: updated, item: shopItem.item, quantity: qty, totalCost });
+    return NextResponse.json({
+      cultivator: updated,
+      item: shopItem.item,
+      quantity: qty,
+      totalCost,
+    });
   } catch (error) {
     logger.error("购买失败:", error);
     return NextResponse.json({ error: "购买失败" }, { status: 500 });

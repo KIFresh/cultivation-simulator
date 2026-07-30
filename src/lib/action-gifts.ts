@@ -36,7 +36,9 @@ function isAskingMoney(input: string) {
 }
 
 function isAskingItem(input: string) {
-  return /给.*(?:东西|物品|法宝|法器|丹药|药|装备|衣服|食物|水|饭)|给我.*(?:东西|物品|法宝|法器|丹药|药|装备|衣服|食物|水|饭)/.test(input);
+  return /给.*(?:东西|物品|法宝|法器|丹药|药|装备|衣服|食物|水|饭)|给我.*(?:东西|物品|法宝|法器|丹药|药|装备|衣服|食物|水|饭)/.test(
+    input
+  );
 }
 
 function isAskingHelp(input: string) {
@@ -44,15 +46,21 @@ function isAskingHelp(input: string) {
 }
 
 function isCommanding(input: string) {
-  return /^(?:给我|快给|赶紧|马上|立刻|命令|必须|得|要是不给|不然).{0,20}(?:钱|现金|零花|生活费|东西|物品|法宝|法器|丹药|装备|衣服|食物|水|饭)|^(?:叫|让|命令|要求).{0,20}(?:给|掏|拿)/.test(input);
+  return /^(?:给我|快给|赶紧|马上|立刻|命令|必须|得|要是不给|不然).{0,20}(?:钱|现金|零花|生活费|东西|物品|法宝|法器|丹药|装备|衣服|食物|水|饭)|^(?:叫|让|命令|要求).{0,20}(?:给|掏|拿)/.test(
+    input
+  );
 }
 
 function isGiving(input: string) {
-  return /^(?:给|送|赠|递给).{0,10}(?:爸爸|妈妈|父亲|母亲|家长|老师|师傅|师尊|师兄|师姐|师弟|师妹|朋友|伙伴|同门|路人|陌生人|NPC)?$/.test(input);
+  return /^(?:给|送|赠|递给).{0,10}(?:爸爸|妈妈|父亲|母亲|家长|老师|师傅|师尊|师兄|师姐|师弟|师妹|朋友|伙伴|同门|路人|陌生人|NPC)?$/.test(
+    input
+  );
 }
 
 function isTrading(input: string) {
-  return /(?:换|交易|交换|买卖|出售|卖给|买|购买|换取|用).{0,20}(?:钱|金币|银子|银两|铜板|铜钱|物品|东西|装备|丹药|法宝|材料|资源)|(?:钱|金币|银子|银两|铜板|铜钱|物品|东西|装备|丹药|法宝|材料|资源).{0,10}(?:换|交易|交换|买卖|出售|卖给|买|购买|换取)/.test(input);
+  return /(?:换|交易|交换|买卖|出售|卖给|买|购买|换取|用).{0,20}(?:钱|金币|银子|银两|铜板|铜钱|物品|东西|装备|丹药|法宝|材料|资源)|(?:钱|金币|银子|银两|铜板|铜钱|物品|东西|装备|丹药|法宝|材料|资源).{0,10}(?:换|交易|交换|买卖|出售|卖给|买|购买|换取)/.test(
+    input
+  );
 }
 
 function isPolite(input: string) {
@@ -60,7 +68,9 @@ function isPolite(input: string) {
 }
 
 function parseRequestedAmount(input: string): number | undefined {
-  const match = input.match(/(?:要|给|借|零花钱?)[^0-9]{0,8}(\d{1,4})\s*(?:元|块|金币)?|(?:\d{1,4})\s*(?:元|块|金币)/);
+  const match = input.match(
+    /(?:要|给|借|零花钱?)[^0-9]{0,8}(\d{1,4})\s*(?:元|块|金币)?|(?:\d{1,4})\s*(?:元|块|金币)/
+  );
   const amount = Number(match?.[1] ?? match?.[2]);
   return Number.isInteger(amount) && amount > 0 ? amount : undefined;
 }
@@ -93,7 +103,12 @@ function getIntimacyDelta(input: string, intimacy: number): number {
   return 1;
 }
 
-function emptyDecision(reason: string, reasonCode: GiftDecisionCode, remainingAllowance: number, intimacy = 0): GiftDecision {
+function emptyDecision(
+  reason: string,
+  reasonCode: GiftDecisionCode,
+  remainingAllowance: number,
+  intimacy = 0
+): GiftDecision {
   return { givesGold: 0, givesIntimacyDelta: intimacy, reason, reasonCode, remainingAllowance };
 }
 
@@ -120,7 +135,11 @@ export function evaluateActionGift(params: {
     return emptyDecision("未选择可提供零花钱的在世家人", "NO_FAMILY_TARGET", remainingAllowance);
   }
   if (target.intimacy < 20) {
-    return emptyDecision("与家人关系过于疏远，对方暂时没有答应", "RELATION_TOO_LOW", remainingAllowance);
+    return emptyDecision(
+      "与家人关系过于疏远，对方暂时没有答应",
+      "RELATION_TOO_LOW",
+      remainingAllowance
+    );
   }
   if (isCommanding(input)) {
     return emptyDecision("态度强硬，家人拒绝了这次索要", "RUDE_TONE", remainingAllowance, -1);
@@ -134,18 +153,19 @@ export function evaluateActionGift(params: {
   const approvedCap = Math.max(
     1,
     Math.floor(
-      getAgeRequestCap(params.cultivatorAge)
-        * getIncomeMultiplier(params.householdIncome?.incomeLevel ?? target.incomeLevel)
-        * getIntimacyMultiplier(target.intimacy)
-        * toneMultiplier,
-    ),
+      getAgeRequestCap(params.cultivatorAge) *
+        getIncomeMultiplier(params.householdIncome?.incomeLevel ?? target.incomeLevel) *
+        getIntimacyMultiplier(target.intimacy) *
+        toneMultiplier
+    )
   );
   const desired = requestedAmount ?? approvedCap;
   const givesGold = Math.min(desired, approvedCap, remainingAllowance);
   const reasonCode: GiftDecisionCode = givesGold < desired ? "PARTIAL_GRANT" : "GRANTED";
-  const reason = reasonCode === "PARTIAL_GRANT"
-    ? "家人按年龄、家庭经济和本年度剩余额度酌情给了一部分零花钱"
-    : "家人结合年龄、家庭经济、关系与请求方式给了适量零花钱";
+  const reason =
+    reasonCode === "PARTIAL_GRANT"
+      ? "家人按年龄、家庭经济和本年度剩余额度酌情给了一部分零花钱"
+      : "家人结合年龄、家庭经济、关系与请求方式给了适量零花钱";
 
   return {
     givesGold,
@@ -157,9 +177,21 @@ export function evaluateActionGift(params: {
 }
 
 /** 非金钱互动的轻量关系判定，供保留既有叙事用例。 */
-export function evaluateNonMoneyInteraction(input: string, intimacy = 50): Pick<GiftDecision, "givesIntimacyDelta" | "reason"> {
-  if (isGiving(input)) return { givesIntimacyDelta: intimacy >= 80 ? 3 : 2, reason: "主动表达心意，对方可能接受并记下人情" };
-  if (isTrading(input)) return { givesIntimacyDelta: intimacy >= 70 ? 2 : 1, reason: "交易是否成立取决于物品价值与双方意愿" };
-  if (isAskingItem(input) || isAskingHelp(input)) return { givesIntimacyDelta: 1, reason: "对方会结合关系与当下情境回应请求" };
+export function evaluateNonMoneyInteraction(
+  input: string,
+  intimacy = 50
+): Pick<GiftDecision, "givesIntimacyDelta" | "reason"> {
+  if (isGiving(input))
+    return {
+      givesIntimacyDelta: intimacy >= 80 ? 3 : 2,
+      reason: "主动表达心意，对方可能接受并记下人情",
+    };
+  if (isTrading(input))
+    return {
+      givesIntimacyDelta: intimacy >= 70 ? 2 : 1,
+      reason: "交易是否成立取决于物品价值与双方意愿",
+    };
+  if (isAskingItem(input) || isAskingHelp(input))
+    return { givesIntimacyDelta: 1, reason: "对方会结合关系与当下情境回应请求" };
   return { givesIntimacyDelta: 0, reason: "" };
 }

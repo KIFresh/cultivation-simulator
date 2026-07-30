@@ -16,11 +16,31 @@ interface DreamDef {
 }
 
 const DREAM_POOL: DreamDef[] = [
-  { root: "chaos", title: "混沌初开", narrative: "梦里有团无序的光，渐渐有了形状。", omen: "命数未定" },
-  { root: "gold", title: "金山压顶", narrative: "你梦见自己被金光托起，落地生财。", omen: "利在财货" },
-  { root: "wood", title: "老树盘根", narrative: "一棵古木在梦中舒展枝叶，生机盎然。", omen: "根基渐稳" },
+  {
+    root: "chaos",
+    title: "混沌初开",
+    narrative: "梦里有团无序的光，渐渐有了形状。",
+    omen: "命数未定",
+  },
+  {
+    root: "gold",
+    title: "金山压顶",
+    narrative: "你梦见自己被金光托起，落地生财。",
+    omen: "利在财货",
+  },
+  {
+    root: "wood",
+    title: "老树盘根",
+    narrative: "一棵古木在梦中舒展枝叶，生机盎然。",
+    omen: "根基渐稳",
+  },
   { root: "water", title: "长河入海", narrative: "你顺流而下，汇入无垠汪洋。", omen: "运势流转" },
-  { root: "fire", title: "炉火纯青", narrative: "梦里有团火，越烧越旺，却不灼人。", omen: "心火炽盛" },
+  {
+    root: "fire",
+    title: "炉火纯青",
+    narrative: "梦里有团火，越烧越旺，却不灼人。",
+    omen: "心火炽盛",
+  },
   { root: "earth", title: "厚土载物", narrative: "大地在脚下延展，沉稳如山。", omen: "根基深厚" },
 ];
 

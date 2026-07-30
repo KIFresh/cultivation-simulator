@@ -42,7 +42,7 @@ function defaultMessage(status: number, code?: string): string {
  */
 export async function safeFetch<T = unknown>(
   url: string,
-  init?: RequestInit,
+  init?: RequestInit
 ): Promise<ApiClientResult<T>> {
   try {
     const res = await fetch(url, init);
@@ -90,7 +90,7 @@ export async function safeFetch<T = unknown>(
  */
 export async function fetchWithTimeout<T = unknown>(
   url: string,
-  init?: RequestInit & { timeoutMs?: number },
+  init?: RequestInit & { timeoutMs?: number }
 ): Promise<ApiClientResult<T>> {
   const timeoutMs = init?.timeoutMs ?? 15000;
   if (timeoutMs <= 0 || typeof AbortSignal.timeout !== "function") {
@@ -101,9 +101,7 @@ export async function fetchWithTimeout<T = unknown>(
   const userSignal = init?.signal;
 
   // 组合信号：用户取消或超时任一触发则中止
-  const combinedSignal = userSignal
-    ? AbortSignal.any([timeoutSignal, userSignal])
-    : timeoutSignal;
+  const combinedSignal = userSignal ? AbortSignal.any([timeoutSignal, userSignal]) : timeoutSignal;
 
   try {
     return await safeFetch<T>(url, { ...init, signal: combinedSignal });

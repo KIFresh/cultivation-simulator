@@ -33,13 +33,13 @@ export function NpcChatPanel({
         <p className="text-xs text-[#2C1E1E] font-bold">
           {npc.avatar} 与{npc.name}交谈
         </p>
-        <button onClick={onClose} className="text-gray-400 hover:text-[#B83227] text-xs">✕</button>
+        <button onClick={onClose} className="text-gray-400 hover:text-[#B83227] text-xs">
+          ✕
+        </button>
       </div>
       <div className="space-y-2">
         <div className="max-h-24 overflow-y-auto space-y-1 text-xs text-[#2C1E1E]">
-          {npcChatHistory.length === 0 && (
-            <p className="text-gray-400 italic">{npc.greeting}</p>
-          )}
+          {npcChatHistory.length === 0 && <p className="text-gray-400 italic">{npc.greeting}</p>}
           {npcChatHistory.map((h, i) => (
             <p
               key={i}
@@ -54,11 +54,7 @@ export function NpcChatPanel({
             value={npcMessage}
             onChange={(e) => onMessageChange(e.target.value)}
             onKeyDown={(e) => {
-              if (
-                e.key === "Enter" &&
-                npcMessage.trim() &&
-                cultivatorStamina >= 1
-              ) {
+              if (e.key === "Enter" && npcMessage.trim() && cultivatorStamina >= 1) {
                 onSend(npcMessage);
               }
             }}

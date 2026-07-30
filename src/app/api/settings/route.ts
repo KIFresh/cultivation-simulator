@@ -38,9 +38,10 @@ async function postHandler(request: NextRequest) {
     return apiError("无效的配置数据");
   }
 
-  const entries = Object.entries(settings).filter(([key, value]) =>
-    /^AI_PROVIDER_[1-3](?:_(?:KEY|MODEL|BASE_URL|KEY_ACTION))?$/.test(key)
-    && typeof value === "string",
+  const entries = Object.entries(settings).filter(
+    ([key, value]) =>
+      /^AI_PROVIDER_[1-3](?:_(?:KEY|MODEL|BASE_URL|KEY_ACTION))?$/.test(key) &&
+      typeof value === "string"
   ) as [string, string][];
   await prisma.$transaction(async (tx) => {
     for (const [key, value] of entries) {

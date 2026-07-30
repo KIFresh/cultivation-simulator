@@ -98,7 +98,7 @@ export function parsePhysique(raw: string | null | undefined): PhysiqueDef | nul
 /** 将体质加成叠加到基础属性上，返回新属性表 */
 export function applyPhysiqueEffects(
   base: Record<string, number>,
-  physiqueId: string | null | undefined,
+  physiqueId: string | null | undefined
 ): Record<string, number> {
   const p = getPhysiqueById(physiqueId);
   if (!p) return { ...base };

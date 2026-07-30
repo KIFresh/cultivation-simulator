@@ -49,13 +49,19 @@ async function postHandler(request: NextRequest) {
     if (slots.length >= MAX_SLOTS) return apiError("天赋槽已满（最大 3）", 400, "SLOT_FULL");
     if (slots.find((s) => s.type === t)) return apiError("该天赋已解锁", 400, "ALREADY_UNLOCKED");
     const cost = UNLOCK_COSTS[slots.length];
-    if ((c.reincarnationMark || 0) < cost) return apiError(`轮回印记不足（需 ${cost}）`, 400, "MARK_INSUFFICIENT");
+    if ((c.reincarnationMark || 0) < cost)
+      return apiError(`轮回印记不足（需 ${cost}）`, 400, "MARK_INSUFFICIENT");
     slots.push({ type: t, level: 1 });
     const updated = await prisma.cultivator.update({
       where: { id: c.id },
       data: { reincarnationMark: { decrement: cost }, talentSlots: JSON.stringify(slots) },
     });
-    return NextResponse.json({ success: true, action: "unlock", cultivator: updated, talentSlots: slots });
+    return NextResponse.json({
+      success: true,
+      action: "unlock",
+      cultivator: updated,
+      talentSlots: slots,
+    });
   }
 
   // upgrade
@@ -65,13 +71,19 @@ async function postHandler(request: NextRequest) {
   const maxLv = maxLevelFor(t);
   if (cur.level >= maxLv) return apiError("已达等级上限", 400, "MAX_LEVEL");
   const cost = upgradeCost(idx, cur.level);
-  if ((c.reincarnationMark || 0) < cost) return apiError(`轮回印记不足（需 ${cost}）`, 400, "MARK_INSUFFICIENT");
+  if ((c.reincarnationMark || 0) < cost)
+    return apiError(`轮回印记不足（需 ${cost}）`, 400, "MARK_INSUFFICIENT");
   slots[idx] = { ...cur, level: cur.level + 1 };
   const updated = await prisma.cultivator.update({
     where: { id: c.id },
     data: { reincarnationMark: { decrement: cost }, talentSlots: JSON.stringify(slots) },
   });
-  return NextResponse.json({ success: true, action: "upgrade", cultivator: updated, talentSlots: slots });
+  return NextResponse.json({
+    success: true,
+    action: "upgrade",
+    cultivator: updated,
+    talentSlots: slots,
+  });
 }
 
 export const POST = withApiErrorHandling(postHandler);

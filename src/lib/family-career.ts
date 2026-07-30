@@ -1,4 +1,8 @@
-import { CAREER_CATEGORIES as WORLD_CAREER_CATEGORIES, getWorldEra, type CareerCategory } from "./world-era";
+import {
+  CAREER_CATEGORIES as WORLD_CAREER_CATEGORIES,
+  getWorldEra,
+  type CareerCategory,
+} from "./world-era";
 
 export const CAREER_CATEGORIES = WORLD_CAREER_CATEGORIES;
 export type { CareerCategory };
@@ -103,28 +107,57 @@ function categoryFromHint(hint: string | undefined, seed: string): CareerCategor
 
   const normalized = hint?.trim() ?? "";
   const mappings: Array<[string, CareerCategory]> = [
-    ["农", "agriculture"], ["工", "manufacturing"], ["教师", "education"], ["学校", "education"],
-    ["医", "healthcare"], ["护", "healthcare"], ["公务", "public_service"], ["政府", "public_service"],
-    ["店", "business"], ["商", "business"], ["服务", "service"], ["自由", "freelance"],
+    ["农", "agriculture"],
+    ["工", "manufacturing"],
+    ["教师", "education"],
+    ["学校", "education"],
+    ["医", "healthcare"],
+    ["护", "healthcare"],
+    ["公务", "public_service"],
+    ["政府", "public_service"],
+    ["店", "business"],
+    ["商", "business"],
+    ["服务", "service"],
+    ["自由", "freelance"],
   ];
   const matched = mappings.find(([keyword]) => normalized.includes(keyword));
   return matched?.[1] ?? CAREER_CATEGORIES[hashSeed(seed) % CAREER_CATEGORIES.length];
 }
 
-function incomeFor(category: CareerCategory, level: number, worldYear: number, status: CareerStatus): number {
+function incomeFor(
+  category: CareerCategory,
+  level: number,
+  worldYear: number,
+  status: CareerStatus
+): number {
   if (status !== "employed") return 0;
   const era = getWorldEra(worldYear);
   const categoryMultiplier = era.careerWeights[category] ?? 1;
-  return Math.max(0, Math.round(BASE_INCOME[category] * LEVEL_MULTIPLIERS[clampLevel(level)] * era.incomeMultiplier * categoryMultiplier));
+  return Math.max(
+    0,
+    Math.round(
+      BASE_INCOME[category] *
+        LEVEL_MULTIPLIERS[clampLevel(level)] *
+        era.incomeMultiplier *
+        categoryMultiplier
+    )
+  );
 }
 
 /** Returns the localized, deterministic display name for a valid category and 0–4 career level. */
-export function getCareerDisplayName(category: CareerCategory, level: number, _era: number): string {
+export function getCareerDisplayName(
+  category: CareerCategory,
+  level: number,
+  _era: number
+): string {
   return DISPLAY_NAMES[category][clampLevel(level)];
 }
 
 /** Converts concrete monthly household income into the legacy 0–4 income level. */
-export function getIncomeLevel(monthlyIncome: number, household?: Pick<HouseholdIncome, "contributingMembers">): number {
+export function getIncomeLevel(
+  monthlyIncome: number,
+  household?: Pick<HouseholdIncome, "contributingMembers">
+): number {
   const contributors = Math.max(1, household?.contributingMembers ?? 1);
   const perContributor = Math.max(0, monthlyIncome) / contributors;
   if (perContributor < 2500) return 0;
@@ -137,9 +170,13 @@ export function getIncomeLevel(monthlyIncome: number, household?: Pick<Household
 export function initializeFamilyCareer(input: InitializeFamilyCareerInput): FamilyCareer {
   const alive = input.alive ?? true;
   const background = familyBackgroundLevel(input.familyBackground);
-  const category = categoryFromHint(input.categoryHint, `${input.relation}|${input.worldYear}|${background}`);
+  const category = categoryFromHint(
+    input.categoryHint,
+    `${input.relation}|${input.worldYear}|${background}`
+  );
   const level = clampLevel(input.levelHint ?? Math.max(0, background - 1));
-  const status: CareerStatus = !alive || input.age >= 65 ? "retired" : input.age < 18 ? "unemployed" : "employed";
+  const status: CareerStatus =
+    !alive || input.age >= 65 ? "retired" : input.age < 18 ? "unemployed" : "employed";
   const monthlyIncome = incomeFor(category, level, input.worldYear, status);
 
   return {
@@ -155,7 +192,12 @@ export function initializeFamilyCareer(input: InitializeFamilyCareerInput): Fami
   };
 }
 
-export function evolveFamilyCareer(input: { career: FamilyCareer; memberAge: number; worldYear: number; seed: string }): FamilyCareer {
+export function evolveFamilyCareer(input: {
+  career: FamilyCareer;
+  memberAge: number;
+  worldYear: number;
+  seed: string;
+}): FamilyCareer {
   const { career, memberAge, worldYear, seed } = input;
   if (career.careerUpdatedYear === worldYear) return { ...career };
 
@@ -168,7 +210,10 @@ export function evolveFamilyCareer(input: { career: FamilyCareer; memberAge: num
   } else if (status === "retired") {
     status = "retired";
   } else if (status === "unemployed") {
-    const stability = career.careerCategory === "public_service" || career.careerCategory === "healthcare" ? 0.55 : 0.38;
+    const stability =
+      career.careerCategory === "public_service" || career.careerCategory === "healthcare"
+        ? 0.55
+        : 0.38;
     if (roll(`${seed}|reemployment`) < stability) status = "employed";
   } else {
     const retirementProbability = memberAge >= 60 ? (memberAge - 59) * 0.08 : 0;
@@ -192,10 +237,16 @@ export function evolveFamilyCareer(input: { career: FamilyCareer; memberAge: num
 
 /** Aggregates only living employed parents or guardians. */
 export function calculateHouseholdIncome(members: FamilyCareer[]): HouseholdIncome {
-  const contributors = members.filter((member) => (
-    member.alive && member.careerStatus === "employed" && isFamilyGuardianRelation(member.relation)
-  ));
-  const monthlyIncome = contributors.reduce((total, member) => total + Math.max(0, member.monthlyIncome), 0);
+  const contributors = members.filter(
+    (member) =>
+      member.alive &&
+      member.careerStatus === "employed" &&
+      isFamilyGuardianRelation(member.relation)
+  );
+  const monthlyIncome = contributors.reduce(
+    (total, member) => total + Math.max(0, member.monthlyIncome),
+    0
+  );
   return {
     monthlyIncome,
     contributingMembers: contributors.length,

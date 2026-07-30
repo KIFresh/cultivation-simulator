@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveCombat, type PlayerCombatData } from "@/lib/combat-engine";
 import { requireCultivator } from "@/lib/auth-helpers";
-import { applyEffects, clampEffectsArray, type NarrativeEffect, type ClampConfig } from "@/lib/narrative-effects";
+import {
+  applyEffects,
+  clampEffectsArray,
+  type NarrativeEffect,
+  type ClampConfig,
+} from "@/lib/narrative-effects";
 import { parseAttributes, parseInventory, mergeInventoryItems } from "@/lib/inventory-utils";
 import { withApiErrorHandling, badRequest, parseJsonBody } from "@/lib/api-error";
 import { logger } from "@/lib/logger";
@@ -16,12 +21,15 @@ async function handler(request: NextRequest) {
   const { enemyId, locationId } = body;
 
   // 检查每日战斗次数上限
-  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
   const combatCount = await prisma.gameEvent.count({
     where: { cultivatorId: cultivator.id, type: "COMBAT", createdAt: { gte: today } },
   });
   if (combatCount >= 5) {
-    return NextResponse.json(badRequest("今日战斗次数已达上限（5次）", "RATE_LIMITED").toJSON(), { status: 400 });
+    return NextResponse.json(badRequest("今日战斗次数已达上限（5次）", "RATE_LIMITED").toJSON(), {
+      status: 400,
+    });
   }
 
   // 获取装备物品（解析失败安全回退）
@@ -29,7 +37,11 @@ async function handler(request: NextRequest) {
   try {
     const parsed = JSON.parse(cultivator.inventory || "[]");
     for (const item of parsed) {
-      inventory.push({ itemId: item.itemId, quantity: item.quantity ?? 1, equipped: !!item.equipped });
+      inventory.push({
+        itemId: item.itemId,
+        quantity: item.quantity ?? 1,
+        equipped: !!item.equipped,
+      });
     }
   } catch (e) {
     logger.warn("战斗: 解析库存失败，使用空数组", { cultivatorId: cultivator.id, cause: e });
@@ -72,7 +84,10 @@ async function handler(request: NextRequest) {
     }
     if (!result.win && result.penalty) {
       if (result.penalty.goldLoss > 0) {
-        effects.push({ kind: "gold", delta: -Math.min(result.penalty.goldLoss, cultivator.gold ?? 50) });
+        effects.push({
+          kind: "gold",
+          delta: -Math.min(result.penalty.goldLoss, cultivator.gold ?? 50),
+        });
       }
       if (result.penalty.mindDemonDelta) {
         effects.push({ kind: "mindDemon", delta: result.penalty.mindDemonDelta });
@@ -127,16 +142,32 @@ async function handler(request: NextRequest) {
         }
       }
       if (Object.keys(extraData).length > 0) {
-        updatedCultivator = await tx.cultivator.update({ where: { id: cultivator.id }, data: extraData });
+        updatedCultivator = await tx.cultivator.update({
+          where: { id: cultivator.id },
+          data: extraData,
+        });
       }
 
       await tx.gameEvent.create({
-        data: { cultivatorId: cultivator.id, type: "COMBAT", title: result.win ? "战斗胜利" : "战斗失败", narrative: result.narrative, reward: JSON.stringify({ win: result.win, style: result.style, enemy: result.enemy.name }) },
+        data: {
+          cultivatorId: cultivator.id,
+          type: "COMBAT",
+          title: result.win ? "战斗胜利" : "战斗失败",
+          narrative: result.narrative,
+          reward: JSON.stringify({
+            win: result.win,
+            style: result.style,
+            enemy: result.enemy.name,
+          }),
+        },
       });
     });
   }
 
-  return NextResponse.json({ ...result, ...(updatedCultivator ? { cultivator: updatedCultivator } : {}) });
+  return NextResponse.json({
+    ...result,
+    ...(updatedCultivator ? { cultivator: updatedCultivator } : {}),
+  });
 }
 
 export const POST = withApiErrorHandling(handler);

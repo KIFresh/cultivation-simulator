@@ -9,9 +9,9 @@ const getHandler = async (request: NextRequest) => {
   const cultivator = auth.cultivator;
 
   const { searchParams } = new URL(request.url);
-  const rawPage  = parseInt(searchParams.get("page")  || "1");
+  const rawPage = parseInt(searchParams.get("page") || "1");
   const rawLimit = parseInt(searchParams.get("limit") || "20");
-  const page  = Math.max(1, Number.isNaN(rawPage)  ? 1 : rawPage);
+  const page = Math.max(1, Number.isNaN(rawPage) ? 1 : rawPage);
   const limit = Math.min(50, Math.max(1, Number.isNaN(rawLimit) ? 20 : rawLimit));
 
   const [events, total] = await Promise.all([

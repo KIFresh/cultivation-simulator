@@ -28,35 +28,25 @@ export function useActions(): UseActionsResult {
 
   const [error, setError] = useState<string | null>(null);
 
-  const safe = useCallback(
-    async (fn: () => void | Promise<void>): Promise<void> => {
-      setError(null);
-      try {
-        await fn();
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : "操作失败";
-        setError(msg);
-        throw e;
-      }
-    },
-    [],
-  );
+  const safe = useCallback(async (fn: () => void | Promise<void>): Promise<void> => {
+    setError(null);
+    try {
+      await fn();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "操作失败";
+      setError(msg);
+      throw e;
+    }
+  }, []);
 
   const doPerformAction = useCallback(
-    (actionId: string, input?: string) =>
-      safe(() => performAction(actionId, input)),
-    [performAction, safe],
+    (actionId: string, input?: string) => safe(() => performAction(actionId, input)),
+    [performAction, safe]
   );
 
-  const doBreakthrough = useCallback(
-    () => safe(() => breakthrough()),
-    [breakthrough, safe],
-  );
+  const doBreakthrough = useCallback(() => safe(() => breakthrough()), [breakthrough, safe]);
 
-  const doAdvanceQuarter = useCallback(
-    () => safe(() => advanceQuarter()),
-    [advanceQuarter, safe],
-  );
+  const doAdvanceQuarter = useCallback(() => safe(() => advanceQuarter()), [advanceQuarter, safe]);
 
   return {
     performAction: doPerformAction,

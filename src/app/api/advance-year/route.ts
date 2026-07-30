@@ -13,6 +13,6 @@ export async function POST(_request: NextRequest) {
       error: "此接口已废弃，请使用 /api/advance-quarter",
       code: "GONE_ADVANCE_YEAR",
     },
-    { status: 410 },
+    { status: 410 }
   );
 }

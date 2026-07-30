@@ -133,7 +133,12 @@ export function generateStreetOmen(params: {
   let boon: BoonEntry | undefined;
   if (base.boon && rng() < 0.5) {
     // 由输入种子派生稳定时间戳，保证同一角色/年龄/季度/街区的结果可复现。
-    boon = { ts: hashSeed(`${params.id}|${params.age}|${params.quarter}|${params.district}|boon`), season: params.quarter, title: base.boon.title, detail: base.boon.detail };
+    boon = {
+      ts: hashSeed(`${params.id}|${params.age}|${params.quarter}|${params.district}|boon`),
+      season: params.quarter,
+      title: base.boon.title,
+      detail: base.boon.detail,
+    };
   }
 
   return {
@@ -161,7 +166,8 @@ export function loadStreetBoons(userId: string): BoonEntry[] {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     return parsed.filter(
-      (b): b is BoonEntry => !!b && typeof b === "object" && typeof (b as { title?: unknown }).title === "string",
+      (b): b is BoonEntry =>
+        !!b && typeof b === "object" && typeof (b as { title?: unknown }).title === "string"
     );
   } catch {
     return [];

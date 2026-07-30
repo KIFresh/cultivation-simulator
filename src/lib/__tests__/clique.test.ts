@@ -1,10 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  decideClique,
-  getCliqueBonus,
-  getCliqueInfo,
-  CLIQUE_INFO,
-} from "@/lib/clique";
+import { decideClique, getCliqueBonus, getCliqueInfo, CLIQUE_INFO } from "@/lib/clique";
 
 describe("decideClique (属性阈值 → 圈子映射)", () => {
   it("6 岁前不分配圈子", () => {
@@ -57,7 +52,7 @@ describe("getCliqueInfo", () => {
   });
   it("CLIQUE_INFO 含四个圈子且加成与文档一致", () => {
     expect(Object.keys(CLIQUE_INFO).sort()).toEqual(
-      ["delinquent", "nerd", "normal", "sport"].sort(),
+      ["delinquent", "nerd", "normal", "sport"].sort()
     );
   });
 });

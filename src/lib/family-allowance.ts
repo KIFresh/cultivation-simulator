@@ -18,10 +18,14 @@ export function getAllowanceAgeBase(age: number): number {
   return AGE_BASE.find((band) => age <= band.maxAge)?.base ?? 96;
 }
 
-export function getHouseholdIncomeMultiplier(parents: AllowanceParent[], householdIncome?: HouseholdIncome): number {
+export function getHouseholdIncomeMultiplier(
+  parents: AllowanceParent[],
+  householdIncome?: HouseholdIncome
+): number {
   if (parents.length === 0) return 0;
   // 新结算路径传入全户统一档位；保留旧参数回退以兼容历史调用。
-  const incomeLevel = householdIncome?.incomeLevel ?? Math.max(...parents.map((parent) => parent.incomeLevel ?? 1));
+  const incomeLevel =
+    householdIncome?.incomeLevel ?? Math.max(...parents.map((parent) => parent.incomeLevel ?? 1));
   if (incomeLevel <= 0) return 0.7;
   if (incomeLevel >= 2) return 1.5;
   return 1;
@@ -40,11 +44,16 @@ export function getHouseholdIntimacyMultiplier(parents: AllowanceParent[]): numb
 export function calculateAnnualFamilyAllowance(
   age: number,
   parents: AllowanceParent[],
-  householdIncome?: HouseholdIncome,
+  householdIncome?: HouseholdIncome
 ): number {
   const base = getAllowanceAgeBase(age);
   if (base <= 0 || parents.length === 0) return 0;
-  return Math.max(1, Math.floor(
-    base * getHouseholdIncomeMultiplier(parents, householdIncome) * getHouseholdIntimacyMultiplier(parents),
-  ));
+  return Math.max(
+    1,
+    Math.floor(
+      base *
+        getHouseholdIncomeMultiplier(parents, householdIncome) *
+        getHouseholdIntimacyMultiplier(parents)
+    )
+  );
 }

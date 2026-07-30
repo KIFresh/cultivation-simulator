@@ -38,7 +38,13 @@ import { NARRATIVE_EFFECT_WHITELISTS, checkEffectWhitelist } from "@/lib/narrati
 import { getGoldMaxGainByRealm } from "@/lib/gold";
 import { evaluateActionGift } from "@/lib/action-gifts";
 import { calculateAnnualFamilyAllowance, type AllowanceParent } from "@/lib/family-allowance";
-import { calculateHouseholdIncome, initializeFamilyCareer, isFamilyGuardianRelation, NEUTRAL_FAMILY_ECONOMIC_BACKGROUND, type FamilyCareer } from "@/lib/family-career";
+import {
+  calculateHouseholdIncome,
+  initializeFamilyCareer,
+  isFamilyGuardianRelation,
+  NEUTRAL_FAMILY_ECONOMIC_BACKGROUND,
+  type FamilyCareer,
+} from "@/lib/family-career";
 
 export interface ActionInput {
   actionId: string;
@@ -111,10 +117,7 @@ export interface CombatResultLike {
   enemy?: { id: string; name: string };
 }
 
-export async function executeAction(
-  input: ActionInput,
-  cultivator: any
-): Promise<ActionResult> {
+export async function executeAction(input: ActionInput, cultivator: any): Promise<ActionResult> {
   const { actionId, freeInput, worldId, attributes } = input;
 
   const action = getActionById(actionId);
@@ -176,41 +179,60 @@ export async function executeAction(
     };
   }
 
-  const currentEntries: StoryEntry[] = JSON.parse(
-    cultivator.storyEntries || "[]"
-  );
+  const currentEntries: StoryEntry[] = JSON.parse(cultivator.storyEntries || "[]");
   const summaryText = buildSummaryFromEntries(currentEntries);
 
   // 零花钱只能由服务端已验证的在世家人结算，客户端名称仅用于定位候选人。
   const selectedFamilyName = input.npcNames?.[0]?.trim();
-  const familyMembers = await prisma.familyMember?.findMany?.({
-    where: { cultivatorId: cultivator.id, alive: true },
-    select: {
-      id: true, name: true, relation: true, age: true, alive: true, intimacy: true, incomeLevel: true,
-      careerCategory: true, careerLevel: true, careerStatus: true, monthlyIncome: true, careerUpdatedYear: true,
-    },
-  }) ?? [];
-  const guardians = familyMembers.filter((member: any) => isFamilyGuardianRelation(member.relation));
-  const targetFamily = guardians.find((member: any) =>
-    input.familyMemberId ? member.id === input.familyMemberId : member.name === selectedFamilyName
-  ) ?? null;
+  const familyMembers =
+    (await prisma.familyMember?.findMany?.({
+      where: { cultivatorId: cultivator.id, alive: true },
+      select: {
+        id: true,
+        name: true,
+        relation: true,
+        age: true,
+        alive: true,
+        intimacy: true,
+        incomeLevel: true,
+        careerCategory: true,
+        careerLevel: true,
+        careerStatus: true,
+        monthlyIncome: true,
+        careerUpdatedYear: true,
+      },
+    })) ?? [];
+  const guardians = familyMembers.filter((member: any) =>
+    isFamilyGuardianRelation(member.relation)
+  );
+  const targetFamily =
+    guardians.find((member: any) =>
+      input.familyMemberId ? member.id === input.familyMemberId : member.name === selectedFamilyName
+    ) ?? null;
   // 未完成迁移的旧家庭成员也按确定性默认职业计算，绝不采信客户端收入。
-  const householdIncome = calculateHouseholdIncome(familyMembers.map((member: any): FamilyCareer => {
-    if (member.careerCategory) return member as FamilyCareer;
-    return initializeFamilyCareer({
-      relation: member.relation,
-      age: member.age,
-      alive: member.alive,
-      worldYear: (cultivator as { worldYear?: number }).worldYear ?? 2025,
-      familyBackground: NEUTRAL_FAMILY_ECONOMIC_BACKGROUND,
-    });
-  }));
+  const householdIncome = calculateHouseholdIncome(
+    familyMembers.map((member: any): FamilyCareer => {
+      if (member.careerCategory) return member as FamilyCareer;
+      return initializeFamilyCareer({
+        relation: member.relation,
+        age: member.age,
+        alive: member.alive,
+        worldYear: (cultivator as { worldYear?: number }).worldYear ?? 2025,
+        familyBackground: NEUTRAL_FAMILY_ECONOMIC_BACKGROUND,
+      });
+    })
+  );
   // 非当前年份记录只可能是跨年事务前的旧快照；不给它临时额度，避免覆盖跨年重置。
-  const currentAllowance = cultivator.allowanceYear === cultivator.age
-    ? Math.max(0, cultivator.allowanceRemaining ?? 0)
-    : cultivator.allowanceYear === null
-      ? calculateAnnualFamilyAllowance(cultivator.age, guardians as AllowanceParent[], householdIncome)
-      : 0;
+  const currentAllowance =
+    cultivator.allowanceYear === cultivator.age
+      ? Math.max(0, cultivator.allowanceRemaining ?? 0)
+      : cultivator.allowanceYear === null
+        ? calculateAnnualFamilyAllowance(
+            cultivator.age,
+            guardians as AllowanceParent[],
+            householdIncome
+          )
+        : 0;
   const giftDecision = evaluateActionGift({
     actionId: action.id,
     freeInput,
@@ -253,10 +275,7 @@ export async function executeAction(
   let updatedEntries = [...currentEntries, newEntry];
   const newSummary = buildSummaryFromEntries(updatedEntries);
   if (updatedEntries.length > 50 || newSummary.length > 1000) {
-    const compressed = await compressStorySummary(
-      updatedEntries,
-      cultivator.name
-    );
+    const compressed = await compressStorySummary(updatedEntries, cultivator.name);
     const ce = createEntry("📜 记忆凝练", compressed, false);
     updatedEntries = [...updatedEntries.filter((e) => e.important), ce];
   }
@@ -270,15 +289,17 @@ export async function executeAction(
     storyEntriesUpdatedAt: new Date(),
     stamina: Math.max(0, (cultivator.stamina ?? 0) - action.actionPointCost),
   };
-  const allowanceDeduction = giftDecision.givesGold > 0
-    ? {
-      allowanceYear: cultivator.allowanceYear === cultivator.age ? cultivator.age : undefined,
-      allowanceRemaining: cultivator.allowanceYear === cultivator.age
-        ? Math.max(0, cultivator.allowanceRemaining ?? 0)
-        : undefined,
-      nextAllowanceRemaining: giftDecision.remainingAllowance,
-    }
-    : null;
+  const allowanceDeduction =
+    giftDecision.givesGold > 0
+      ? {
+          allowanceYear: cultivator.allowanceYear === cultivator.age ? cultivator.age : undefined,
+          allowanceRemaining:
+            cultivator.allowanceYear === cultivator.age
+              ? Math.max(0, cultivator.allowanceRemaining ?? 0)
+              : undefined,
+          nextAllowanceRemaining: giftDecision.remainingAllowance,
+        }
+      : null;
 
   let combatResult: CombatResultLike | null = null;
   let combatExpGain = 0;
@@ -356,10 +377,7 @@ export async function executeAction(
           }
           if (!combatResult.win && combatResult.penalty?.lifespanLoss) {
             const currentMax = updateData.maxAge ?? cultivator.maxAge ?? 80;
-            updateData.maxAge = Math.max(
-              1,
-              currentMax - combatResult.penalty.lifespanLoss
-            );
+            updateData.maxAge = Math.max(1, currentMax - combatResult.penalty.lifespanLoss);
           }
           if (!combatResult.win && combatResult.penalty?.mindDemonDelta) {
             updateData.mindDemon = {
@@ -373,12 +391,9 @@ export async function executeAction(
           ) {
             const currentInv = JSON.parse(cultivator.inventory || "[]");
             for (const lostId of combatResult.penalty.itemLoss) {
-              const idx = currentInv.findIndex(
-                (i: any) => i.itemId === lostId && !i.equipped
-              );
+              const idx = currentInv.findIndex((i: any) => i.itemId === lostId && !i.equipped);
               if (idx !== -1) {
-                currentInv[idx].quantity =
-                  (currentInv[idx].quantity ?? 1) - 1;
+                currentInv[idx].quantity = (currentInv[idx].quantity ?? 1) - 1;
                 if (currentInv[idx].quantity <= 0) currentInv.splice(idx, 1);
               }
             }
@@ -392,8 +407,7 @@ export async function executeAction(
     }
   }
 
-  const effects: NarrativeEffect[] = [
-  ];
+  const effects: NarrativeEffect[] = [];
   let combatGold = 0;
   if (combatResult?.enemy?.id && combatResult.enemy.id !== "none") {
     combatGold = combatResult.win
@@ -406,10 +420,7 @@ export async function executeAction(
   if (giftDecision.givesGold > 0) {
     effects.push({ kind: "gold", delta: giftDecision.givesGold });
   }
-  const deniedKinds = checkEffectWhitelist(
-    effects,
-    NARRATIVE_EFFECT_WHITELISTS.ACTION
-  );
+  const deniedKinds = checkEffectWhitelist(effects, NARRATIVE_EFFECT_WHITELISTS.ACTION);
   if (deniedKinds.length > 0) {
     const filtered = effects.filter((e) => !deniedKinds.includes(e.kind));
     effects.length = 0;
@@ -432,7 +443,7 @@ export async function executeAction(
   let techniqueEvents: ActionResultData["techniqueEvents"] = [];
   if (actionId === "STUDY") {
     const insight = safeAttrs.insight ?? 0;
-    const baseProf = calcTechniqueProficiency('study', cultivator.realm);
+    const baseProf = calcTechniqueProficiency("study", cultivator.realm);
     const insightBonus = Math.floor(insight / 3);
     for (const record of techniqueRecords) {
       const tech = TECHNIQUES[record.techniqueId];
@@ -467,95 +478,101 @@ export async function executeAction(
     }
   }
 
-  const updated = await prisma.$transaction(async (tx) => {
-    // 以读取时的完整年度额度作为条件写入，避免并发行动用同一旧余额重复发放。
-    if (allowanceDeduction) {
-      const allowanceUpdated = await tx.cultivator.updateMany({
-        where: allowanceDeduction.allowanceYear === undefined
-          ? {
-            id: cultivator.id,
-            allowanceYear: null,
-          }
-          : {
-            id: cultivator.id,
-            allowanceYear: allowanceDeduction.allowanceYear,
-            allowanceRemaining: allowanceDeduction.allowanceRemaining,
+  const updated = await prisma
+    .$transaction(async (tx) => {
+      // 以读取时的完整年度额度作为条件写入，避免并发行动用同一旧余额重复发放。
+      if (allowanceDeduction) {
+        const allowanceUpdated = await tx.cultivator.updateMany({
+          where:
+            allowanceDeduction.allowanceYear === undefined
+              ? {
+                  id: cultivator.id,
+                  allowanceYear: null,
+                }
+              : {
+                  id: cultivator.id,
+                  allowanceYear: allowanceDeduction.allowanceYear,
+                  allowanceRemaining: allowanceDeduction.allowanceRemaining,
+                },
+          data: {
+            allowanceYear: cultivator.age,
+            allowanceRemaining: allowanceDeduction.nextAllowanceRemaining,
           },
-        data: {
-          allowanceYear: cultivator.age,
-          allowanceRemaining: allowanceDeduction.nextAllowanceRemaining,
-        },
-      });
-      if (allowanceUpdated.count === 0) {
-        throw new AllowanceConflictError();
+        });
+        if (allowanceUpdated.count === 0) {
+          throw new AllowanceConflictError();
+        }
       }
-    }
-    if (clamped.length > 0) {
-      await applyEffects(clamped, tx, ctx);
-    }
-    const cultivatorUpdate = await tx.cultivator.update({
-      where: { id: cultivator.id },
-      data: updateData,
+      if (clamped.length > 0) {
+        await applyEffects(clamped, tx, ctx);
+      }
+      const cultivatorUpdate = await tx.cultivator.update({
+        where: { id: cultivator.id },
+        data: updateData,
+      });
+      let actionEventId: string | undefined;
+      if (combatResult?.enemy?.id && combatResult.enemy.id !== "none") {
+        const combatEvent = await tx.gameEvent.create({
+          data: {
+            cultivatorId: cultivator.id,
+            type: "COMBAT",
+            title: combatResult.win ? "战斗胜利" : "战斗失败",
+            narrative: combatResult.narrative,
+            reward: JSON.stringify({
+              win: combatResult.win,
+              style: combatResult.style,
+              gold: combatGold,
+              exp: combatExpGain,
+              enemy: combatResult.enemy.name,
+            }),
+          },
+        });
+        actionEventId = combatEvent.id;
+      } else {
+        const ae = await tx.gameEvent.create({
+          data: {
+            cultivatorId: cultivator.id,
+            type: "ACTION",
+            title: narrativeResult.title,
+            narrative: narrativeResult.narrative,
+            reward: JSON.stringify({
+              expGained,
+              actionName: action.name,
+              mood: narrativeResult.mood,
+            }),
+          },
+        });
+        actionEventId = ae.id;
+      }
+      for (const op of techniqueUpdateOps) {
+        await tx.cultivatorTechnique.update({
+          where: { id: op.id },
+          data: op.data,
+        });
+      }
+      if (awakenEvent) {
+        await tx.gameEvent.create({
+          data: {
+            cultivatorId: cultivator.id,
+            type: "AWAKENING",
+            title: awakenEvent.title,
+            narrative: awakenEvent.narrative,
+            reward: JSON.stringify({ mood: "奇" }),
+          },
+        });
+      }
+      return { cultivator: cultivatorUpdate, actionEventId };
+    })
+    .catch((error: unknown) => {
+      if (
+        error instanceof AllowanceConflictError ||
+        (typeof error === "object" &&
+          error !== null &&
+          (error as { name?: string }).name === "AllowanceConflictError")
+      )
+        return null;
+      throw error;
     });
-    let actionEventId: string | undefined;
-    if (combatResult?.enemy?.id && combatResult.enemy.id !== "none") {
-      const combatEvent = await tx.gameEvent.create({
-        data: {
-          cultivatorId: cultivator.id,
-          type: "COMBAT",
-          title: combatResult.win ? "战斗胜利" : "战斗失败",
-          narrative: combatResult.narrative,
-          reward: JSON.stringify({
-            win: combatResult.win,
-            style: combatResult.style,
-            gold: combatGold,
-            exp: combatExpGain,
-            enemy: combatResult.enemy.name,
-          }),
-        },
-      });
-      actionEventId = combatEvent.id;
-    } else {
-      const ae = await tx.gameEvent.create({
-        data: {
-          cultivatorId: cultivator.id,
-          type: "ACTION",
-          title: narrativeResult.title,
-          narrative: narrativeResult.narrative,
-          reward: JSON.stringify({
-            expGained,
-            actionName: action.name,
-            mood: narrativeResult.mood,
-          }),
-        },
-      });
-      actionEventId = ae.id;
-    }
-    for (const op of techniqueUpdateOps) {
-      await tx.cultivatorTechnique.update({
-        where: { id: op.id },
-        data: op.data,
-      });
-    }
-    if (awakenEvent) {
-      await tx.gameEvent.create({
-        data: {
-          cultivatorId: cultivator.id,
-          type: "AWAKENING",
-          title: awakenEvent.title,
-          narrative: awakenEvent.narrative,
-          reward: JSON.stringify({ mood: "奇" }),
-        },
-      });
-    }
-    return { cultivator: cultivatorUpdate, actionEventId };
-  }).catch((error: unknown) => {
-    if (
-      error instanceof AllowanceConflictError
-      || (typeof error === "object" && error !== null && (error as { name?: string }).name === "AllowanceConflictError")
-    ) return null;
-    throw error;
-  });
 
   if (!updated) {
     return { status: "error", message: "本年度可支配的零花钱已被其他行动使用，请重试", code: 409 };

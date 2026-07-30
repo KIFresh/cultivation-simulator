@@ -9,7 +9,12 @@ interface StatusGaugeProps {
   hint?: string;
 }
 
-export const StatusGauge = React.memo(function StatusGauge({ label, value, max, hint }: StatusGaugeProps) {
+export const StatusGauge = React.memo(function StatusGauge({
+  label,
+  value,
+  max,
+  hint,
+}: StatusGaugeProps) {
   const ratio = Math.max(0, Math.min(1, max > 0 ? value / max : 0));
   return (
     <div className="rounded-2xl border border-[#EADCD0] bg-white/80 p-3 shadow-sm">

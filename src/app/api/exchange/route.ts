@@ -33,31 +33,32 @@ export async function GET(request: NextRequest) {
 }
 
 async function postHandler(request: NextRequest) {
-    const body = await parseJsonBody(request);
-    const { direction, tier, amount } = body;
-    const auth = await requireCultivator(request);
-    if ("error" in auth) return auth.error;
-    const c = auth.cultivator as any;
+  const body = await parseJsonBody(request);
+  const { direction, tier, amount } = body;
+  const auth = await requireCultivator(request);
+  if ("error" in auth) return auth.error;
+  const c = auth.cultivator as any;
 
-    const balances = {
-      gold: c.gold ?? 0,
-      low: c.spiritStoneLow ?? 0,
-      mid: c.spiritStoneMid ?? 0,
-      high: c.spiritStoneHigh ?? 0,
-    };
-    const res = computeExchange(direction as ExchangeDirection, tier, Number(amount), balances);
-    if (!res.ok) return NextResponse.json({ error: res.error }, { status: 400 });
+  const balances = {
+    gold: c.gold ?? 0,
+    low: c.spiritStoneLow ?? 0,
+    mid: c.spiritStoneMid ?? 0,
+    high: c.spiritStoneHigh ?? 0,
+  };
+  const res = computeExchange(direction as ExchangeDirection, tier, Number(amount), balances);
+  if (!res.ok) return NextResponse.json({ error: res.error }, { status: 400 });
 
-    const updateData: Record<string, any> = {};
-    if (res.goldDelta !== 0) updateData.gold = { increment: res.goldDelta };
-    if (res.stoneDelta) updateData[STONE_COL[res.stoneDelta.tier]] = { increment: res.stoneDelta.amount };
+  const updateData: Record<string, any> = {};
+  if (res.goldDelta !== 0) updateData.gold = { increment: res.goldDelta };
+  if (res.stoneDelta)
+    updateData[STONE_COL[res.stoneDelta.tier]] = { increment: res.stoneDelta.amount };
 
-    const updated = await prisma.cultivator.update({ where: { id: c.id }, data: updateData });
-    return NextResponse.json({
-      ok: true,
-      gold: updated.gold ?? 0,
-      spiritStones: readStones(updated),
-    });
+  const updated = await prisma.cultivator.update({ where: { id: c.id }, data: updateData });
+  return NextResponse.json({
+    ok: true,
+    gold: updated.gold ?? 0,
+    spiritStones: readStones(updated),
+  });
 }
 
 export const POST = withApiErrorHandling(postHandler);

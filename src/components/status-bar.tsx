@@ -59,10 +59,7 @@ export default function StatusBar() {
           <span>{expLabel}</span>
         </div>
         <div className="h-2 bg-muted rounded-full overflow-hidden">
-          <div
-            className="h-full bg-orange-500 rounded-full"
-            style={{ width: `${expPercent}%` }}
-          />
+          <div className="h-full bg-orange-500 rounded-full" style={{ width: `${expPercent}%` }} />
         </div>
       </div>
 

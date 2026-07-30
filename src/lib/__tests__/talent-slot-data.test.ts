@@ -35,7 +35,12 @@ describe("parseTalentSlots", () => {
 
 describe("computeTalentBonuses", () => {
   it("empty → all zero", () => {
-    expect(computeTalentBonuses("[]")).toEqual({ cultivationSpeed: 0, breakthroughRate: 0, combatPower: 0, gatherYield: 0 });
+    expect(computeTalentBonuses("[]")).toEqual({
+      cultivationSpeed: 0,
+      breakthroughRate: 0,
+      combatPower: 0,
+      gatherYield: 0,
+    });
   });
   it("道体 level 5 → cultivationSpeed 15 (cap)", () => {
     expect(computeTalentBonuses('[{"type":"daoti","level":5}]').cultivationSpeed).toBe(15);
@@ -53,7 +58,9 @@ describe("computeTalentBonuses", () => {
     expect(computeTalentBonuses('[{"type":"linghui","level":5}]').gatherYield).toBe(20);
   });
   it("combines multiple slots", () => {
-    const b = computeTalentBonuses('[{"type":"daoti","level":2},{"type":"tongming","level":3},{"type":"zhanhun","level":1},{"type":"linghui","level":1}]');
+    const b = computeTalentBonuses(
+      '[{"type":"daoti","level":2},{"type":"tongming","level":3},{"type":"zhanhun","level":1},{"type":"linghui","level":1}]'
+    );
     expect(b.cultivationSpeed).toBe(6); // 3×2
     expect(b.breakthroughRate).toBe(6); // 2×3
     expect(b.combatPower).toBe(3); // 3×1

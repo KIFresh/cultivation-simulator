@@ -10,9 +10,15 @@ import { getUnlockedLocations, isAwakened, calcTravelCost } from "@/lib";
 import { getWorlds } from "@/lib/worlds-data";
 
 interface CultivatorBrief {
-  id: string; name: string; realm: string; age: number;
-  stamina: number; gold: number; location: string;
-  inventory: string | null; worldId: string | null;
+  id: string;
+  name: string;
+  realm: string;
+  age: number;
+  stamina: number;
+  gold: number;
+  location: string;
+  inventory: string | null;
+  worldId: string | null;
 }
 
 const apps = [
@@ -32,11 +38,17 @@ export default function PhonePage() {
 
   useEffect(() => {
     const userId = localStorage.getItem("userId");
-    if (!userId) { router.push("/"); return; }
+    if (!userId) {
+      router.push("/");
+      return;
+    }
     fetch(`/api/cultivator?userId=${userId}`)
       .then((r) => r.json())
       .then((data) => {
-        if (data.error) { toast.error(data.error); return; }
+        if (data.error) {
+          toast.error(data.error);
+          return;
+        }
         setCultivator(data);
       })
       .catch(() => toast.error("加载角色数据失败"))
@@ -48,15 +60,16 @@ export default function PhonePage() {
         try {
           const inv = JSON.parse(cultivator.inventory);
           return Array.isArray(inv) && inv.some((i: any) => i.itemId === "phone");
-        } catch { return false; }
+        } catch {
+          return false;
+        }
       })()
     : false;
 
   const isAwake = cultivator ? isAwakened(cultivator.realm) : false;
-  const locs = cultivator
-    ? getUnlockedLocations(cultivator.age, isAwake, [])
-    : [];
-  const worldLocs = getWorlds().find((w) => w.id === (cultivator?.worldId || "earth"))?.locations || [];
+  const locs = cultivator ? getUnlockedLocations(cultivator.age, isAwake, []) : [];
+  const worldLocs =
+    getWorlds().find((w) => w.id === (cultivator?.worldId || "earth"))?.locations || [];
   const locDetails = locs.map((l: { id: string }) => ({
     ...l,
     name: worldLocs.find((wl: any) => wl.id === l.id)?.name || l.id,
@@ -65,93 +78,139 @@ export default function PhonePage() {
   const handleTaxi = async (locId: string) => {
     if (!cultivator) return;
     const target = locDetails.find((l: any) => l.id === locId);
-    if (!target || locId === cultivator.location) { toast.info("已在此处"); return; }
+    if (!target || locId === cultivator.location) {
+      toast.info("已在此处");
+      return;
+    }
     const cost = calcTravelCost(cultivator.location, locId);
     const taxiStaminaCost = Math.max(1, Math.floor(cost / 3));
     const taxiGoldCost = cost * 3;
-    if (cultivator.stamina < taxiStaminaCost) { toast.error(`体力不足！需要${taxiStaminaCost}`); return; }
-    if (cultivator.gold < taxiGoldCost) { toast.error(`金币不足！需要${taxiGoldCost}金`); return; }
+    if (cultivator.stamina < taxiStaminaCost) {
+      toast.error(`体力不足！需要${taxiStaminaCost}`);
+      return;
+    }
+    if (cultivator.gold < taxiGoldCost) {
+      toast.error(`金币不足！需要${taxiGoldCost}金`);
+      return;
+    }
 
     setTaxiLoading(true);
     try {
       const res = await fetch("/api/travel", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: cultivator.id, locationId: locId, useTaxi: true }),
       });
       const data = await res.json();
-      if (!res.ok) { toast.error(data.error || "打车失败"); return; }
+      if (!res.ok) {
+        toast.error(data.error || "打车失败");
+        return;
+      }
       setCultivator(data.cultivator);
-      toast.success(`🚕 打车到${target.name}（-${taxiGoldCost}金 -${taxiStaminaCost}体力）`, { duration: 2000 });
-    } catch { toast.error("打车失败"); }
-    finally { setTaxiLoading(false); }
+      toast.success(`🚕 打车到${target.name}（-${taxiGoldCost}金 -${taxiStaminaCost}体力）`, {
+        duration: 2000,
+      });
+    } catch {
+      toast.error("打车失败");
+    } finally {
+      setTaxiLoading(false);
+    }
   };
 
-  if (loading) return (
-    <main className="flex-1 min-h-screen bg-background flex items-center justify-center">
-      <p className="text-muted-foreground">加载中…</p>
-    </main>
-  );
+  if (loading)
+    return (
+      <main className="flex-1 min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">加载中…</p>
+      </main>
+    );
 
-  if (showMap) return (
-    <main className="flex-1 min-h-screen bg-background">
-      <div className="max-w-sm mx-auto p-4 space-y-4">
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowMap(false)} className="text-muted-foreground hover:text-primary"><ArrowLeft className="w-4 h-4" /></button>
-          <h1 className="text-lg font-bold text-foreground">🗺️ 地图</h1>
-        </div>
-        {cultivator && (
-          <div className="text-xs text-muted-foreground">
-            当前位置：{worldLocs.find((l: any) => l.id === cultivator.location)?.name || cultivator.location}
-            &nbsp;| 体力：{cultivator.stamina} | 金币：{cultivator.gold}
+  if (showMap)
+    return (
+      <main className="flex-1 min-h-screen bg-background">
+        <div className="max-w-sm mx-auto p-4 space-y-4">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowMap(false)}
+              className="text-muted-foreground hover:text-primary"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <h1 className="text-lg font-bold text-foreground">🗺️ 地图</h1>
           </div>
-        )}
-        {!hasPhone && (
-          <Card className="border-border bg-card">
-            <CardContent className="p-4 text-sm text-muted-foreground">
-              需要智能手机才能使用打车功能。去市区商店购买一个。
-            </CardContent>
-          </Card>
-        )}
-        <div className="grid gap-2">
-          {locDetails.map((loc: any) => {
-            const isCurrent = cultivator?.location === loc.id;
-            const cost = cultivator ? calcTravelCost(cultivator.location, loc.id) : 0;
-            const taxiStaminaCost = Math.max(1, Math.floor(cost / 3));
-            const taxiGoldCost = cost * 3;
-            const canTaxi = hasPhone && cultivator && cultivator.stamina >= taxiStaminaCost && cultivator.gold >= taxiGoldCost && !isCurrent;
-            return (
-              <Card key={loc.id} className={`border-border bg-card ${isCurrent ? "opacity-60" : ""}`}>
-                <CardContent className="p-3 flex items-center justify-between">
-                  <div>
-                    <span className="text-sm font-medium text-foreground">{loc.name}</span>
-                    {isCurrent && <span className="text-xs text-muted-foreground ml-2">（当前）</span>}
-                    {!isCurrent && <div className="text-xs text-muted-foreground mt-0.5">🚕 {taxiGoldCost}金 / {taxiStaminaCost}体力</div>}
-                  </div>
-                  {!isCurrent && hasPhone && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={!canTaxi || taxiLoading}
-                      onClick={() => handleTaxi(loc.id)}
-                    >
-                      <CarTaxiFront className="w-3 h-3 mr-1" />
-                      {taxiLoading ? "打车中…" : "打车"}
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+          {cultivator && (
+            <div className="text-xs text-muted-foreground">
+              当前位置：
+              {worldLocs.find((l: any) => l.id === cultivator.location)?.name ||
+                cultivator.location}
+              &nbsp;| 体力：{cultivator.stamina} | 金币：{cultivator.gold}
+            </div>
+          )}
+          {!hasPhone && (
+            <Card className="border-border bg-card">
+              <CardContent className="p-4 text-sm text-muted-foreground">
+                需要智能手机才能使用打车功能。去市区商店购买一个。
+              </CardContent>
+            </Card>
+          )}
+          <div className="grid gap-2">
+            {locDetails.map((loc: any) => {
+              const isCurrent = cultivator?.location === loc.id;
+              const cost = cultivator ? calcTravelCost(cultivator.location, loc.id) : 0;
+              const taxiStaminaCost = Math.max(1, Math.floor(cost / 3));
+              const taxiGoldCost = cost * 3;
+              const canTaxi =
+                hasPhone &&
+                cultivator &&
+                cultivator.stamina >= taxiStaminaCost &&
+                cultivator.gold >= taxiGoldCost &&
+                !isCurrent;
+              return (
+                <Card
+                  key={loc.id}
+                  className={`border-border bg-card ${isCurrent ? "opacity-60" : ""}`}
+                >
+                  <CardContent className="p-3 flex items-center justify-between">
+                    <div>
+                      <span className="text-sm font-medium text-foreground">{loc.name}</span>
+                      {isCurrent && (
+                        <span className="text-xs text-muted-foreground ml-2">（当前）</span>
+                      )}
+                      {!isCurrent && (
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          🚕 {taxiGoldCost}金 / {taxiStaminaCost}体力
+                        </div>
+                      )}
+                    </div>
+                    {!isCurrent && hasPhone && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={!canTaxi || taxiLoading}
+                        onClick={() => handleTaxi(loc.id)}
+                      >
+                        <CarTaxiFront className="w-3 h-3 mr-1" />
+                        {taxiLoading ? "打车中…" : "打车"}
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         </div>
-      </div>
-    </main>
-  );
+      </main>
+    );
 
   return (
     <main className="flex-1 min-h-screen bg-background">
       <div className="max-w-sm mx-auto p-4 space-y-4">
         <div className="flex items-center gap-2">
-          <button onClick={() => router.back()} className="text-muted-foreground hover:text-primary"><ArrowLeft className="w-4 h-4" /></button>
+          <button
+            onClick={() => router.back()}
+            className="text-muted-foreground hover:text-primary"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
           <h1 className="text-lg font-bold text-foreground">📱 手机</h1>
         </div>
         {cultivator && (
@@ -161,10 +220,15 @@ export default function PhonePage() {
         )}
         <div className="grid grid-cols-3 gap-3">
           {apps.map((app) => (
-            <Card key={app.name} className={`border-border bg-card shadow-sm hover:border-primary/30 cursor-pointer transition-colors ${app.href ? "" : ""}`}
+            <Card
+              key={app.name}
+              className={`border-border bg-card shadow-sm hover:border-primary/30 cursor-pointer transition-colors ${app.href ? "" : ""}`}
               onClick={() => {
                 if (app.name === "地图") {
-                  if (!hasPhone) { toast.info("需要智能手机才能使用地图"); return; }
+                  if (!hasPhone) {
+                    toast.info("需要智能手机才能使用地图");
+                    return;
+                  }
                   setShowMap(true);
                 } else if (app.href) {
                   router.push(app.href);

@@ -14,10 +14,38 @@ interface ClassInfo {
 }
 
 const CLASSES: ClassInfo[] = [
-  { id: "talisman", name: "符箓入门", school: "符箓阁", cost: 30, attr: "insight", desc: "学习绘制符箓，增益悟性。" },
-  { id: "alchemy_intro", name: "丹道基础", school: "丹鼎峰", cost: 35, attr: "spirit", desc: "初窥丹道，固本培元。" },
-  { id: "sword", name: "剑修启蒙", school: "御剑台", cost: 40, attr: "root", desc: "修习剑诀，淬炼根骨。" },
-  { id: "array", name: "阵法初解", school: "天机殿", cost: 45, attr: "mind", desc: "研习阵法，磨炼心性。" },
+  {
+    id: "talisman",
+    name: "符箓入门",
+    school: "符箓阁",
+    cost: 30,
+    attr: "insight",
+    desc: "学习绘制符箓，增益悟性。",
+  },
+  {
+    id: "alchemy_intro",
+    name: "丹道基础",
+    school: "丹鼎峰",
+    cost: 35,
+    attr: "spirit",
+    desc: "初窥丹道，固本培元。",
+  },
+  {
+    id: "sword",
+    name: "剑修启蒙",
+    school: "御剑台",
+    cost: 40,
+    attr: "root",
+    desc: "修习剑诀，淬炼根骨。",
+  },
+  {
+    id: "array",
+    name: "阵法初解",
+    school: "天机殿",
+    cost: 45,
+    attr: "mind",
+    desc: "研习阵法，磨炼心性。",
+  },
 ];
 
 interface EnrollInfo {
@@ -43,7 +71,10 @@ export async function GET(request: NextRequest) {
     const auth = await requireCultivator(request);
     if ("error" in auth) return auth.error;
     const cultivator = auth.cultivator;
-    return NextResponse.json({ classEnroll: parseEnroll(cultivator.classEnroll), availableClasses: CLASSES });
+    return NextResponse.json({
+      classEnroll: parseEnroll(cultivator.classEnroll),
+      availableClasses: CLASSES,
+    });
   } catch (error) {
     logger.error("获取学堂信息失败:", error);
     return NextResponse.json({ error: "获取学堂信息失败" }, { status: 500 });

@@ -24,9 +24,19 @@ export const PET_ACQUIRE_AGE = 6;
 export const PET_TYPES: { key: PetType; label: string; icon: string; flavor: string }[] = [
   { key: "cat", label: "猫", icon: "🐱", flavor: "它蜷在窗台，尾巴尖一勾一勾，像在打量你的灵气。" },
   { key: "dog", label: "狗", icon: "🐶", flavor: "它摇着尾巴绕你转圈，仿佛认定你就是全世界。" },
-  { key: "rabbit", label: "兔", icon: "🐰", flavor: "它竖着长耳啃菜叶，三瓣嘴一动一动，煞是可爱。" },
+  {
+    key: "rabbit",
+    label: "兔",
+    icon: "🐰",
+    flavor: "它竖着长耳啃菜叶，三瓣嘴一动一动，煞是可爱。",
+  },
   { key: "bird", label: "鸟", icon: "🐦", flavor: "它站在你肩头叽叽喳喳，偶尔啄一下你的耳垂。" },
-  { key: "turtle", label: "龟", icon: "🐢", flavor: "它慢吞吞爬过手心，背甲凉凉的，出奇地让人安心。" },
+  {
+    key: "turtle",
+    label: "龟",
+    icon: "🐢",
+    flavor: "它慢吞吞爬过手心，背甲凉凉的，出奇地让人安心。",
+  },
 ];
 
 const PET_NAMES: Record<PetType, string[]> = {

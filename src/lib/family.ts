@@ -133,7 +133,11 @@ export function parseFamily(raw: string | null): EarthFamily {
   if (!raw) return { members: [] };
   try {
     const parsed: unknown = JSON.parse(raw);
-    if (parsed && typeof parsed === "object" && Array.isArray((parsed as { members?: unknown }).members)) {
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      Array.isArray((parsed as { members?: unknown }).members)
+    ) {
       return parsed as EarthFamily;
     }
   } catch {

@@ -5,13 +5,26 @@ import { useRouter } from "next/navigation";
 import { Globe, ArrowLeft, MapPin, Compass } from "lucide-react";
 import TopNav from "@/components/top-nav";
 import { VermilionShell } from "@/components/vermilion";
-import { LOCATIONS, isAwakened, TRAVEL_MODES, calcTravelCostByMode, type TravelModeId } from "@/lib";
+import {
+  LOCATIONS,
+  isAwakened,
+  TRAVEL_MODES,
+  calcTravelCostByMode,
+  type TravelModeId,
+} from "@/lib";
 
 interface Cultivator {
-  id: string; name: string; realm: string; realmLevel: number;
-  cultivationExp: number; spiritualRoot: string; age: number;
+  id: string;
+  name: string;
+  realm: string;
+  realmLevel: number;
+  cultivationExp: number;
+  spiritualRoot: string;
+  age: number;
   attributes: Record<string, number> | string | null;
-  location: string | null; stamina: number; gold: number;
+  location: string | null;
+  stamina: number;
+  gold: number;
 }
 
 export default function WorldPage() {
@@ -23,11 +36,16 @@ export default function WorldPage() {
 
   useEffect(() => {
     const id = localStorage.getItem("userId");
-    if (!id) { router.push("/"); return; }
+    if (!id) {
+      router.push("/");
+      return;
+    }
     setUserId(id);
     fetch(`/api/cultivator?userId=${id}`)
       .then((r) => r.json())
-      .then((d) => { if (d.user?.cultivator) setCultivator(d.user.cultivator); })
+      .then((d) => {
+        if (d.user?.cultivator) setCultivator(d.user.cultivator);
+      })
       .catch(() => {});
   }, [router]);
 
@@ -43,7 +61,10 @@ export default function WorldPage() {
         body: JSON.stringify({ userId, locationId: locId, travelMode: mode }),
       });
       const data = await res.json();
-      if (!res.ok) { alert(data.error || "旅行失败"); return; }
+      if (!res.ok) {
+        alert(data.error || "旅行失败");
+        return;
+      }
       setCultivator(data.cultivator);
       localStorage.setItem("currentLocation", locId);
     } catch {
@@ -57,7 +78,10 @@ export default function WorldPage() {
     <VermilionShell>
       <TopNav />
       <div className="main-container space-y-6">
-        <button onClick={() => router.push("/dashboard")} className="flex items-center gap-1 text-sm text-[#7A1F18] hover:text-[#B83227] transition-colors">
+        <button
+          onClick={() => router.push("/dashboard")}
+          className="flex items-center gap-1 text-sm text-[#7A1F18] hover:text-[#B83227] transition-colors"
+        >
           <ArrowLeft className="w-4 h-4" /> 返回修行
         </button>
 
@@ -66,7 +90,9 @@ export default function WorldPage() {
             <h3 className="font-calligraphy text-2xl font-bold tracking-widest text-[#7A1F18] flex items-center">
               <Globe className="mr-2.5 text-[#D49B4B]" /> 世界
             </h3>
-            <span className="text-[10px] text-gray-400 font-mono tracking-wider uppercase">WORLD MAP</span>
+            <span className="text-[10px] text-gray-400 font-mono tracking-wider uppercase">
+              WORLD MAP
+            </span>
           </div>
 
           <div className="flex flex-col md:flex-row gap-6 pt-4">
@@ -110,41 +136,71 @@ export default function WorldPage() {
               {LOCATIONS.map((loc) => {
                 const unlocked = !loc.requireAwakened || awake;
                 const isCurrent = (cultivator?.location || "home") === loc.id;
-                const cost = calcTravelCostByMode(cultivator?.location || "home", loc.id, selectedMode);
+                const cost = calcTravelCostByMode(
+                  cultivator?.location || "home",
+                  loc.id,
+                  selectedMode
+                );
                 const disabled =
-                  traveling || isCurrent || !unlocked
-                  || cost.staminaCost > (cultivator?.stamina ?? 0)
-                  || cost.goldCost > (cultivator?.gold ?? 0);
+                  traveling ||
+                  isCurrent ||
+                  !unlocked ||
+                  cost.staminaCost > (cultivator?.stamina ?? 0) ||
+                  cost.goldCost > (cultivator?.gold ?? 0);
                 return (
-                  <div key={loc.id} className={`p-4 rounded-2xl border transition-all ${
-                    unlocked ? "bg-[#FAF4EB] border-[#D49B4B]/40" : "bg-gray-50/70 border-[#EADCD0]/60 opacity-60 select-none"
-                  }`}>
+                  <div
+                    key={loc.id}
+                    className={`p-4 rounded-2xl border transition-all ${
+                      unlocked
+                        ? "bg-[#FAF4EB] border-[#D49B4B]/40"
+                        : "bg-gray-50/70 border-[#EADCD0]/60 opacity-60 select-none"
+                    }`}
+                  >
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center space-x-3.5">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg border ${
-                          unlocked ? "bg-white text-[#B83227] border-[#EADCD0]" : "bg-gray-100 text-gray-400 border-gray-200"
-                        }`}>
+                        <div
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg border ${
+                            unlocked
+                              ? "bg-white text-[#B83227] border-[#EADCD0]"
+                              : "bg-gray-100 text-gray-400 border-gray-200"
+                          }`}
+                        >
                           <span>{loc.icon}</span>
                         </div>
                         <div>
-                          <h4 className={`font-bold text-sm ${unlocked ? "text-[#2C1E1E]" : "text-gray-500"}`}>{loc.name}</h4>
+                          <h4
+                            className={`font-bold text-sm ${unlocked ? "text-[#2C1E1E]" : "text-gray-500"}`}
+                          >
+                            {loc.name}
+                          </h4>
                           <p className="text-xs text-gray-400 mt-0.5">{loc.description}</p>
                         </div>
                       </div>
                       <div className="text-right shrink-0">
                         {isCurrent ? (
-                          <span className="text-xs font-bold px-3 py-1.5 rounded-lg bg-[#B83227] text-white">当前所在地</span>
+                          <span className="text-xs font-bold px-3 py-1.5 rounded-lg bg-[#B83227] text-white">
+                            当前所在地
+                          </span>
                         ) : unlocked ? (
                           <button
                             disabled={disabled}
-                            onClick={() => { if (window.confirm(`确定前往「${loc.name}」吗？\n体力${cost.staminaCost} · 金币${cost.goldCost}`)) handleTravel(loc.id, selectedMode); }}
+                            onClick={() => {
+                              if (
+                                window.confirm(
+                                  `确定前往「${loc.name}」吗？\n体力${cost.staminaCost} · 金币${cost.goldCost}`
+                                )
+                              )
+                                handleTravel(loc.id, selectedMode);
+                            }}
                             title={`体力${cost.staminaCost} · 金币${cost.goldCost}`}
                             className="text-xs font-bold px-3 py-1.5 rounded-lg border border-[#EADCD0] bg-white text-[#2C1E1E] hover:border-[#B83227] hover:bg-[#FDF2F0] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             前往 · 体力{cost.staminaCost} 金{cost.goldCost}
                           </button>
                         ) : (
-                          <span className="text-xs font-mono font-bold px-3 py-1.5 rounded-lg bg-gray-100 border border-gray-200 text-gray-400">需觉醒</span>
+                          <span className="text-xs font-mono font-bold px-3 py-1.5 rounded-lg bg-gray-100 border border-gray-200 text-gray-400">
+                            需觉醒
+                          </span>
                         )}
                       </div>
                     </div>

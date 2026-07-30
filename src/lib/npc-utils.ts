@@ -14,8 +14,7 @@ export interface NpcLike {
 }
 
 export type MergedNpc<T extends NpcLike, U extends NpcLike> =
-  | (T & { _src: "family"; _key: string })
-  | (U & { _src: "location"; _key: string });
+  (T & { _src: "family"; _key: string }) | (U & { _src: "location"; _key: string });
 
 /**
  * 合并家庭成员与地点 NPC，家庭成员优先，同名/同关系的地点 NPC 自动隐藏。
@@ -26,14 +25,10 @@ export type MergedNpc<T extends NpcLike, U extends NpcLike> =
  */
 export function mergeNpcs<T extends NpcLike, U extends NpcLike>(
   familyMembers: T[],
-  currentNPCs: U[],
+  currentNPCs: U[]
 ): MergedNpc<T, U>[] {
-  const familyNames = new Set(
-    (familyMembers ?? []).map((fm) => fm.name).filter(Boolean),
-  );
-  const familyRelations = new Set(
-    (familyMembers ?? []).map((fm) => fm.relation).filter(Boolean),
-  );
+  const familyNames = new Set((familyMembers ?? []).map((fm) => fm.name).filter(Boolean));
+  const familyRelations = new Set((familyMembers ?? []).map((fm) => fm.relation).filter(Boolean));
 
   const result: MergedNpc<T, U>[] = (familyMembers ?? []).map((fm, idx) => ({
     ...fm,

@@ -123,8 +123,16 @@ export const EXAM_EVENTS: MortalEvent[] = [
     text: "小学家长会，父母去了学校。",
     ageBand: "7-12",
     options: [
-      { effects: { charm: 1 }, familyEffects: { parentIntimacy: 3 }, narrative: "父母听到夸奖，回家对你格外温柔。" },
-      { effects: {}, familyEffects: { parentIntimacy: 1 }, narrative: "家长会平平淡淡，父母回来摸了摸你的头。" },
+      {
+        effects: { charm: 1 },
+        familyEffects: { parentIntimacy: 3 },
+        narrative: "父母听到夸奖，回家对你格外温柔。",
+      },
+      {
+        effects: {},
+        familyEffects: { parentIntimacy: 1 },
+        narrative: "家长会平平淡淡，父母回来摸了摸你的头。",
+      },
     ],
   },
   {
@@ -141,8 +149,16 @@ export const EXAM_EVENTS: MortalEvent[] = [
     text: "初中家长会，老师约谈。",
     ageBand: "13-15",
     options: [
-      { effects: { mind: 1 }, familyEffects: { parentIntimacy: 4 }, narrative: "老师夸你懂事，父母与有荣焉。" },
-      { effects: { insight: -1 }, familyEffects: { parentIntimacy: -2 }, narrative: "老师委婉提醒贪玩，父母回家黑着脸。" },
+      {
+        effects: { mind: 1 },
+        familyEffects: { parentIntimacy: 4 },
+        narrative: "老师夸你懂事，父母与有荣焉。",
+      },
+      {
+        effects: { insight: -1 },
+        familyEffects: { parentIntimacy: -2 },
+        narrative: "老师委婉提醒贪玩，父母回家黑着脸。",
+      },
     ],
   },
 ];

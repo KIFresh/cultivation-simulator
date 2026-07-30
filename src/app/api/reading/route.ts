@@ -15,10 +15,42 @@ interface Book {
 }
 
 const BOOKS: Book[] = [
-  { id: "qigong_basics", title: "《吐纳真解》", author: "玄机子", attr: "spirit", gain: 3, staminaCost: 4, desc: "入门吐纳之法，固本培元。" },
-  { id: "root_treatise", title: "《根骨论》", author: "药王谷", attr: "root", gain: 3, staminaCost: 5, desc: "论述资质根源，增益根骨。" },
-  { id: "insight_sutra", title: "《悟道箓》", author: "无名道人", attr: "insight", gain: 3, staminaCost: 5, desc: "参悟天道，提升悟性。" },
-  { id: "beast_almanac", title: "《灵兽志》", author: "御兽门", attr: "mind", gain: 2, staminaCost: 4, desc: "记载灵兽习性，磨炼心性。" },
+  {
+    id: "qigong_basics",
+    title: "《吐纳真解》",
+    author: "玄机子",
+    attr: "spirit",
+    gain: 3,
+    staminaCost: 4,
+    desc: "入门吐纳之法，固本培元。",
+  },
+  {
+    id: "root_treatise",
+    title: "《根骨论》",
+    author: "药王谷",
+    attr: "root",
+    gain: 3,
+    staminaCost: 5,
+    desc: "论述资质根源，增益根骨。",
+  },
+  {
+    id: "insight_sutra",
+    title: "《悟道箓》",
+    author: "无名道人",
+    attr: "insight",
+    gain: 3,
+    staminaCost: 5,
+    desc: "参悟天道，提升悟性。",
+  },
+  {
+    id: "beast_almanac",
+    title: "《灵兽志》",
+    author: "御兽门",
+    attr: "mind",
+    gain: 2,
+    staminaCost: 4,
+    desc: "记载灵兽习性，磨炼心性。",
+  },
 ];
 
 interface ReadingEntry {

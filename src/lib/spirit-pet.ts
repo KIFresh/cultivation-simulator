@@ -24,7 +24,10 @@ export function parseSpiritPets(raw: string | null | undefined): SpiritPet[] {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     return parsed
-      .filter((p): p is Record<string, unknown> => !!p && typeof p === "object" && typeof (p as { id?: unknown }).id === "string")
+      .filter(
+        (p): p is Record<string, unknown> =>
+          !!p && typeof p === "object" && typeof (p as { id?: unknown }).id === "string"
+      )
       .map(normalizePet);
   } catch {
     return [];

@@ -33,7 +33,9 @@ describe("generateStreetOmen", () => {
   it("不同街区结果可能不同", () => {
     const districts: DistrictKey[] = ["oldtown", "commercial", "subway", "park", "bridge"];
     const results = new Set(
-      districts.map((d) => JSON.stringify(generateStreetOmen({ id: "u1", age: 20, quarter: 1, district: d })))
+      districts.map((d) =>
+        JSON.stringify(generateStreetOmen({ id: "u1", age: 20, quarter: 1, district: d }))
+      )
     );
     expect(results.size).toBeGreaterThan(1);
   });
@@ -41,7 +43,12 @@ describe("generateStreetOmen", () => {
   it("年龄低于奇人门槛不出现高门槛奇人", () => {
     for (let q = 1; q <= 8; q++) {
       for (const d of DISTRICTS) {
-        const o = generateStreetOmen({ id: "u1", age: 10, quarter: q, district: d.key as DistrictKey });
+        const o = generateStreetOmen({
+          id: "u1",
+          age: 10,
+          quarter: q,
+          district: d.key as DistrictKey,
+        });
         expect(o.omen.title).not.toBe("深夜古董店老板");
       }
     }
@@ -51,7 +58,12 @@ describe("generateStreetOmen", () => {
     let sawSage = false;
     for (let q = 1; q <= 12; q++) {
       for (const d of DISTRICTS) {
-        const o = generateStreetOmen({ id: "u1", age: 20, quarter: q, district: d.key as DistrictKey });
+        const o = generateStreetOmen({
+          id: "u1",
+          age: 20,
+          quarter: q,
+          district: d.key as DistrictKey,
+        });
         if (o.omen.kind === "sage") sawSage = true;
       }
     }
@@ -59,7 +71,9 @@ describe("generateStreetOmen", () => {
   });
 
   it("年龄=0 边界不崩", () => {
-    expect(() => generateStreetOmen({ id: "x", age: 0, quarter: 1, district: "park" })).not.toThrow();
+    expect(() =>
+      generateStreetOmen({ id: "x", age: 0, quarter: 1, district: "park" })
+    ).not.toThrow();
   });
 });
 

@@ -8,13 +8,18 @@ import TopNav from "@/components/top-nav";
 import { VermilionShell } from "@/components/vermilion";
 
 interface GameEvent {
-  id: string; type: string; title: string; narrative: string; createdAt: string;
+  id: string;
+  type: string;
+  title: string;
+  narrative: string;
+  createdAt: string;
 }
 
 const typeLabel = (type: string) => {
   if (type === "BIRTH") return { text: "出生", cls: "border-green-300 text-green-700" };
   if (type === "BREAKTHROUGH") return { text: "突破", cls: "border-red-300 text-red-700" };
-  if (type === "ENCOUNTER" || type === "RANDOM_ENCOUNTER") return { text: "奇遇", cls: "border-purple-300 text-purple-700" };
+  if (type === "ENCOUNTER" || type === "RANDOM_ENCOUNTER")
+    return { text: "奇遇", cls: "border-purple-300 text-purple-700" };
   if (type === "ACTION") return { text: "行动", cls: "border-[#B83227]/30 text-[#B83227]" };
   return { text: "修炼", cls: "border-[#EADCD0] text-gray-500" };
 };
@@ -34,17 +39,25 @@ export default function HistoryPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
-  const fetchEvents = useCallback(async (p: number, append = false) => {
-    const id = localStorage.getItem("userId");
-    if (!id) { router.replace("/"); return; }
-    const res = await fetch(`/api/events?page=${p}&limit=20`);
-    const data = await res.json();
-    setEvents(prev => append ? [...prev, ...(data.events || [])] : (data.events || []));
-    setHasMore(data.hasMore || false);
-    setTotal(data.total || 0);
-  }, [router]);
+  const fetchEvents = useCallback(
+    async (p: number, append = false) => {
+      const id = localStorage.getItem("userId");
+      if (!id) {
+        router.replace("/");
+        return;
+      }
+      const res = await fetch(`/api/events?page=${p}&limit=20`);
+      const data = await res.json();
+      setEvents((prev) => (append ? [...prev, ...(data.events || [])] : data.events || []));
+      setHasMore(data.hasMore || false);
+      setTotal(data.total || 0);
+    },
+    [router]
+  );
 
-  useEffect(() => { fetchEvents(1).finally(() => setLoading(false)); }, [fetchEvents]);
+  useEffect(() => {
+    fetchEvents(1).finally(() => setLoading(false));
+  }, [fetchEvents]);
 
   const loadMore = async () => {
     setLoadingMore(true);
@@ -85,23 +98,31 @@ export default function HistoryPage() {
           </div>
         ) : (
           <div className="relative border-l-2 border-[#EADCD0] ml-3 pl-6 space-y-6">
-            {events.map(event => {
+            {events.map((event) => {
               const isLong = event.narrative.length > 150;
               const isExp = expanded[event.id];
               return (
                 <div key={event.id} className="relative">
                   <span className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-[#B83227] border-2 border-white" />
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <Badge variant="outline" className={`text-xs ${typeLabel(event.type).cls}`}>{typeLabel(event.type).text}</Badge>
+                    <Badge variant="outline" className={`text-xs ${typeLabel(event.type).cls}`}>
+                      {typeLabel(event.type).text}
+                    </Badge>
                     <span className="text-sm font-medium text-[#2C1E1E]">{event.title}</span>
                     <span className="text-xs text-gray-400 ml-auto">{fmt(event.createdAt)}</span>
                   </div>
-                  <p className={`text-sm text-[#5b4a42] leading-relaxed ${!isExp && isLong ? "line-clamp-3" : ""}`}>
+                  <p
+                    className={`text-sm text-[#5b4a42] leading-relaxed ${!isExp && isLong ? "line-clamp-3" : ""}`}
+                  >
                     {event.narrative}
                   </p>
                   {isLong && (
-                    <button onClick={() => setExpanded(prev => ({ ...prev, [event.id]: !prev[event.id] }))}
-                      className="text-[#B83227] text-xs hover:underline mt-1">
+                    <button
+                      onClick={() =>
+                        setExpanded((prev) => ({ ...prev, [event.id]: !prev[event.id] }))
+                      }
+                      className="text-[#B83227] text-xs hover:underline mt-1"
+                    >
                       {isExp ? "▲ 收起" : "▼ 展开全文"}
                     </button>
                   )}
@@ -112,8 +133,11 @@ export default function HistoryPage() {
         )}
 
         {hasMore && (
-          <button onClick={loadMore} disabled={loadingMore}
-            className="w-full h-11 rounded-2xl border border-[#EADCD0] bg-white text-sm font-medium text-[#7A1F18] hover:border-[#B83227] hover:bg-[#FDF2F0] transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+          <button
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="w-full h-11 rounded-2xl border border-[#EADCD0] bg-white text-sm font-medium text-[#7A1F18] hover:border-[#B83227] hover:bg-[#FDF2F0] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          >
             {loadingMore ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             {loadingMore ? "加载中…" : "加载更多"}
           </button>

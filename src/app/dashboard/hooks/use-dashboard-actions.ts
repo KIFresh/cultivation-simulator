@@ -29,7 +29,11 @@ export interface UseDashboardActionsResult {
   advanceSeason: () => Promise<void>;
   handleBreakthrough: () => Promise<void>;
   handleUseItem: (itemId: string) => Promise<void>;
-  sendNpcMessage: (msg: string, npcChat: any, npcChatHistory: { role: string; content: string }[]) => Promise<void>;
+  sendNpcMessage: (
+    msg: string,
+    npcChat: any,
+    npcChatHistory: { role: string; content: string }[]
+  ) => Promise<void>;
   setActionInput: React.Dispatch<React.SetStateAction<string>>;
 }
 
@@ -56,7 +60,7 @@ export function useDashboardActions({
       // 同步更新 store，使 store 订阅者（如 useDataSync、dashboard state）收到最新数据
       useGameStore.getState().setCultivator(c);
     },
-    [onCultivatorUpdate],
+    [onCultivatorUpdate]
   );
 
   const applyNarrativeResponse = useCallback(
@@ -75,7 +79,7 @@ export function useDashboardActions({
         techniqueEvents: data.techniqueEvents,
       });
     },
-    [onNarrative],
+    [onNarrative]
   );
 
   const advanceSeason = useCallback(async () => {
@@ -93,7 +97,17 @@ export function useDashboardActions({
     onAdvance?.(data);
     if (data.cultivator) syncCultivator(data.cultivator);
     onActionSuccess?.();
-  }, [userId, cultivator, attributes, schoolRank, occupation, syncCultivator, onAdvance, onActionError, onActionSuccess]);
+  }, [
+    userId,
+    cultivator,
+    attributes,
+    schoolRank,
+    occupation,
+    syncCultivator,
+    onAdvance,
+    onActionError,
+    onActionSuccess,
+  ]);
 
   const handleBreakthrough = useCallback(async () => {
     if (!userId || !cultivator) return;
@@ -112,22 +126,25 @@ export function useDashboardActions({
     onActionSuccess?.();
   }, [userId, cultivator, applyNarrativeResponse, syncCultivator, onActionError, onActionSuccess]);
 
-  const handleUseItem = useCallback(async (itemId: string) => {
-    if (!userId) return;
-    const res = await fetch("/api/cultivator/use-item", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-user-id": userId || "" },
-      body: JSON.stringify({ itemId, quantity: 1 }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      onActionError?.(data.error || "使用失败");
-      return;
-    }
-    if (data.cultivator) syncCultivator(data.cultivator);
-    if (data.message) toast.success(data.message);
-    onActionSuccess?.();
-  }, [userId, syncCultivator, onActionError, onActionSuccess]);
+  const handleUseItem = useCallback(
+    async (itemId: string) => {
+      if (!userId) return;
+      const res = await fetch("/api/cultivator/use-item", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-user-id": userId || "" },
+        body: JSON.stringify({ itemId, quantity: 1 }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        onActionError?.(data.error || "使用失败");
+        return;
+      }
+      if (data.cultivator) syncCultivator(data.cultivator);
+      if (data.message) toast.success(data.message);
+      onActionSuccess?.();
+    },
+    [userId, syncCultivator, onActionError, onActionSuccess]
+  );
 
   const sendNpcMessage = useCallback(
     async (msg: string, npcChat: any, npcChatHistory: { role: string; content: string }[]) => {
@@ -145,7 +162,7 @@ export function useDashboardActions({
       if (data.cultivator) syncCultivator(data.cultivator);
       return data;
     },
-    [userId, cultivator, syncCultivator],
+    [userId, cultivator, syncCultivator]
   );
 
   return { advanceSeason, handleBreakthrough, handleUseItem, sendNpcMessage, setActionInput };

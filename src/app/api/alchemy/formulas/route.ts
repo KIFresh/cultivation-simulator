@@ -13,9 +13,21 @@ interface Formula {
 }
 
 const FORMULAS: Formula[] = [
-  { id: "qi_gathering_pill", name: "聚气丹方", tier: "凡阶", cost: 20, effect: "炼制聚气丹，回复体力。" },
+  {
+    id: "qi_gathering_pill",
+    name: "聚气丹方",
+    tier: "凡阶",
+    cost: 20,
+    effect: "炼制聚气丹，回复体力。",
+  },
   { id: "detox_pill", name: "清毒丹方", tier: "凡阶", cost: 25, effect: "炼制清毒丹，降低毒性。" },
-  { id: "breakthrough_ink", name: "破境墨方", tier: "灵阶", cost: 60, effect: "辅助破境，提升成功率。" },
+  {
+    id: "breakthrough_ink",
+    name: "破境墨方",
+    tier: "灵阶",
+    cost: 60,
+    effect: "辅助破境，提升成功率。",
+  },
   { id: "spirit_veil", name: "隐灵丹方", tier: "灵阶", cost: 50, effect: "隐匿气息，奇遇更易。" },
 ];
 

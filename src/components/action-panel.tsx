@@ -7,13 +7,13 @@ import { Sparkles, Zap } from "lucide-react";
 import { isAwakened } from "@/lib";
 
 export default function ActionPanel() {
-  const availableActions = useGameStore(s => s.availableActions);
-  const actionLoading = useGameStore(s => s.actionLoading);
-  const canBreakthrough = useGameStore(s => s.canBreakthrough);
-  const performAction = useGameStore(s => s.performAction);
-  const breakthrough = useGameStore(s => s.breakthrough);
-  const advanceQuarter = useGameStore(s => s.advanceQuarter);
-  const realm = useGameStore(s => s.cultivator?.realm);
+  const availableActions = useGameStore((s) => s.availableActions);
+  const actionLoading = useGameStore((s) => s.actionLoading);
+  const canBreakthrough = useGameStore((s) => s.canBreakthrough);
+  const performAction = useGameStore((s) => s.performAction);
+  const breakthrough = useGameStore((s) => s.breakthrough);
+  const advanceQuarter = useGameStore((s) => s.advanceQuarter);
+  const realm = useGameStore((s) => s.cultivator?.realm);
   const [protector, setProtector] = useState<string>("");
 
   // 未觉醒（凡人）前，屏蔽一切与修炼相关的按钮（功法/打坐/吐纳/炼丹/闭关）

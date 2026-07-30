@@ -3,8 +3,8 @@
  * 所有叙事路由必须从此模块构建状态，禁止客户端提交权威字段。
  */
 
-import { prisma } from '@/lib/prisma';
-import { buildSummaryFromEntries } from '@/lib/narrative';
+import { prisma } from "@/lib/prisma";
+import { buildSummaryFromEntries } from "@/lib/narrative";
 
 // ============================================================
 // 类型定义
@@ -27,8 +27,8 @@ export interface NarrativeStateSnapshot {
   quarter: number;
   realm: string;
   realmLevel: number;
-  location: string;       // 中文地点名
-  locationId: string;      // 原始 location ID
+  location: string; // 中文地点名
+  locationId: string; // 原始 location ID
   stamina: number;
   maxStamina: number;
   gold: number;
@@ -72,7 +72,7 @@ export async function buildNarrativeSnapshot(cultivator: {
     typeof cultivator.attributes === "object" && cultivator.attributes
       ? (cultivator.attributes as Record<string, number>)
       : {};
-  
+
   // 解析地点中文名
   let locationName = "未知之地";
   try {
@@ -160,8 +160,15 @@ export function formatSnapshotForPrompt(s: NarrativeStateSnapshot): string {
 
   // 属性
   const attrLabels: Record<string, string> = {
-    root: "根骨", bone: "根骨", spirit: "灵性", insight: "悟性",
-    comprehension: "悟性", luck: "气运", fortune: "气运", charm: "魅力", mind: "心性",
+    root: "根骨",
+    bone: "根骨",
+    spirit: "灵性",
+    insight: "悟性",
+    comprehension: "悟性",
+    luck: "气运",
+    fortune: "气运",
+    charm: "魅力",
+    mind: "心性",
   };
   const attrStr = Object.entries(s.attributes)
     .filter(([, v]) => typeof v === "number")
@@ -215,7 +222,9 @@ function formatRealmLevelText(realm: string, level: number): string {
 // ============================================================
 
 /** 从数据库修炼者记录构建并返回格式化 Prompt 字符串 */
-export async function buildFormattedState(cultivator: Parameters<typeof buildNarrativeSnapshot>[0]): Promise<string> {
+export async function buildFormattedState(
+  cultivator: Parameters<typeof buildNarrativeSnapshot>[0]
+): Promise<string> {
   const snapshot = await buildNarrativeSnapshot(cultivator);
   return formatSnapshotForPrompt(snapshot);
 }

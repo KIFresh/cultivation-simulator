@@ -16,7 +16,10 @@ interface ItemTooltipState {
   y: number;
 }
 
-export const InventoryPanel = React.memo(function InventoryPanel({ inventory, onUseItem }: InventoryPanelProps) {
+export const InventoryPanel = React.memo(function InventoryPanel({
+  inventory,
+  onUseItem,
+}: InventoryPanelProps) {
   const [tooltip, setTooltip] = useState<ItemTooltipState | null>(null);
   const items = useMemo(() => {
     const equipped: { inv: InventoryItem; item: any }[] = [];
@@ -53,7 +56,7 @@ export const InventoryPanel = React.memo(function InventoryPanel({ inventory, on
             setTooltip((prev) =>
               prev && prev.anchor === "eq"
                 ? { item, anchor: "eq", x: e.clientX, y: e.clientY }
-                : prev,
+                : prev
             )
           }
           onMouseLeave={() => setTooltip(null)}
@@ -78,7 +81,7 @@ export const InventoryPanel = React.memo(function InventoryPanel({ inventory, on
             setTooltip((prev) =>
               prev && prev.anchor === "bp"
                 ? { item, anchor: "bp", x: e.clientX, y: e.clientY }
-                : prev,
+                : prev
             )
           }
           onMouseLeave={() => setTooltip(null)}
@@ -97,9 +100,7 @@ export const InventoryPanel = React.memo(function InventoryPanel({ inventory, on
             {tooltip.item.icon} {tooltip.item.name}
           </p>
           <p className="text-gray-400 mt-0.5">{tooltip.item.description}</p>
-          {tooltip.item.effect && (
-            <p className="text-[#D49B4B] mt-0.5">✨ {tooltip.item.effect}</p>
-          )}
+          {tooltip.item.effect && <p className="text-[#D49B4B] mt-0.5">✨ {tooltip.item.effect}</p>}
           {(tooltip.item as any).useEffect && (
             <button
               onClick={() => {

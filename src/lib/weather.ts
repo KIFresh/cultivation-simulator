@@ -105,9 +105,11 @@ export function generateWeather(seed: { id: string; age: number; quarter: number
 export function resolveAction(
   cultivator: { id: string; age: number; quarter: number },
   weather: WeatherResult,
-  action: WeatherAction,
+  action: WeatherAction
 ): ActionResult {
-  const rng = rngFromSeed(`act|${cultivator.id}|${cultivator.age}|${cultivator.quarter}|${weather.weather.key}|${action}`);
+  const rng = rngFromSeed(
+    `act|${cultivator.id}|${cultivator.age}|${cultivator.quarter}|${weather.weather.key}|${action}`
+  );
   let moodEffect = 0;
   let text = "";
   let boon: BoonEntry | undefined;
@@ -126,9 +128,19 @@ export function resolveAction(
       moodEffect = 1;
       text = "信步闲游，市井烟火入眼，心情微悦。";
       if (weather.isSpecial && weather.specialKey === "temper" && rng() < 0.25) {
-        boon = { ts: Date.now(), season: weather.season, title: "引雷淬体", detail: "雷声中，一丝雷气钻入经脉。" };
+        boon = {
+          ts: Date.now(),
+          season: weather.season,
+          title: "引雷淬体",
+          detail: "雷声中，一丝雷气钻入经脉。",
+        };
       } else if (weather.isSpecial && weather.specialKey === "lost" && rng() < 0.25) {
-        boon = { ts: Date.now(), season: weather.season, title: "迷路遇仙缘", detail: "雾中迷路，误入一处洞天。" };
+        boon = {
+          ts: Date.now(),
+          season: weather.season,
+          title: "迷路遇仙缘",
+          detail: "雾中迷路，误入一处洞天。",
+        };
       }
     }
   }
@@ -152,7 +164,8 @@ export function loadBoons(userId: string): BoonEntry[] {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     return parsed.filter(
-      (b): b is BoonEntry => !!b && typeof b === "object" && typeof (b as { title?: unknown }).title === "string",
+      (b): b is BoonEntry =>
+        !!b && typeof b === "object" && typeof (b as { title?: unknown }).title === "string"
     );
   } catch {
     return [];

@@ -19,7 +19,9 @@ export async function syncProviderConfig(): Promise<void> {
     const { prisma } = await import("@/lib/prisma");
     const settings = await prisma.appSetting.findMany();
     runtimeSettings = {};
-    for (const s of settings) { runtimeSettings[s.key] = s.value; }
+    for (const s of settings) {
+      runtimeSettings[s.key] = s.value;
+    }
   } catch {
     /* 仅首次加载失败时静默保留上次值 */
   }
@@ -28,11 +30,17 @@ export async function syncProviderConfig(): Promise<void> {
 function loadProviders(): ProviderConfig[] {
   const providers: ProviderConfig[] = [];
   for (let i = 1; i <= 3; i++) {
-    const type = runtimeSettings?.[`AI_PROVIDER_${i}`] || process.env[`AI_PROVIDER_${i}`] as string;
+    const type =
+      runtimeSettings?.[`AI_PROVIDER_${i}`] || (process.env[`AI_PROVIDER_${i}`] as string);
     if (!type) continue;
-    const apiKey = runtimeSettings?.[`AI_PROVIDER_${i}_KEY`] || process.env[`AI_PROVIDER_${i}_KEY`] || undefined;
-    const model = runtimeSettings?.[`AI_PROVIDER_${i}_MODEL`] || process.env[`AI_PROVIDER_${i}_MODEL`] || "";
-    const baseUrl = runtimeSettings?.[`AI_PROVIDER_${i}_BASE_URL`] || process.env[`AI_PROVIDER_${i}_BASE_URL`] || undefined;
+    const apiKey =
+      runtimeSettings?.[`AI_PROVIDER_${i}_KEY`] || process.env[`AI_PROVIDER_${i}_KEY`] || undefined;
+    const model =
+      runtimeSettings?.[`AI_PROVIDER_${i}_MODEL`] || process.env[`AI_PROVIDER_${i}_MODEL`] || "";
+    const baseUrl =
+      runtimeSettings?.[`AI_PROVIDER_${i}_BASE_URL`] ||
+      process.env[`AI_PROVIDER_${i}_BASE_URL`] ||
+      undefined;
     if ((type === "anthropic" || type === "openai") && !apiKey) continue;
     if (type === "ollama" && !baseUrl) continue;
     providers.push({ priority: i, type: type as ProviderConfig["type"], apiKey, model, baseUrl });
@@ -51,8 +59,15 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   return Promise.race([promise, timer]);
 }
 
-export async function callAI(params: { systemPrompt: string; userPrompt: string; maxTokens?: number; temperature?: number }): Promise<string> {
-  await syncProviderConfig().catch((e) => { logger.error("callAI: syncProviderConfig 失败", e); });
+export async function callAI(params: {
+  systemPrompt: string;
+  userPrompt: string;
+  maxTokens?: number;
+  temperature?: number;
+}): Promise<string> {
+  await syncProviderConfig().catch((e) => {
+    logger.error("callAI: syncProviderConfig 失败", e);
+  });
   const providers = loadProviders();
   if (providers.length === 0) throw new Error("NO_PROVIDER_CONFIGURED");
 
@@ -68,21 +83,35 @@ export async function callAI(params: { systemPrompt: string; userPrompt: string;
           const client = new Anthropic({ apiKey: provider.apiKey });
           const resp = await withTimeout(
             client.messages.create({
-              model, max_tokens: maxTokens, system: params.systemPrompt,
-              messages: [{ role: "user", content: params.userPrompt }], temperature,
+              model,
+              max_tokens: maxTokens,
+              system: params.systemPrompt,
+              messages: [{ role: "user", content: params.userPrompt }],
+              temperature,
             }),
             15_000,
             `Provider anthropic (${model})`
           );
-          return (resp.content as Array<{ type: string; text?: string }>).filter((c) => c.type === "text").map((c) => c.text || "").join("");
+          return (resp.content as Array<{ type: string; text?: string }>)
+            .filter((c) => c.type === "text")
+            .map((c) => c.text || "")
+            .join("");
         }
         case "openai": {
           const OpenAI = (await import("openai")).default;
-          const client = new OpenAI({ apiKey: provider.apiKey, ...(provider.baseUrl ? { baseURL: provider.baseUrl } : {}) });
+          const client = new OpenAI({
+            apiKey: provider.apiKey,
+            ...(provider.baseUrl ? { baseURL: provider.baseUrl } : {}),
+          });
           const resp = await withTimeout(
             client.chat.completions.create({
-              model, max_tokens: maxTokens, temperature,
-              messages: [{ role: "system", content: params.systemPrompt }, { role: "user", content: params.userPrompt }],
+              model,
+              max_tokens: maxTokens,
+              temperature,
+              messages: [
+                { role: "system", content: params.systemPrompt },
+                { role: "user", content: params.userPrompt },
+              ],
             }),
             15_000,
             `Provider openai (${model})`
@@ -93,8 +122,17 @@ export async function callAI(params: { systemPrompt: string; userPrompt: string;
           const baseUrl = (provider.baseUrl || "http://localhost:11434").replace(/\/$/, "");
           const resp = await withTimeout(
             fetch(`${baseUrl}/api/chat`, {
-              method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ model, stream: false, options: { temperature, num_predict: maxTokens }, messages: [{ role: "system", content: params.systemPrompt }, { role: "user", content: params.userPrompt }] }),
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                model,
+                stream: false,
+                options: { temperature, num_predict: maxTokens },
+                messages: [
+                  { role: "system", content: params.systemPrompt },
+                  { role: "user", content: params.userPrompt },
+                ],
+              }),
             }),
             15_000,
             `Provider ollama (${model})`
@@ -104,7 +142,10 @@ export async function callAI(params: { systemPrompt: string; userPrompt: string;
           return data.message?.content || "";
         }
       }
-    } catch (e) { console.warn(`Provider ${provider.type} failed:`, (e as Error).message); continue; }
+    } catch (e) {
+      console.warn(`Provider ${provider.type} failed:`, (e as Error).message);
+      continue;
+    }
   }
   throw new Error("ALL_PROVIDERS_FAILED");
 }
@@ -114,7 +155,12 @@ export async function warmupAI(): Promise<void> {
     await syncProviderConfig();
     const providers = loadProviders();
     if (providers.length === 0) return;
-    await callAI({ systemPrompt: "你是连接预热助手。", userPrompt: "ping", maxTokens: 1, temperature: 0 }).catch(() => {});
+    await callAI({
+      systemPrompt: "你是连接预热助手。",
+      userPrompt: "ping",
+      maxTokens: 1,
+      temperature: 0,
+    }).catch(() => {});
   } catch {
     /* 预热失败不影响主流程 */
   }

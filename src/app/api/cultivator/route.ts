@@ -42,7 +42,7 @@ async function postHandler(request: NextRequest) {
       });
       return NextResponse.json({
         success: true,
-        entries: JSON.parse(updated.storyEntries || '[]'),
+        entries: JSON.parse(updated.storyEntries || "[]"),
       });
     }
 
@@ -60,17 +60,22 @@ async function postHandler(request: NextRequest) {
       const { compressStorySummary, createEntry } = await import("@/lib/narrative");
       let entries: import("@/lib/narrative").StoryEntry[] = [];
       try {
-        entries = JSON.parse(cultivator.storyEntries || '[]');
+        entries = JSON.parse(cultivator.storyEntries || "[]");
         if (!Array.isArray(entries)) entries = [];
       } catch {
         entries = [];
       }
 
-      const importantEntries = entries.filter(e => e.important);
-      const normalEntries = entries.filter(e => !e.important);
+      const importantEntries = entries.filter((e) => e.important);
+      const normalEntries = entries.filter((e) => !e.important);
 
       if (normalEntries.length === 0) {
-        return NextResponse.json({ success: true, entries: importantEntries, compressed: false, message: "没有可压缩的普通记忆" });
+        return NextResponse.json({
+          success: true,
+          entries: importantEntries,
+          compressed: false,
+          message: "没有可压缩的普通记忆",
+        });
       }
 
       const compressedText = await compressStorySummary(entries, cultivator.name);
@@ -86,7 +91,12 @@ async function postHandler(request: NextRequest) {
         },
       });
 
-      return NextResponse.json({ success: true, entries: newEntries, compressed: true, message: "记忆已压缩" });
+      return NextResponse.json({
+        success: true,
+        entries: newEntries,
+        compressed: true,
+        message: "记忆已压缩",
+      });
     }
 
     const { cultivatorName, spiritualRoot, password, worldId } = body;
@@ -113,42 +123,42 @@ async function postHandler(request: NextRequest) {
         return NextResponse.json({ error: "该用户已有修炼者" }, { status: 409 });
       }
 
-    // 已有用户路径：原子创建修炼者 + 初始功法
-    const result = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.update({
-        where: { id: body.userId },
-        data: {
-          cultivator: {
-            create: {
-              name: body.cultivatorName,
-              spiritualRoot: body.spiritualRoot,
-              worldId: body.worldId || "earth",
-              worldYear: 2025,
-              attributes: body.attributes ? JSON.stringify(body.attributes) : undefined,
-              gender: body.gender,
-              stamina: calculateMaxStamina(1, body.attributes),
+      // 已有用户路径：原子创建修炼者 + 初始功法
+      const result = await prisma.$transaction(async (tx) => {
+        const user = await tx.user.update({
+          where: { id: body.userId },
+          data: {
+            cultivator: {
+              create: {
+                name: body.cultivatorName,
+                spiritualRoot: body.spiritualRoot,
+                worldId: body.worldId || "earth",
+                worldYear: 2025,
+                attributes: body.attributes ? JSON.stringify(body.attributes) : undefined,
+                gender: body.gender,
+                stamina: calculateMaxStamina(1, body.attributes),
+              },
             },
           },
-        },
-        include: { cultivator: true },
+          include: { cultivator: true },
+        });
+
+        if (user.cultivator) {
+          await tx.cultivatorTechnique.create({
+            data: {
+              cultivatorId: user.cultivator.id,
+              techniqueId: "basic_breathing",
+              equipSlot: 1,
+              level: 1,
+              proficiency: 0,
+            },
+          });
+        }
+
+        return user;
       });
 
-      if (user.cultivator) {
-        await tx.cultivatorTechnique.create({
-          data: {
-            cultivatorId: user.cultivator.id,
-            techniqueId: "basic_breathing",
-            equipSlot: 1,
-            level: 1,
-            proficiency: 0,
-          },
-        });
-      }
-
-      return user;
-    });
-
-    return setSessionCookie(NextResponse.json({ user: result }), result.id);
+      return setSessionCookie(NextResponse.json({ user: result }), result.id);
     }
 
     // 新建用户路径：必须有 userName
@@ -256,10 +266,7 @@ async function getHandler(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json(
-        { error: "用户不存在" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "用户不存在" }, { status: 404 });
     }
 
     // 自动解析 storyEntries JSON
@@ -270,10 +277,7 @@ async function getHandler(request: NextRequest) {
     return NextResponse.json({ user });
   } catch (error) {
     logger.error("获取修炼者失败:", error);
-    return NextResponse.json(
-      { error: "获取失败" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "获取失败" }, { status: 500 });
   }
 }
 

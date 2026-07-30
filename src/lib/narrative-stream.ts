@@ -13,7 +13,7 @@ export function streamNarrativeResult(
   eventId: string,
   narrative: { narrative?: string } | null,
   doneResult: unknown,
-  cultivator?: unknown,
+  cultivator?: unknown
 ) {
   const gen = (async function* () {
     for (const c of chunkNarrative(narrative?.narrative || "")) {
@@ -28,9 +28,12 @@ export function streamNarrativeResult(
   const committed = {
     gameEventId: eventId,
     cultivator: cultivator ?? null,
-    characterName: (cultivator && typeof cultivator === "object" && "name" in (cultivator as Record<string, unknown>))
-      ? (cultivator as Record<string, unknown>).name as string
-      : undefined,
+    characterName:
+      cultivator &&
+      typeof cultivator === "object" &&
+      "name" in (cultivator as Record<string, unknown>)
+        ? ((cultivator as Record<string, unknown>).name as string)
+        : undefined,
   };
 
   return createSSEResponse(
@@ -40,6 +43,6 @@ export function streamNarrativeResult(
     (err: unknown) => ({
       gameEventId: eventId,
       message: err instanceof Error ? err.message : String(err),
-    }),
+    })
   );
 }

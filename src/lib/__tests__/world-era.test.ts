@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  CAREER_CATEGORIES,
-  getWorldEra,
-  normalizeWorldYear,
-} from "../world-era";
+import { CAREER_CATEGORIES, getWorldEra, normalizeWorldYear } from "../world-era";
 
 describe("getWorldEra", () => {
   it.each([
@@ -20,12 +16,9 @@ describe("getWorldEra", () => {
 });
 
 describe("normalizeWorldYear", () => {
-  it.each([null, -1, 0, 2024, 2025.5, "2025", undefined])(
-    "falls back to 2025 for %j",
-    (value) => {
-      expect(normalizeWorldYear(value)).toBe(2025);
-    },
-  );
+  it.each([null, -1, 0, 2024, 2025.5, "2025", undefined])("falls back to 2025 for %j", (value) => {
+    expect(normalizeWorldYear(value)).toBe(2025);
+  });
 });
 
 describe("world era definitions", () => {
@@ -38,6 +31,6 @@ describe("world era definitions", () => {
       for (const category of Object.keys(era.careerWeights)) {
         expect(CAREER_CATEGORIES).toContain(category);
       }
-    },
+    }
   );
 });

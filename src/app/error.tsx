@@ -27,13 +27,9 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
       <div className="max-w-md text-center space-y-4">
         <div className="text-4xl mb-2">🌿</div>
         <h1 className="text-xl font-bold text-[#2C1E1E]">出了点小问题</h1>
-        <p className="text-sm text-[#8B7355]">
-          页面加载过程中遇到异常，请尝试刷新或返回首页。
-        </p>
+        <p className="text-sm text-[#8B7355]">页面加载过程中遇到异常，请尝试刷新或返回首页。</p>
         {isDev && error.message && (
-          <p className="text-xs text-red-600 bg-red-50 rounded p-2 break-words">
-            {error.message}
-          </p>
+          <p className="text-xs text-red-600 bg-red-50 rounded p-2 break-words">{error.message}</p>
         )}
         <div className="flex items-center justify-center gap-3 pt-2">
           <button

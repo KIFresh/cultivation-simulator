@@ -14,11 +14,32 @@ export const CLASSMATE_AGE_MAX = 15;
 
 /** 凡人化同学名字池（男女混合，≥20）。纯手写常量，禁用 AI 生成。 */
 export const CLASSMATE_NAMES: string[] = [
-  "小明", "小红", "阿强", "丽丽", "小刚", "小芳",
-  "小军", "婷婷", "大壮", "小燕", "志强", "晓梅",
-  "磊磊", "妞妞", "鹏飞", "小敏", "浩浩", "春花",
-  "小杰", "玲玲", "建国", "佳佳", "铁柱", "小雪",
-  "小龙", "可可",
+  "小明",
+  "小红",
+  "阿强",
+  "丽丽",
+  "小刚",
+  "小芳",
+  "小军",
+  "婷婷",
+  "大壮",
+  "小燕",
+  "志强",
+  "晓梅",
+  "磊磊",
+  "妞妞",
+  "鹏飞",
+  "小敏",
+  "浩浩",
+  "春花",
+  "小杰",
+  "玲玲",
+  "建国",
+  "佳佳",
+  "铁柱",
+  "小雪",
+  "小龙",
+  "可可",
 ];
 
 /** 同学头像 emoji 池（纯装饰，可重复）。 */
@@ -44,12 +65,10 @@ export const CLASSMATE_TYPE = "classmate";
  */
 export function shouldGenerateClassmates(
   newAge: number,
-  relations: Record<string, NpcRelationData>,
+  relations: Record<string, NpcRelationData>
 ): boolean {
   const inWindow = newAge >= CLASSMATE_AGE_MIN && newAge <= CLASSMATE_AGE_MAX;
-  const hasClassmate = Object.values(relations).some(
-    (r) => r && r.type === CLASSMATE_TYPE,
-  );
+  const hasClassmate = Object.values(relations).some((r) => r && r.type === CLASSMATE_TYPE);
   return inWindow && !hasClassmate;
 }
 
@@ -76,12 +95,11 @@ function randomAvatar(): string {
  */
 export function generateClassmates(
   newAge: number,
-  relations: Record<string, NpcRelationData>,
+  relations: Record<string, NpcRelationData>
 ): Record<string, NpcRelationData> {
   if (!shouldGenerateClassmates(newAge, relations)) return relations;
 
-  const count =
-    CLASSMATE_MIN + Math.floor(Math.random() * (CLASSMATE_MAX - CLASSMATE_MIN + 1));
+  const count = CLASSMATE_MIN + Math.floor(Math.random() * (CLASSMATE_MAX - CLASSMATE_MIN + 1));
   const names = shuffle(CLASSMATE_NAMES).slice(0, count);
 
   const next: Record<string, NpcRelationData> = { ...relations };

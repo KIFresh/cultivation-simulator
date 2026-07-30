@@ -40,94 +40,120 @@ export type EffectKind = (typeof EFFECT_KINDS)[number];
 
 // ── 2. 各效果 Schema（Zod 运行时校验）────────────────────────────────────
 
-export const GoldEffectSchema = z.object({
-  kind: z.literal("gold"),
-  /** 金币变动量（正=增加，负=减少） */
-  delta: z.number().int(),
-}).strict();
+export const GoldEffectSchema = z
+  .object({
+    kind: z.literal("gold"),
+    /** 金币变动量（正=增加，负=减少） */
+    delta: z.number().int(),
+  })
+  .strict();
 
-export const StaminaEffectSchema = z.object({
-  kind: z.literal("stamina"),
-  /** 体力变动量 */
-  delta: z.number().int(),
-}).strict();
+export const StaminaEffectSchema = z
+  .object({
+    kind: z.literal("stamina"),
+    /** 体力变动量 */
+    delta: z.number().int(),
+  })
+  .strict();
 
-export const IntimacyEffectSchema = z.object({
-  kind: z.literal("intimacy"),
-  /** 目标家庭成员的关系描述，如 "母亲" */
-  targetRelation: z.string().min(1),
-  /** 亲密度变动量，推荐 -8～+8 */
-  delta: z.number().int().min(-20).max(20),
-}).strict();
+export const IntimacyEffectSchema = z
+  .object({
+    kind: z.literal("intimacy"),
+    /** 目标家庭成员的关系描述，如 "母亲" */
+    targetRelation: z.string().min(1),
+    /** 亲密度变动量，推荐 -8～+8 */
+    delta: z.number().int().min(-20).max(20),
+  })
+  .strict();
 
-export const HealthEffectSchema = z.object({
-  kind: z.literal("health"),
-  /** 气血/健康变动量 */
-  delta: z.number().int(),
-}).strict();
+export const HealthEffectSchema = z
+  .object({
+    kind: z.literal("health"),
+    /** 气血/健康变动量 */
+    delta: z.number().int(),
+  })
+  .strict();
 
-export const MindDemonEffectSchema = z.object({
-  kind: z.literal("mindDemon"),
-  /** 心魔值变动量 */
-  delta: z.number().int(),
-}).strict();
+export const MindDemonEffectSchema = z
+  .object({
+    kind: z.literal("mindDemon"),
+    /** 心魔值变动量 */
+    delta: z.number().int(),
+  })
+  .strict();
 
-export const AttrExpEffectSchema = z.object({
-  kind: z.literal("attrExp"),
-  /** 属性经验映射，如 { root: 15, spirit: 10 } */
-  values: z.object({
-    root: z.number().int().nonnegative().optional(),
-    spirit: z.number().int().nonnegative().optional(),
-    insight: z.number().int().nonnegative().optional(),
-    luck: z.number().int().nonnegative().optional(),
-    charm: z.number().int().nonnegative().optional(),
-    mind: z.number().int().nonnegative().optional(),
-  }).strict(),
-}).strict();
+export const AttrExpEffectSchema = z
+  .object({
+    kind: z.literal("attrExp"),
+    /** 属性经验映射，如 { root: 15, spirit: 10 } */
+    values: z
+      .object({
+        root: z.number().int().nonnegative().optional(),
+        spirit: z.number().int().nonnegative().optional(),
+        insight: z.number().int().nonnegative().optional(),
+        luck: z.number().int().nonnegative().optional(),
+        charm: z.number().int().nonnegative().optional(),
+        mind: z.number().int().nonnegative().optional(),
+      })
+      .strict(),
+  })
+  .strict();
 
-export const StoryEntryEffectSchema = z.object({
-  kind: z.literal("storyEntry"),
-  /** 记忆标题 */
-  title: z.string().min(1),
-  /** 记忆正文（AI 生成的叙事摘要） */
-  narrative: z.string().min(1),
-  /** 可选简短摘要 */
-  summary: z.string().optional(),
-  /** 是否标记为重要事件（⭐） */
-  important: z.boolean().default(true),
-}).strict();
+export const StoryEntryEffectSchema = z
+  .object({
+    kind: z.literal("storyEntry"),
+    /** 记忆标题 */
+    title: z.string().min(1),
+    /** 记忆正文（AI 生成的叙事摘要） */
+    narrative: z.string().min(1),
+    /** 可选简短摘要 */
+    summary: z.string().optional(),
+    /** 是否标记为重要事件（⭐） */
+    important: z.boolean().default(true),
+  })
+  .strict();
 
-export const FamilyReplaceEffectSchema = z.object({
-  kind: z.literal("familyReplace"),
-  /** 替换/初始化的家庭成员列表 */
-  members: z.array(
-    z.object({
-      relation: z.string().min(1),
-      name: z.string().min(1),
-      age: z.number().int().min(0).max(150),
-      alive: z.boolean(),
-      occupation: z.string().nullable().optional(),
-    }),
-  ).min(1),
-}).strict();
+export const FamilyReplaceEffectSchema = z
+  .object({
+    kind: z.literal("familyReplace"),
+    /** 替换/初始化的家庭成员列表 */
+    members: z
+      .array(
+        z.object({
+          relation: z.string().min(1),
+          name: z.string().min(1),
+          age: z.number().int().min(0).max(150),
+          alive: z.boolean(),
+          occupation: z.string().nullable().optional(),
+        })
+      )
+      .min(1),
+  })
+  .strict();
 
-export const RenameEffectSchema = z.object({
-  kind: z.literal("rename"),
-  /** 新姓名（中文 2～4 字） */
-  name: z.string().regex(/^[\u4e00-\u9fff]{2,4}$/),
-}).strict();
+export const RenameEffectSchema = z
+  .object({
+    kind: z.literal("rename"),
+    /** 新姓名（中文 2～4 字） */
+    name: z.string().regex(/^[\u4e00-\u9fff]{2,4}$/),
+  })
+  .strict();
 
-export const MoodEffectSchema = z.object({
-  kind: z.literal("mood"),
-  /** 心境标签 */
-  mood: z.enum(["燃", "静", "险", "悟", "奇"]),
-}).strict();
+export const MoodEffectSchema = z
+  .object({
+    kind: z.literal("mood"),
+    /** 心境标签 */
+    mood: z.enum(["燃", "静", "险", "悟", "奇"]),
+  })
+  .strict();
 
-export const NpcMeetEffectSchema = z.object({
-  kind: z.literal("npcMeet"),
-  /** 遇到的 NPC 标识 */
-  npcId: z.string().min(1),
-}).strict();
+export const NpcMeetEffectSchema = z
+  .object({
+    kind: z.literal("npcMeet"),
+    /** 遇到的 NPC 标识 */
+    npcId: z.string().min(1),
+  })
+  .strict();
 
 // ── 3. 联合体 Schema & 类型 ──────────────────────────────────────────────
 
@@ -208,17 +234,10 @@ export interface ClampConfig {
  * - 健康/心魔 → 限幅 ±100
  * - 其他效果 → 原样返回
  */
-export function clampEffect(
-  effect: NarrativeEffect,
-  config: ClampConfig,
-): NarrativeEffect {
+export function clampEffect(effect: NarrativeEffect, config: ClampConfig): NarrativeEffect {
   switch (effect.kind) {
     case "gold": {
-      let clamped = clampGoldDelta(
-        effect.delta,
-        config.currentGold,
-        config.maxGoldAbsDelta,
-      );
+      let clamped = clampGoldDelta(effect.delta, config.currentGold, config.maxGoldAbsDelta);
       // 再按 maxGold 上限钳制
       if (config.maxGold !== undefined && clamped > 0) {
         const newVal = config.currentGold + clamped;
@@ -293,9 +312,7 @@ export function clampEffect(
  *
  * 注意：clampEffectsArray 已调用此函数进行聚合，确保多条同类效果不会累计越界。
  */
-export function aggregateEffects(
-  effects: NarrativeEffect[],
-): NarrativeEffect[] {
+export function aggregateEffects(effects: NarrativeEffect[]): NarrativeEffect[] {
   const aggregated: NarrativeEffect[] = [];
   const goldAccum: number[] = [];
   const staminaAccum: number[] = [];
@@ -357,7 +374,7 @@ export function aggregateEffects(
  */
 export function clampEffectsArray(
   effects: NarrativeEffect[],
-  config: ClampConfig,
+  config: ClampConfig
 ): NarrativeEffect[] {
   const aggregated = aggregateEffects(effects);
   return aggregated.map((e) => clampEffect(e, config));
@@ -380,9 +397,10 @@ export interface ValidationError {
  * - 数值边界检查
  * - 业务规则（如 familyReplace 必须至少 1 人）
  */
-export function validateEffects(
-  effects: unknown[],
-): { valid: NarrativeEffect[]; errors: ValidationError[] } {
+export function validateEffects(effects: unknown[]): {
+  valid: NarrativeEffect[];
+  errors: ValidationError[];
+} {
   const valid: NarrativeEffect[] = [];
   const errors: ValidationError[] = [];
 
@@ -441,7 +459,7 @@ export interface ApplyContext {
 export async function applyEffects(
   effects: NarrativeEffect[],
   tx: any,
-  ctx: ApplyContext,
+  ctx: ApplyContext
 ): Promise<void> {
   for (const effect of effects) {
     switch (effect.kind) {
@@ -466,9 +484,7 @@ export async function applyEffects(
       }
 
       case "intimacy": {
-        const member = ctx.familyMembers?.find(
-          (m) => m.relation === effect.targetRelation,
-        );
+        const member = ctx.familyMembers?.find((m) => m.relation === effect.targetRelation);
         if (member && effect.delta !== 0) {
           // 原子增量，避免并发丢失
           await tx.familyMember.update({
@@ -516,9 +532,9 @@ export async function applyEffects(
           select: { attributeExp: true },
         });
         const currentExp: Record<string, number> = current?.attributeExp
-          ? (typeof current.attributeExp === "string"
-              ? JSON.parse(current.attributeExp)
-              : current.attributeExp)
+          ? typeof current.attributeExp === "string"
+            ? JSON.parse(current.attributeExp)
+            : current.attributeExp
           : {};
         const merged = { ...currentExp };
         for (const [attr, val] of Object.entries(effect.values)) {
@@ -540,9 +556,9 @@ export async function applyEffects(
           select: { storyEntries: true },
         });
         const entries: any[] = current?.storyEntries
-          ? (typeof current.storyEntries === "string"
-              ? JSON.parse(current.storyEntries)
-              : current.storyEntries)
+          ? typeof current.storyEntries === "string"
+            ? JSON.parse(current.storyEntries)
+            : current.storyEntries
           : [];
         entries.push({
           title: effect.title,
@@ -554,9 +570,9 @@ export async function applyEffects(
         // 超过 50 条时压缩旧条目
         if (entries.length > 50) {
           const important = entries.filter((e: any) => e.important).slice(-40);
-          const recent = entries.slice(-10).filter(
-            (e: any) => !important.some((imp: any) => imp.createdAt === e.createdAt),
-          );
+          const recent = entries
+            .slice(-10)
+            .filter((e: any) => !important.some((imp: any) => imp.createdAt === e.createdAt));
           entries.splice(0, entries.length);
           entries.push(...important, ...recent);
         }
@@ -630,11 +646,19 @@ export interface StrictExtractResult {
 
 export function extractEffectsStrict(raw: unknown): StrictExtractResult {
   if (!raw || typeof raw !== "object") {
-    return { effects: [], errors: [{ index: -1, kind: "unknown", message: "响应不是对象" }], ok: false };
+    return {
+      effects: [],
+      errors: [{ index: -1, kind: "unknown", message: "响应不是对象" }],
+      ok: false,
+    };
   }
   const maybe = (raw as Record<string, unknown>).effects;
   if (!Array.isArray(maybe)) {
-    return { effects: [], errors: [{ index: -1, kind: "unknown", message: "effects 字段不是数组" }], ok: false };
+    return {
+      effects: [],
+      errors: [{ index: -1, kind: "unknown", message: "effects 字段不是数组" }],
+      ok: false,
+    };
   }
   const { valid, errors } = validateEffects(maybe);
   return { effects: valid, errors, ok: errors.length === 0 };
@@ -646,9 +670,9 @@ export function extractEffectsStrict(raw: unknown): StrictExtractResult {
  */
 export function extractEffectsByKind<T extends EffectKind>(
   raw: unknown,
-  kind: T,
+  kind: T
 ): Extract<NarrativeEffect, { kind: T }>[] {
   return extractEffects(raw).filter(
-    (e): e is Extract<NarrativeEffect, { kind: T }> => e.kind === kind,
+    (e): e is Extract<NarrativeEffect, { kind: T }> => e.kind === kind
   );
 }

@@ -45,10 +45,7 @@ export class ContentBlockedError extends Error {
   }
 }
 
-export function scanText(
-  text: string | null | undefined,
-  opts?: ScanOptions,
-): ScanResult {
+export function scanText(text: string | null | undefined, opts?: ScanOptions): ScanResult {
   const t = text ? String(text) : "";
   if (!t.trim()) {
     return { blocked: false, category: "", level: "low" };

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi } from "vitest";
 import {
   calculateCombatPower,
   resolveBattle,
@@ -7,10 +7,10 @@ import {
   getCombatNarrativeText,
   resolveCombat,
   type PlayerCombatData,
-} from '../combat-engine';
+} from "../combat-engine";
 
 // 模拟依赖模块
-vi.mock('../cultivation-data', () => ({
+vi.mock("../cultivation-data", () => ({
   getItemById: vi.fn((id: string) => {
     const items: Record<string, { combatValue?: number }> = {
       wooden_sword: { combatValue: 5 },
@@ -20,71 +20,99 @@ vi.mock('../cultivation-data', () => ({
   }),
 }));
 
-vi.mock('../enemy-data', () => {
+vi.mock("../enemy-data", () => {
   const mockEnemies = [
-    { id: 'wild_dog', name: '野狗', realm: '凡人', combatPower: 20, rarity: '普通', locationIds: ['wild'] },
-    { id: 'bandit', name: '山贼', realm: '炼气期', combatPower: 80, rarity: '普通', locationIds: ['wild'] },
+    {
+      id: "wild_dog",
+      name: "野狗",
+      realm: "凡人",
+      combatPower: 20,
+      rarity: "普通",
+      locationIds: ["wild"],
+    },
+    {
+      id: "bandit",
+      name: "山贼",
+      realm: "炼气期",
+      combatPower: 80,
+      rarity: "普通",
+      locationIds: ["wild"],
+    },
   ];
   return {
     ENEMIES: mockEnemies,
     getEnemiesForLocation: vi.fn(() => mockEnemies),
     getRealmMultiplier: vi.fn((realm: string) => {
-      const map: Record<string, number> = { '凡人': 1, '炼气期': 1.5, '筑基期': 2.25 };
+      const map: Record<string, number> = { 凡人: 1, 炼气期: 1.5, 筑基期: 2.25 };
       return map[realm] ?? 1;
     }),
-    pickEnemy: vi.fn((enemies: typeof mockEnemies) => enemies.length > 0 ? enemies[0] : null),
+    pickEnemy: vi.fn((enemies: typeof mockEnemies) => (enemies.length > 0 ? enemies[0] : null)),
   };
 });
 
-vi.mock('../technique-data', () => ({
-  calculateTechniqueBonuses: vi.fn(() => ({ combat: 0, cultivationSpeed: 0, breakthroughRate: 0, daily: 0 })),
+vi.mock("../technique-data", () => ({
+  calculateTechniqueBonuses: vi.fn(() => ({
+    combat: 0,
+    cultivationSpeed: 0,
+    breakthroughRate: 0,
+    daily: 0,
+  })),
   TECHNIQUES: {},
 }));
 
-vi.mock('../narrative', () => ({
-  generateCombatNarrative: vi.fn(async () => ''),
+vi.mock("../narrative", () => ({
+  generateCombatNarrative: vi.fn(async () => ""),
 }));
 
 const makePlayer = (overrides: Partial<PlayerCombatData> = {}): PlayerCombatData => ({
-  cultivator: { id: 'test', name: '测试者', realm: '炼气期', realmLevel: 1, gold: 100, reincarnationCount: 0, injuryDebuff: 0, mindDemon: 0 },
+  cultivator: {
+    id: "test",
+    name: "测试者",
+    realm: "炼气期",
+    realmLevel: 1,
+    gold: 100,
+    reincarnationCount: 0,
+    injuryDebuff: 0,
+    mindDemon: 0,
+  },
   attributes: { root: 10, spirit: 8, insight: 5, luck: 2 },
   equippedItems: [],
   techniqueRecords: [],
   ...overrides,
 });
 
-describe('combat-engine', () => {
-  describe('calculateCombatPower', () => {
-    it('should calculate base power from attributes', () => {
+describe("combat-engine", () => {
+  describe("calculateCombatPower", () => {
+    it("should calculate base power from attributes", () => {
       const player = makePlayer();
       const power = calculateCombatPower(player);
       expect(power).toBeGreaterThan(0);
     });
 
-    it('should include equipment bonus', () => {
-      const player = makePlayer({ equippedItems: [{ itemId: 'wooden_sword' }] });
+    it("should include equipment bonus", () => {
+      const player = makePlayer({ equippedItems: [{ itemId: "wooden_sword" }] });
       const power = calculateCombatPower(player);
       expect(power).toBeGreaterThan(0);
     });
 
-    it('境界倍率影响战力', () => {
-      const player1 = makePlayer({ cultivator: { ...makePlayer().cultivator, realm: '凡人' } });
-      const player2 = makePlayer({ cultivator: { ...makePlayer().cultivator, realm: '筑基期' } });
+    it("境界倍率影响战力", () => {
+      const player1 = makePlayer({ cultivator: { ...makePlayer().cultivator, realm: "凡人" } });
+      const player2 = makePlayer({ cultivator: { ...makePlayer().cultivator, realm: "筑基期" } });
       const power1 = calculateCombatPower(player1);
       const power2 = calculateCombatPower(player2);
       expect(power2).toBeGreaterThan(power1);
     });
   });
 
-  describe('resolveBattle', () => {
-    it('should always win with overwhelm when ratio >= 5', () => {
+  describe("resolveBattle", () => {
+    it("should always win with overwhelm when ratio >= 5", () => {
       const result = resolveBattle(500, 100);
       expect(result.win).toBe(true);
-      expect(result.style).toBe('overwhelm');
+      expect(result.style).toBe("overwhelm");
     });
 
-    it('should resolve with win/lose based on ratio', () => {
-      vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    it("should resolve with win/lose based on ratio", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
       const result = resolveBattle(60, 100);
       // 50% 概率，随机种子 0.5，winRate = 60/160 = 0.375 < 0.5 所以输
       expect(result.win).toBe(false);
@@ -92,10 +120,18 @@ describe('combat-engine', () => {
     });
   });
 
-  describe('generateLoot', () => {
-    it('should generate gold and exp', () => {
-      vi.spyOn(Math, 'random').mockReturnValue(0.5);
-      const enemy = { id: 'test', name: '测试', realm: '凡人', combatPower: 100, rarity: '普通' as const, locationIds: ['wild'], drops: ['spirit_stone'] };
+  describe("generateLoot", () => {
+    it("should generate gold and exp", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
+      const enemy = {
+        id: "test",
+        name: "测试",
+        realm: "凡人",
+        combatPower: 100,
+        rarity: "普通" as const,
+        locationIds: ["wild"],
+        drops: ["spirit_stone"],
+      };
       const loot = generateLoot(enemy, 0);
       expect(loot.gold).toBeGreaterThanOrEqual(0);
       expect(loot.exp).toBeGreaterThanOrEqual(0);
@@ -103,34 +139,58 @@ describe('combat-engine', () => {
       vi.restoreAllMocks();
     });
 
-    it('普通敌人 + 低 luck 时不生成物品', () => {
-      vi.spyOn(Math, 'random').mockReturnValue(0.9);
-      const enemy = { id: 'test', name: '测试', realm: '凡人', combatPower: 100, rarity: '普通' as const, locationIds: ['wild'], drops: ['spirit_stone'] };
+    it("普通敌人 + 低 luck 时不生成物品", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.9);
+      const enemy = {
+        id: "test",
+        name: "测试",
+        realm: "凡人",
+        combatPower: 100,
+        rarity: "普通" as const,
+        locationIds: ["wild"],
+        drops: ["spirit_stone"],
+      };
       const loot = generateLoot(enemy, 0);
       expect(loot.items).toHaveLength(0);
       vi.restoreAllMocks();
     });
 
-    it('精英敌人有基础掉落率', () => {
-      vi.spyOn(Math, 'random').mockReturnValue(0.1);
-      const enemy = { id: 'test', name: '测试', realm: '凡人', combatPower: 100, rarity: '精英' as const, locationIds: ['wild'], drops: ['spirit_stone'] };
+    it("精英敌人有基础掉落率", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.1);
+      const enemy = {
+        id: "test",
+        name: "测试",
+        realm: "凡人",
+        combatPower: 100,
+        rarity: "精英" as const,
+        locationIds: ["wild"],
+        drops: ["spirit_stone"],
+      };
       const loot = generateLoot(enemy, 0);
       expect(loot.items.length).toBeGreaterThanOrEqual(1);
       vi.restoreAllMocks();
     });
 
-    it('BOSS 敌人有基础掉落率', () => {
-      vi.spyOn(Math, 'random').mockReturnValue(0.1);
-      const enemy = { id: 'test', name: '测试', realm: '凡人', combatPower: 100, rarity: 'BOSS' as const, locationIds: ['wild'], drops: ['spirit_stone'] };
+    it("BOSS 敌人有基础掉落率", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.1);
+      const enemy = {
+        id: "test",
+        name: "测试",
+        realm: "凡人",
+        combatPower: 100,
+        rarity: "BOSS" as const,
+        locationIds: ["wild"],
+        drops: ["spirit_stone"],
+      };
       const loot = generateLoot(enemy, 0);
       expect(loot.items.length).toBeGreaterThanOrEqual(1);
       vi.restoreAllMocks();
     });
   });
 
-  describe('applyPenalty', () => {
-    it('should return tier 0 penalty for ratio < 1', () => {
-      vi.spyOn(Math, 'random').mockReturnValue(0.5);
+  describe("applyPenalty", () => {
+    it("should return tier 0 penalty for ratio < 1", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
       const penalty = applyPenalty(0.5, 100);
       expect(penalty.goldLoss).toBeGreaterThan(0);
       expect(penalty.injuryDebuff).toBe(0);
@@ -139,20 +199,20 @@ describe('combat-engine', () => {
       vi.restoreAllMocks();
     });
 
-    it('should return daoXiao for ratio >= 5', () => {
-      vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    it("should return daoXiao for ratio >= 5", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
       const penalty = applyPenalty(5, 100);
       expect(penalty.daoXiao).toBe(true);
       expect(penalty.goldLoss).toBe(80);
       vi.restoreAllMocks();
     });
 
-    it('should return tier 1 penalty with itemLoss for ratio 1-2', () => {
-      vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    it("should return tier 1 penalty with itemLoss for ratio 1-2", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
       const inventory = [
-        { itemId: 'spirit_stone', quantity: 5, equipped: false },
-        { itemId: 'herb', quantity: 3, equipped: false },
-        { itemId: 'sword', quantity: 1, equipped: true },
+        { itemId: "spirit_stone", quantity: 5, equipped: false },
+        { itemId: "herb", quantity: 3, equipped: false },
+        { itemId: "sword", quantity: 1, equipped: true },
       ];
       const penalty = applyPenalty(1.5, 100, inventory);
       expect(penalty.goldLoss).toBeGreaterThan(0);
@@ -161,16 +221,16 @@ describe('combat-engine', () => {
       expect(penalty.itemLoss!.length).toBeGreaterThanOrEqual(1);
       expect(penalty.itemLoss!.length).toBeLessThanOrEqual(2);
       // 装备物品不应被扣
-      expect(penalty.itemLoss).not.toContain('sword');
+      expect(penalty.itemLoss).not.toContain("sword");
       vi.restoreAllMocks();
     });
 
-    it('goldLoss 不超过当前持有金币', () => {
+    it("goldLoss 不超过当前持有金币", () => {
       const penalty = applyPenalty(0.5, 0);
       expect(penalty.goldLoss).toBe(0);
     });
 
-    it('mindDemonDelta 仅在 ratio<1 时存在', () => {
+    it("mindDemonDelta 仅在 ratio<1 时存在", () => {
       const penalty0 = applyPenalty(0.5, 100);
       expect(penalty0.mindDemonDelta).toBe(10);
 
@@ -185,40 +245,40 @@ describe('combat-engine', () => {
     });
   });
 
-  describe('getCombatNarrativeText', () => {
-    it('should return overwhelm win text', () => {
-      const text = getCombatNarrativeText('overwhelm', true, '玩家', '敌人');
-      expect(text).toContain('随手一挥');
-      expect(text).toContain('敌人');
+  describe("getCombatNarrativeText", () => {
+    it("should return overwhelm win text", () => {
+      const text = getCombatNarrativeText("overwhelm", true, "玩家", "敌人");
+      expect(text).toContain("随手一挥");
+      expect(text).toContain("敌人");
     });
 
-    it('should return crushed lose text', () => {
-      const text = getCombatNarrativeText('crushed', false, '玩家', '敌人');
-      expect(text).toContain('衣角都没碰到');
+    it("should return crushed lose text", () => {
+      const text = getCombatNarrativeText("crushed", false, "玩家", "敌人");
+      expect(text).toContain("衣角都没碰到");
     });
   });
 
-  describe('resolveCombat', () => {
-    it('should return peaceful result when no enemy', async () => {
+  describe("resolveCombat", () => {
+    it("should return peaceful result when no enemy", async () => {
       const result = await resolveCombat(makePlayer());
       expect(result.win).toBe(true);
-      expect(result.narrative).toContain('并无敌人');
+      expect(result.narrative).toContain("并无敌人");
     });
 
-    it('境界倍率影响胜负', async () => {
-      vi.spyOn(Math, 'random').mockReturnValue(0.4);
+    it("境界倍率影响胜负", async () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.4);
 
       const playerLow = makePlayer({
         attributes: { root: 0, spirit: 0, insight: 0 },
-        cultivator: { ...makePlayer().cultivator, realm: '凡人' },
+        cultivator: { ...makePlayer().cultivator, realm: "凡人" },
       });
       const playerHigh = makePlayer({
         attributes: { root: 0, spirit: 0, insight: 0 },
-        cultivator: { ...makePlayer().cultivator, realm: '筑基期' },
+        cultivator: { ...makePlayer().cultivator, realm: "筑基期" },
       });
 
-      const resultLow = await resolveCombat(playerLow, 'wild_dog', 'wild');
-      const resultHigh = await resolveCombat(playerHigh, 'wild_dog', 'wild');
+      const resultLow = await resolveCombat(playerLow, "wild_dog", "wild");
+      const resultHigh = await resolveCombat(playerHigh, "wild_dog", "wild");
 
       expect(resultLow.win).toBe(false);
       expect(resultHigh.win).toBe(true);

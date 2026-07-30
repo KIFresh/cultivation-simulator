@@ -3,7 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { calcTravelCostByMode, type TravelModeId } from "@/lib";
 import { previewRob, applyRobResult, parseMilestonesJson } from "@/lib/travel-rob";
 import { requireCultivator } from "@/lib/auth-helpers";
-import { applyEffects, clampEffectsArray, type NarrativeEffect, type ClampConfig } from "@/lib/narrative-effects";
+import {
+  applyEffects,
+  clampEffectsArray,
+  type NarrativeEffect,
+  type ClampConfig,
+} from "@/lib/narrative-effects";
 import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
 import { logger } from "@/lib/logger";
 
@@ -21,7 +26,11 @@ async function postHandler(request: NextRequest) {
 
   // service 端权威计价：忽略客户端传入的 staminaCost/goldCost
   const mode: TravelModeId = travelMode || (useTaxi ? "taxi" : "walk");
-  const { staminaCost: sCost, goldCost: gCost } = calcTravelCostByMode(c.location || "home", locationId, mode);
+  const { staminaCost: sCost, goldCost: gCost } = calcTravelCostByMode(
+    c.location || "home",
+    locationId,
+    mode
+  );
 
   if (c.stamina < sCost) {
     return NextResponse.json({ error: "行动力不足" }, { status: 400 });
@@ -73,12 +82,27 @@ async function postHandler(request: NextRequest) {
     if (robPreview.triggered) {
       const { resolveCombat } = await import("@/lib/combat-engine");
       const safeAttrs: Record<string, number> = (() => {
-        try { return JSON.parse(c.attributes || "{}"); } catch { return {}; }
+        try {
+          return JSON.parse(c.attributes || "{}");
+        } catch {
+          return {};
+        }
       })();
       const inventory = (() => {
-        try { return JSON.parse(c.inventory || "[]"); } catch { return []; }
+        try {
+          return JSON.parse(c.inventory || "[]");
+        } catch {
+          return [];
+        }
       })();
-      const targetEnemy = { id: "rob_rival", name: robPreview.enemyName || "夺宝者", realm: c.realm, combatPower: robPreview.enemyCombatPower || 1000, rarity: "精英" as const, locationIds: ["market"] };
+      const targetEnemy = {
+        id: "rob_rival",
+        name: robPreview.enemyName || "夺宝者",
+        realm: c.realm,
+        combatPower: robPreview.enemyCombatPower || 1000,
+        rarity: "精英" as const,
+        locationIds: ["market"],
+      };
       const combatResult = await resolveCombat(
         {
           cultivator: {
@@ -97,20 +121,32 @@ async function postHandler(request: NextRequest) {
           techniqueRecords: [],
         },
         targetEnemy.id,
-        "market",
+        "market"
       );
       const win = combatResult.win;
       const lostItemId = win ? undefined : robPreview.targetItemId;
       robResult = { win, lostItemId };
       if (!win && lostItemId) {
         const newInv = inventory.filter((e: any) => e.itemId !== lostItemId);
-        const msPatch = applyRobResult({
-          cultivator: { realm: c.realm, location: c.location, inventory: c.inventory, milestones: c.milestones },
-        }, false, lostItemId).milestonesPatch;
+        const msPatch = applyRobResult(
+          {
+            cultivator: {
+              realm: c.realm,
+              location: c.location,
+              inventory: c.inventory,
+              milestones: c.milestones,
+            },
+          },
+          false,
+          lostItemId
+        ).milestonesPatch;
         const currentMs = parseMilestonesJson(c.milestones);
         await tx.cultivator.update({
           where: { id: c.id },
-          data: { inventory: JSON.stringify(newInv), milestones: JSON.stringify({ ...currentMs, ...msPatch }) },
+          data: {
+            inventory: JSON.stringify(newInv),
+            milestones: JSON.stringify({ ...currentMs, ...msPatch }),
+          },
         });
       }
     }

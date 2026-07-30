@@ -10,7 +10,7 @@ async function handler(request: NextRequest) {
   if ("error" in auth) return auth.error;
   const c = auth.cultivator;
   const season = (c as { quarter?: number }).quarter ?? 1;
-  const body = await parseJsonBody(request).catch(() => ({} as Record<string, unknown>));
+  const body = await parseJsonBody(request).catch(() => ({}) as Record<string, unknown>);
   const district = (body.district as DistrictKey) || "oldtown";
   const omen = generateStreetOmen({ id: c.id, age: c.age ?? 1, quarter: season, district });
   return NextResponse.json({

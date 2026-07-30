@@ -30,7 +30,10 @@ async function postHandler(request: NextRequest) {
   if (action === "equip") {
     const { techniqueId, slot } = body;
     if (!techniqueId || !slot || slot < 1 || slot > 3) {
-      return NextResponse.json({ error: "参数错误：需要 techniqueId 和 slot(1-3)" }, { status: 400 });
+      return NextResponse.json(
+        { error: "参数错误：需要 techniqueId 和 slot(1-3)" },
+        { status: 400 }
+      );
     }
     if (!TECHNIQUES[techniqueId]) {
       return NextResponse.json({ error: "功法不存在" }, { status: 400 });

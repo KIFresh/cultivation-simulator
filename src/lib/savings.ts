@@ -27,7 +27,7 @@ const STAGE_BASE: Record<string, number> = {
 export function calcPocketMoney(
   stage: string | null | undefined,
   parents: ParentLike[],
-  householdIncome?: HouseholdIncome,
+  householdIncome?: HouseholdIncome
 ): PocketMoneyResult {
   const base = stage && STAGE_BASE[stage] ? STAGE_BASE[stage] : 0;
 

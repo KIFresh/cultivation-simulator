@@ -40,15 +40,35 @@ interface LocationNpcSeed {
 // 13 个地点的常驻 NPC（每地 1-2 位）
 export const LOCATION_NPC_POOL: Record<string, LocationNpcSeed[]> = {
   park: [
-    { name: "遛鸟老爷子", avatar: "🧓", realm: "每天来公园遛画眉的老爷子", intro: "鸟笼一挂，能跟你聊半部江湖。" },
-    { name: "滑板少年", avatar: "🛹", realm: "常来刷板的叛逆少年", intro: "摔了无数次，笑起来却灿烂。" },
+    {
+      name: "遛鸟老爷子",
+      avatar: "🧓",
+      realm: "每天来公园遛画眉的老爷子",
+      intro: "鸟笼一挂，能跟你聊半部江湖。",
+    },
+    {
+      name: "滑板少年",
+      avatar: "🛹",
+      realm: "常来刷板的叛逆少年",
+      intro: "摔了无数次，笑起来却灿烂。",
+    },
   ],
   kindergarten: [
-    { name: "带班老师小鹿", avatar: "👩‍🏫", realm: "温柔的幼儿园老师", intro: "最会哄哭鼻子的小孩。" },
+    {
+      name: "带班老师小鹿",
+      avatar: "👩‍🏫",
+      realm: "温柔的幼儿园老师",
+      intro: "最会哄哭鼻子的小孩。",
+    },
     { name: "同桌豆豆", avatar: "🧒", realm: "总黏人的同桌", intro: "分享零食的第一人选。" },
   ],
   library: [
-    { name: "图书管理员", avatar: "📚", realm: "戴眼镜的图书馆管理员", intro: "闭眼都能找出任意一本书。" },
+    {
+      name: "图书管理员",
+      avatar: "📚",
+      realm: "戴眼镜的图书馆管理员",
+      intro: "闭眼都能找出任意一本书。",
+    },
     { name: "考研学长", avatar: "🧑‍🎓", realm: "占座复习的考研党", intro: "笔记厚得能当砖头。" },
   ],
   clinic: [
@@ -56,8 +76,18 @@ export const LOCATION_NPC_POOL: Record<string, LocationNpcSeed[]> = {
     { name: "老中医", avatar: "👴", realm: "捻须问诊的老中医", intro: "搭脉便知你熬了几个夜。" },
   ],
   store_furniture: [
-    { name: "家具店老板", avatar: "🧑‍🔧", realm: "热情的家具店店主", intro: "恨不得把整间店搬给你。" },
-    { name: "陈列师阿木", avatar: "🪑", realm: "挑剔的陈列设计师", intro: "偏要和你争论什么叫美感。" },
+    {
+      name: "家具店老板",
+      avatar: "🧑‍🔧",
+      realm: "热情的家具店店主",
+      intro: "恨不得把整间店搬给你。",
+    },
+    {
+      name: "陈列师阿木",
+      avatar: "🪑",
+      realm: "挑剔的陈列设计师",
+      intro: "偏要和你争论什么叫美感。",
+    },
   ],
   mall: [
     { name: "柜姐小美", avatar: "💁", realm: "甜美的化妆品柜姐", intro: "试妆镜前最懂捧场。" },
@@ -65,13 +95,28 @@ export const LOCATION_NPC_POOL: Record<string, LocationNpcSeed[]> = {
   ],
   downtown: [
     { name: "街头艺人", avatar: "🎻", realm: "广场拉琴的艺人", intro: "琴声里藏着故事。" },
-    { name: "算命半仙", avatar: "🔮", realm: "摆摊的江湖半仙", intro: "眯眼一笑：'你印堂发亮啊。'" },
+    {
+      name: "算命半仙",
+      avatar: "🔮",
+      realm: "摆摊的江湖半仙",
+      intro: "眯眼一笑：'你印堂发亮啊。'",
+    },
   ],
   store_snack: [
-    { name: "小卖部老板娘", avatar: "🍬", realm: "记忆力超好的老板娘", intro: "谁欠一包辣条都记得。" },
+    {
+      name: "小卖部老板娘",
+      avatar: "🍬",
+      realm: "记忆力超好的老板娘",
+      intro: "谁欠一包辣条都记得。",
+    },
   ],
   home: [
-    { name: "对门小伙伴", avatar: "🧒", realm: "住对门同龄的孩子", intro: "放学就扒着门框喊你玩。" },
+    {
+      name: "对门小伙伴",
+      avatar: "🧒",
+      realm: "住对门同龄的孩子",
+      intro: "放学就扒着门框喊你玩。",
+    },
   ],
   school: [
     { name: "班主任", avatar: "👨‍🏫", realm: "严厉的班主任", intro: "后脑勺都长着眼睛。" },
@@ -79,7 +124,12 @@ export const LOCATION_NPC_POOL: Record<string, LocationNpcSeed[]> = {
   ],
   wild: [
     { name: "采药山民", avatar: "🌿", realm: "背篓采药的山民", intro: "认得满山的草草木木。" },
-    { name: "巡山猎户", avatar: "🏹", realm: "巡山的老猎户", intro: "耳尖，林子里风吹草动都听得到。" },
+    {
+      name: "巡山猎户",
+      avatar: "🏹",
+      realm: "巡山的老猎户",
+      intro: "耳尖，林子里风吹草动都听得到。",
+    },
   ],
   cave: [
     { name: "引路童子", avatar: "🧚", realm: "洞府前的引路童子", intro: "踮脚给你指石门的方向。" },
@@ -123,7 +173,7 @@ export function rollInitialLocationNpcs(
   cultivatorId: string,
   locationId: string,
   age: number,
-  fate?: string | null,
+  fate?: string | null
 ): LocationNpc[] {
   const pool = [...(LOCATION_NPC_POOL[locationId] || [])];
   if (pool.length === 0) return [];
@@ -150,7 +200,7 @@ export function rollInitialLocationNpcs(
 // 互动效果（确定性，便于测试与复现）
 export function interactLocationNpc(
   npc: LocationNpc,
-  action: LocationNpcAction,
+  action: LocationNpcAction
 ): LocationNpcInteractionResult {
   switch (action) {
     case "gossip":
@@ -196,9 +246,5 @@ export const LOCATION_NPC_ACTION_DEFS: Record<
 };
 
 export function isLocationNpc(v: unknown): v is LocationNpc {
-  return (
-    typeof v === "object" &&
-    v !== null &&
-    (v as { type?: string }).type === "location_npc"
-  );
+  return typeof v === "object" && v !== null && (v as { type?: string }).type === "location_npc";
 }

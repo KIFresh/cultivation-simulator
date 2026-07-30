@@ -33,9 +33,7 @@ async function handler(request: NextRequest) {
         attributes: JSON.stringify(defaultAttrs),
         occupation: c.occupation || "学生",
         schoolRank: c.schoolRank ?? 0,
-        unlockedLocations: JSON.stringify(
-          json.unlockedLocations(c.unlockedLocations)
-        ),
+        unlockedLocations: JSON.stringify(json.unlockedLocations(c.unlockedLocations)),
       },
     });
   } else {

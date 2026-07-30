@@ -1,15 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // 通过 vi.hoisted 在模块加载前注入可操控的 mock 引用
-const {
-  mockPrismaFindMany,
-  mockAnthropicMessagesCreate,
-  mockOpenAIChatCompletionsCreate,
-} = vi.hoisted(() => ({
-  mockPrismaFindMany: vi.fn(),
-  mockAnthropicMessagesCreate: vi.fn(),
-  mockOpenAIChatCompletionsCreate: vi.fn(),
-}));
+const { mockPrismaFindMany, mockAnthropicMessagesCreate, mockOpenAIChatCompletionsCreate } =
+  vi.hoisted(() => ({
+    mockPrismaFindMany: vi.fn(),
+    mockAnthropicMessagesCreate: vi.fn(),
+    mockOpenAIChatCompletionsCreate: vi.fn(),
+  }));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {

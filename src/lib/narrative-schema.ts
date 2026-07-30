@@ -55,7 +55,7 @@ export const NARRATIVE_EFFECT_WHITELISTS: Record<string, EffectWhitelist> = {
  */
 export function checkEffectWhitelist(
   effects: NarrativeEffect[],
-  whitelist: EffectWhitelist,
+  whitelist: EffectWhitelist
 ): string[] {
   const denied: string[] = [];
   for (const e of effects) {
@@ -83,13 +83,16 @@ export const BreakthroughSchema = BaseNarrativeSchema.extend({
 /** 奇遇叙事（含选项） */
 export const EncounterSchema = BaseNarrativeSchema.extend({
   type: z.literal("ENCOUNTER"),
-  choices: z.array(
-    z.object({
-      text: z.string().min(1),
-      risk: z.enum(["low", "medium", "high"]),
-      hint: z.string().optional(),
-    }),
-  ).min(1).max(5),
+  choices: z
+    .array(
+      z.object({
+        text: z.string().min(1),
+        risk: z.enum(["low", "medium", "high"]),
+        hint: z.string().optional(),
+      })
+    )
+    .min(1)
+    .max(5),
   effects: z.array(NarrativeEffectSchema).default([]),
 }).strict();
 
@@ -135,7 +138,7 @@ export const BirthNarrativeSchema = BaseNarrativeSchema.extend({
         alive: z.boolean(),
         occupation: z.string().nullable().optional(),
         livingTogether: z.boolean().optional(),
-      }),
+      })
     )
     .optional(),
   effects: z.array(NarrativeEffectSchema).default([]),
@@ -181,9 +184,7 @@ export function parseNarrativeResponse(raw: unknown): ParseResult<NarrativeRespo
 
   const result = NarrativeResponseSchema.safeParse(raw);
   if (!result.success) {
-    const errors = result.error.issues.map(
-      (issue) => `[${issue.path.join(".")}] ${issue.message}`,
-    );
+    const errors = result.error.issues.map((issue) => `[${issue.path.join(".")}] ${issue.message}`);
     return { success: false, errors };
   }
 
@@ -196,7 +197,7 @@ export function parseNarrativeResponse(raw: unknown): ParseResult<NarrativeRespo
  */
 export function parseAndValidateEffects(
   raw: unknown,
-  narrativeType: string,
+  narrativeType: string
 ): {
   parseResult: ParseResult<NarrativeResponse>;
   whitelistErrors: string[];

@@ -19,14 +19,24 @@ function realmIndex(realm: string): number {
   return idx >= 0 ? idx : 0;
 }
 
-function parseInventory(raw: string | null | undefined): { itemId: string; quantity: number; equipped: boolean }[] {
+function parseInventory(
+  raw: string | null | undefined
+): { itemId: string; quantity: number; equipped: boolean }[] {
   if (!raw) return [];
-  try { return JSON.parse(raw); } catch { return []; }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
 }
 
 export function parseMilestonesJson(raw: string | null | undefined): Record<string, any> {
   if (!raw) return {};
-  try { return JSON.parse(raw); } catch { return {}; }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
 }
 
 function todayKey(): string {
@@ -37,7 +47,12 @@ function todayKey(): string {
 }
 
 export interface RobContext {
-  cultivator: { realm: string; location: string | null; inventory: string | null; milestones: string | null };
+  cultivator: {
+    realm: string;
+    location: string | null;
+    inventory: string | null;
+    milestones: string | null;
+  };
 }
 
 export interface RobPreview {
@@ -67,9 +82,10 @@ export function previewRob(ctx: RobContext): RobPreview {
     return realmIndex(s.minRealm) > realmIndex(ctx.cultivator.realm);
   });
   // 按价格降序，取最高价值越境物品
-  const target = overpriced
-    .filter((s) => inv.some((e) => e.itemId === s.itemId))
-    .sort((a, b) => (b.price || 0) - (a.price || 0))[0] || null;
+  const target =
+    overpriced
+      .filter((s) => inv.some((e) => e.itemId === s.itemId))
+      .sort((a, b) => (b.price || 0) - (a.price || 0))[0] || null;
   if (!target) return { triggered: false };
   const item = ITEMS[target.itemId];
   // 15% 概率触发夺宝
@@ -91,7 +107,7 @@ export function previewRob(ctx: RobContext): RobPreview {
 export function applyRobResult(
   ctx: RobContext,
   win: boolean,
-  targetItemId: string,
+  targetItemId: string
 ): { milestonesPatch: Record<string, any>; lostItemId?: string } {
   const today = todayKey();
   const ms = parseMilestonesJson(ctx.cultivator.milestones);

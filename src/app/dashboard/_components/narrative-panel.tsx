@@ -47,18 +47,26 @@ export const NarrativePanel = React.memo(function NarrativePanel({
   }, [activeActionId, currentLoc]);
 
   const toggleNpc = useCallback((npcId: string) => {
-    setSelectedNpcs((prev) => (prev.includes(npcId) ? prev.filter((id) => id !== npcId) : [...prev, npcId]));
+    setSelectedNpcs((prev) =>
+      prev.includes(npcId) ? prev.filter((id) => id !== npcId) : [...prev, npcId]
+    );
   }, []);
 
-  const handleSubmitAction = useCallback((actionId: string) => {
-    const text = draft.trim();
-    if (!text) return;
-    onActionSubmit(actionId, text, selectedNpcs);
-    setDraft("");
-    setSelectedNpcs([]);
-  }, [draft, selectedNpcs, onActionSubmit]);
+  const handleSubmitAction = useCallback(
+    (actionId: string) => {
+      const text = draft.trim();
+      if (!text) return;
+      onActionSubmit(actionId, text, selectedNpcs);
+      setDraft("");
+      setSelectedNpcs([]);
+    },
+    [draft, selectedNpcs, onActionSubmit]
+  );
 
-  const mergedNpcs = useMemo(() => mergeNpcs(familyMembers, currentNPCs), [familyMembers, currentNPCs]);
+  const mergedNpcs = useMemo(
+    () => mergeNpcs(familyMembers, currentNPCs),
+    [familyMembers, currentNPCs]
+  );
 
   const selectedNpcNames = useMemo(() => {
     return mergedNpcs.filter((npc: any) => selectedNpcs.includes(npc.name));
@@ -78,7 +86,7 @@ export const NarrativePanel = React.memo(function NarrativePanel({
 
   const visibleActions = useMemo(
     () => availableActions.filter((a) => a.id !== "FREE").slice(0, 6),
-    [availableActions],
+    [availableActions]
   );
   return (
     <div className="rounded-3xl border border-[#EADCD0] bg-white p-6 shadow-sm">
@@ -130,9 +138,7 @@ export const NarrativePanel = React.memo(function NarrativePanel({
           <span className="h-[1px] w-4 bg-red-300" />
           当下抉择
         </p>
-        {actionLoading && (
-          <p className="mb-3 text-xs text-gray-400">叙事生成中，请稍候…</p>
-        )}
+        {actionLoading && <p className="mb-3 text-xs text-gray-400">叙事生成中，请稍候…</p>}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {visibleActions.map((action) => {
             const isActive = activeActionId === action.id;
@@ -146,7 +152,13 @@ export const NarrativePanel = React.memo(function NarrativePanel({
                   disabled={disabled}
                   onClick={() => onActionClick(action.id, selectedNpcs)}
                   className={`group flex items-center justify-between rounded-2xl border px-4 py-4 text-left shadow-sm transition-all hover:border-[#B83227] hover:bg-[#FDF2F0] ${
-                    cant ? "opacity-40" : isLocked ? "opacity-30" : isActive ? "border-[#B83227] bg-[#FDF2F0]" : "border-[#EADCD0] bg-white"
+                    cant
+                      ? "opacity-40"
+                      : isLocked
+                        ? "opacity-30"
+                        : isActive
+                          ? "border-[#B83227] bg-[#FDF2F0]"
+                          : "border-[#EADCD0] bg-white"
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -155,10 +167,14 @@ export const NarrativePanel = React.memo(function NarrativePanel({
                     </div>
                     <div>
                       <h4 className="text-xs font-bold text-[#2C1E1E]">{action.name}</h4>
-                      <p className="mt-0.5 text-[9px] text-gray-400">{isLocked ? lockReason : "尝试行动"}</p>
+                      <p className="mt-0.5 text-[9px] text-gray-400">
+                        {isLocked ? lockReason : "尝试行动"}
+                      </p>
                     </div>
                   </div>
-                  <span className="font-mono text-[10px] font-bold text-[#D49B4B]">-{action.actionPointCost}</span>
+                  <span className="font-mono text-[10px] font-bold text-[#D49B4B]">
+                    -{action.actionPointCost}
+                  </span>
                 </button>
                 {isActive && !actionLoading && (
                   <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-1 duration-150">
@@ -167,7 +183,9 @@ export const NarrativePanel = React.memo(function NarrativePanel({
                         type="button"
                         onClick={() => setSelectedNpcs([])}
                         className={`shrink-0 rounded-xl border px-2.5 py-1.5 text-[11px] transition-colors ${
-                          selectedNpcs.length === 0 ? "border-[#B83227] bg-[#FDF2F0] text-[#B83227]" : "border-[#EADCD0] bg-white text-[#2C1E1E] hover:border-[#B83227]/40"
+                          selectedNpcs.length === 0
+                            ? "border-[#B83227] bg-[#FDF2F0] text-[#B83227]"
+                            : "border-[#EADCD0] bg-white text-[#2C1E1E] hover:border-[#B83227]/40"
                         }`}
                       >
                         不指定 NPC
@@ -180,13 +198,25 @@ export const NarrativePanel = React.memo(function NarrativePanel({
                             type="button"
                             onClick={() => toggleNpc(npc.name)}
                             className={`shrink-0 rounded-xl border px-2.5 py-1.5 text-[11px] transition-colors ${
-                              active ? "border-[#B83227] bg-[#FDF2F0] text-[#B83227]" : "border-[#EADCD0] bg-white text-[#2C1E1E] hover:border-[#B83227]/40"
+                              active
+                                ? "border-[#B83227] bg-[#FDF2F0] text-[#B83227]"
+                                : "border-[#EADCD0] bg-white text-[#2C1E1E] hover:border-[#B83227]/40"
                             }`}
                           >
-                            <span className="mr-1">{npc._src === "family" ? "👨‍👩‍👧‍👦" : npc.avatar}</span>
+                            <span className="mr-1">
+                              {npc._src === "family" ? "👨‍👩‍👧‍👦" : npc.avatar}
+                            </span>
                             <span className="font-bold">{npc.name}</span>
-                            {npc.age != null ? <span className="ml-1 font-normal opacity-70 text-[9px]">({npc.age}岁)</span> : null}
-                            {npc._src !== "family" && isAwake && npc.realm ? <span className="ml-1 font-normal opacity-70 text-[9px]">{npc.realm}</span> : null}
+                            {npc.age != null ? (
+                              <span className="ml-1 font-normal opacity-70 text-[9px]">
+                                ({npc.age}岁)
+                              </span>
+                            ) : null}
+                            {npc._src !== "family" && isAwake && npc.realm ? (
+                              <span className="ml-1 font-normal opacity-70 text-[9px]">
+                                {npc.realm}
+                              </span>
+                            ) : null}
                           </button>
                         );
                       })}
@@ -217,7 +247,13 @@ export const NarrativePanel = React.memo(function NarrativePanel({
                         <span className="text-xs">➤</span>
                       </button>
                     </div>
-                    <Chips actionId={action.id} onPick={(text) => { setDraft(text); handleSubmitAction(action.id); }} />
+                    <Chips
+                      actionId={action.id}
+                      onPick={(text) => {
+                        setDraft(text);
+                        handleSubmitAction(action.id);
+                      }}
+                    />
                     {selectedNpcs.length > 0 && (
                       <div className="flex items-center justify-between text-[10px] text-gray-400">
                         <span>已选：{selectedNpcNames.map((n: any) => n.name).join("、")}</span>
@@ -253,7 +289,13 @@ const ACTION_CHIPS: Record<string, string[]> = {
   DEFAULT: ["闲聊", "切磋", "请教", "陪陪", "帮忙", "逛逛"],
 };
 
-const Chips = React.memo(function Chips({ actionId, onPick }: { actionId: string; onPick: (text: string) => void }) {
+const Chips = React.memo(function Chips({
+  actionId,
+  onPick,
+}: {
+  actionId: string;
+  onPick: (text: string) => void;
+}) {
   const items = ACTION_CHIPS[actionId] ?? ACTION_CHIPS.DEFAULT;
   return (
     <div className="flex flex-wrap gap-1 pt-1">

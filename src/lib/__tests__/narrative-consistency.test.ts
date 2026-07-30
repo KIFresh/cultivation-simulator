@@ -69,7 +69,7 @@ describe("checkBirthConsistency", () => {
           { relation: "母亲", name: "刘秀梅", age: 28, alive: true },
         ],
       },
-      mockSnapshot,
+      mockSnapshot
     );
     expect(violations).toHaveLength(0);
   });
@@ -84,7 +84,7 @@ describe("checkBirthConsistency", () => {
           { relation: "父亲", name: "陈国强", age: 32, alive: true }, // 两个父亲
         ],
       },
-      mockSnapshot,
+      mockSnapshot
     );
     expect(violations.filter((v) => v.severity === "error").length).toBeGreaterThanOrEqual(1);
     expect(violations.some((v) => v.field === "family" && v.message.includes("父亲"))).toBe(true);
@@ -95,14 +95,14 @@ describe("checkBirthConsistency", () => {
       {
         narrative: "孩子出生了，是个女孩。",
         suggestedName: "陈念安",
-        family: [
-          { relation: "父亲", name: "陈建国", age: 30, alive: true },
-        ],
+        family: [{ relation: "父亲", name: "陈建国", age: 30, alive: true }],
       },
-      mockSnapshot,
+      mockSnapshot
     );
     expect(violations.filter((v) => v.severity === "error")).toHaveLength(0);
-    expect(violations.filter((v) => v.severity === "warning" && v.field === "suggestedName")).toHaveLength(1);
+    expect(
+      violations.filter((v) => v.severity === "warning" && v.field === "suggestedName")
+    ).toHaveLength(1);
   });
 });
 
@@ -124,12 +124,10 @@ describe("runConsistencyChecks", () => {
     const report = runConsistencyChecks(
       {
         narrative: "陈念安在家中被父母照顾。",
-        family: [
-          { relation: "父亲", name: "陈建国", age: 30, alive: true },
-        ],
+        family: [{ relation: "父亲", name: "陈建国", age: 30, alive: true }],
       },
       mockSnapshot,
-      {},
+      {}
     );
     expect(report.passed).toBe(true);
   });
@@ -141,7 +139,7 @@ describe("runConsistencyChecks", () => {
         family: [],
       },
       mockSnapshot, // location: "家"
-      {},
+      {}
     );
     expect(report.passed).toBe(false);
     expect(report.violations.some((v) => v.field === "location")).toBe(true);
@@ -153,8 +151,10 @@ describe("runConsistencyChecks", () => {
         narrative: "陈念安在家。",
       },
       mockSnapshot,
-      { name: "李四" },
+      { name: "李四" }
     );
-    expect(report.violations.filter((v) => v.field === "name" && v.severity === "warning")).toHaveLength(1);
+    expect(
+      report.violations.filter((v) => v.field === "name" && v.severity === "warning")
+    ).toHaveLength(1);
   });
 });

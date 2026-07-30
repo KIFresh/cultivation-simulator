@@ -101,7 +101,7 @@ export function rollLocationEvent(
   cultivatorId: string,
   locationId: string,
   age: number,
-  dayKey: string,
+  dayKey: string
 ): LocationEvent | null {
   const pool = (LOCATION_EVENT_POOL[locationId] || []).filter((e) => e.minAge <= age);
   if (pool.length === 0) return null;
@@ -131,7 +131,7 @@ export function addAttrExp(current: AttrExpMap, delta: Record<string, number>): 
 export function makeLocationNpcStub(
   npcId: string,
   locationId: string,
-  age: number,
+  age: number
 ): Record<string, unknown> {
   return {
     npcId,

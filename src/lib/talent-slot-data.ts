@@ -60,22 +60,35 @@ export function parseTalentSlots(raw?: string | null): TalentSlot[] {
 export interface TalentBonuses {
   cultivationSpeed: number; // 道体：修炼速度 % 加成，封顶 15
   breakthroughRate: number; // 通明：突破率 % 加成，封顶 10
-  combatPower: number;      // 战魂：战力 平加，封顶 15
-  gatherYield: number;      // 灵慧：采集产出 % 加成，封顶 20
+  combatPower: number; // 战魂：战力 平加，封顶 15
+  gatherYield: number; // 灵慧：采集产出 % 加成，封顶 20
 }
 
 export function computeTalentBonuses(raw?: string | null): TalentBonuses {
   const slots = parseTalentSlots(raw);
-  const acc: TalentBonuses = { cultivationSpeed: 0, breakthroughRate: 0, combatPower: 0, gatherYield: 0 };
+  const acc: TalentBonuses = {
+    cultivationSpeed: 0,
+    breakthroughRate: 0,
+    combatPower: 0,
+    gatherYield: 0,
+  };
   for (const s of slots) {
     const def = TALENT_DEFS[s.type];
     if (!def) continue;
     const bonus = Math.min(def.perLevel * s.level, def.cap);
     switch (s.type) {
-      case "daoti": acc.cultivationSpeed = bonus; break;
-      case "tongming": acc.breakthroughRate = bonus; break;
-      case "zhanhun": acc.combatPower = bonus; break;
-      case "linghui": acc.gatherYield = bonus; break;
+      case "daoti":
+        acc.cultivationSpeed = bonus;
+        break;
+      case "tongming":
+        acc.breakthroughRate = bonus;
+        break;
+      case "zhanhun":
+        acc.combatPower = bonus;
+        break;
+      case "linghui":
+        acc.gatherYield = bonus;
+        break;
       // gengu / changsheng 在转世 create 本地应用，此处不叠加
     }
   }

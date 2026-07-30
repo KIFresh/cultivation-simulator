@@ -16,22 +16,14 @@ vi.mock("@/components/ui/dialog", () => ({
   DialogContent: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="dialog-content">{children}</div>
   ),
-  DialogHeader: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  DialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   DialogTitle: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="dialog-title">{children}</div>
   ),
 }));
 
 vi.mock("@/components/ui/button", () => ({
-  Button: ({
-    children,
-    onClick,
-  }: {
-    children: React.ReactNode;
-    onClick?: () => void;
-  }) => (
+  Button: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
     <button onClick={onClick} data-testid="close-button">
       {children}
     </button>
@@ -60,7 +52,7 @@ describe("DaoXiaoModal", () => {
         userId="user-1"
         summary={defaultSummary}
         onClose={mockOnClose}
-      />,
+      />
     );
     expect(screen.getByText("🌑 道消身殒")).toBeDefined();
     expect(screen.getByText(/玄明/)).toBeDefined();
@@ -76,7 +68,7 @@ describe("DaoXiaoModal", () => {
         userId="user-1"
         summary={defaultSummary}
         onClose={mockOnClose}
-      />,
+      />
     );
     expect(screen.queryByText("🌑 道消身殒")).toBeNull();
   });
@@ -89,7 +81,7 @@ describe("DaoXiaoModal", () => {
         userId="user-1"
         summary={defaultSummary}
         onClose={mockOnClose}
-      />,
+      />
     );
     fireEvent.click(screen.getByTestId("close-button"));
     expect(mockOnClose).toHaveBeenCalledTimes(1);

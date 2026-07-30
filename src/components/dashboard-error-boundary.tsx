@@ -42,20 +42,17 @@ export default class DashboardErrorBoundary extends Component<
   render() {
     if (!this.state.hasError) return this.props.children;
 
-    const isDev = typeof window !== "undefined" && !!window.__NEXT_DATA__?.props?.pageProps?.__DEV__;
+    const isDev =
+      typeof window !== "undefined" && !!window.__NEXT_DATA__?.props?.pageProps?.__DEV__;
 
     return (
       <div className="border border-red-300 bg-red-50 rounded-lg p-4 space-y-3">
         <div className="flex items-center gap-2 text-red-700">
           <AlertTriangle className="w-5 h-5" />
-          <p className="text-sm font-medium">
-            {this.props.fallbackTitle ?? "面板加载出错"}
-          </p>
+          <p className="text-sm font-medium">{this.props.fallbackTitle ?? "面板加载出错"}</p>
         </div>
         {this.state.error?.message && isDev && (
-          <p className="text-xs text-red-600 break-words">
-            {this.state.error.message}
-          </p>
+          <p className="text-xs text-red-600 break-words">{this.state.error.message}</p>
         )}
         <button
           type="button"

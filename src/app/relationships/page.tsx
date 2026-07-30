@@ -20,21 +20,21 @@ interface FamilyMember {
 }
 
 const relationIcons: Record<string, string> = {
-  "父亲": "👨",
-  "母亲": "👩",
-  "哥哥": "👦",
-  "姐姐": "👧",
-  "弟弟": "👶",
-  "妹妹": "👶",
+  父亲: "👨",
+  母亲: "👩",
+  哥哥: "👦",
+  姐姐: "👧",
+  弟弟: "👶",
+  妹妹: "👶",
 };
 
 const relationOrder: Record<string, number> = {
-  "父亲": 1,
-  "母亲": 2,
-  "哥哥": 3,
-  "姐姐": 4,
-  "弟弟": 5,
-  "妹妹": 6,
+  父亲: 1,
+  母亲: 2,
+  哥哥: 3,
+  姐姐: 4,
+  弟弟: 5,
+  妹妹: 6,
 };
 
 export default function RelationshipsPage() {
@@ -77,8 +77,8 @@ export default function RelationshipsPage() {
     loadFamily();
     // 从 API 加载修炼者信息（名字、年龄、境界）
     fetch(`/api/cultivator?userId=${id}`)
-      .then(r => r.json())
-      .then(data => {
+      .then((r) => r.json())
+      .then((data) => {
         if (data.cultivator) {
           setCultivatorName(data.cultivator.name || "修行者");
           setCultivatorAge(data.cultivator.age || 1);
@@ -103,7 +103,7 @@ export default function RelationshipsPage() {
   };
 
   // 获取当前对话对象
-  const talkMember = family.find(m => m.id === talkingTo);
+  const talkMember = family.find((m) => m.id === talkingTo);
 
   // 发送消息
   const handleSend = async () => {
@@ -115,7 +115,7 @@ export default function RelationshipsPage() {
     setStreamingText("");
 
     // 乐观更新：添加玩家消息到历史
-    const updatedMembers = family.map(m => {
+    const updatedMembers = family.map((m) => {
       if (m.id === talkingTo) {
         return {
           ...m,
@@ -131,7 +131,7 @@ export default function RelationshipsPage() {
 
     const commitReply = (narrative?: string, intimacyDelta = 0) => {
       if (!narrative) return;
-      const finalMembers = updatedMembers.map(m => {
+      const finalMembers = updatedMembers.map((m) => {
         if (m.id === talkingTo) {
           const newIntimacy = Math.max(0, Math.min(100, m.intimacy + intimacyDelta));
           return {
@@ -172,8 +172,12 @@ export default function RelationshipsPage() {
         let final = { narrative: undefined as string | undefined, intimacyDelta: 0 };
         await consumeNarrativeStream(res, {
           onChunk: (c) => setStreamingText((s) => (s || "") + c),
-          onDone: (d) => { final = { narrative: d.narrative, intimacyDelta: d.intimacyDelta || 0 }; },
-          onError: (e) => { throw e instanceof Error ? e : new Error(String((e as any)?.message || "对话生成失败")); },
+          onDone: (d) => {
+            final = { narrative: d.narrative, intimacyDelta: d.intimacyDelta || 0 };
+          },
+          onError: (e) => {
+            throw e instanceof Error ? e : new Error(String((e as any)?.message || "对话生成失败"));
+          },
         });
         commitReply(final.narrative, final.intimacyDelta);
       } else {
@@ -308,7 +312,11 @@ export default function RelationshipsPage() {
                 disabled={!message.trim() || sending}
                 className="h-10 w-10 bg-[#B83227] hover:bg-[#7A1F18] text-white rounded-xl flex items-center justify-center shrink-0 disabled:opacity-50 transition-colors"
               >
-                {sending ? <Sparkles className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                {sending ? (
+                  <Sparkles className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
               </button>
             </div>
           </div>

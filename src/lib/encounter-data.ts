@@ -26,24 +26,24 @@ export type RiskLevel = "low" | "medium" | "high";
 
 /** 奖励/惩罚类型 */
 export type RewardType =
-  | "cultivationExp"    // 修炼值增减
-  | "stamina"           // 体力增减
-  | "breakthrough"      // 突破概率加成
-  | "title"             // 称号
-  | "specialItem";      // 特殊物品（功法残卷、法宝碎片等）
+  | "cultivationExp" // 修炼值增减
+  | "stamina" // 体力增减
+  | "breakthrough" // 突破概率加成
+  | "title" // 称号
+  | "specialItem"; // 特殊物品（功法残卷、法宝碎片等）
 
 /** 单个奖励/惩罚条目 */
 export interface RewardEffect {
   type: RewardType;
-  value: number;          // 增减数值
-  label: string;          // 显示文本，如 "+50 修炼值"
+  value: number; // 增减数值
+  label: string; // 显示文本，如 "+50 修炼值"
 }
 
 /** 一个选项 */
 export interface EncounterChoice {
   riskLevel: RiskLevel;
-  text: string;           // 选项文字，如 "在洞外盘坐吐纳，吸纳逸散灵气"
-  hint: string;           // 风险提示，如 "安全无忧，但机缘有限"
+  text: string; // 选项文字，如 "在洞外盘坐吐纳，吸纳逸散灵气"
+  hint: string; // 风险提示，如 "安全无忧，但机缘有限"
   rewards: RewardEffect[]; // 奖励列表（惩罚用负值）
   successNarrative: string; // 选择后的结果叙事
 }
@@ -51,11 +51,11 @@ export interface EncounterChoice {
 /** 一个完整奇遇 */
 export interface Encounter {
   id: string;
-  title: string;          // 奇遇标题
-  narrative: string;      // 场景描述（仙侠文风，约100字）
+  title: string; // 奇遇标题
+  narrative: string; // 场景描述（仙侠文风，约100字）
   choices: [EncounterChoice, EncounterChoice, EncounterChoice]; // 低/中/高 三个选项
-  minRealm?: string;      // 最低境界要求（可选）
-  weight: number;         // 权重，影响随机抽取概率
+  minRealm?: string; // 最低境界要求（可选）
+  weight: number; // 权重，影响随机抽取概率
 }
 
 // ============================================================
@@ -77,9 +77,7 @@ export const ENCOUNTER_POOL: Encounter[] = [
         riskLevel: "low",
         text: "在洞外盘坐吐纳，吸纳逸散灵气",
         hint: "安全无忧，可稳定获取少量修为",
-        rewards: [
-          { type: "cultivationExp", value: 30, label: "+30 修炼值" },
-        ],
+        rewards: [{ type: "cultivationExp", value: 30, label: "+30 修炼值" }],
         successNarrative:
           "你在洞府外寻了一处灵气最浓之地，盘膝坐下，闭目运功。丝丝缕缕的精纯灵气自洞中溢出，顺毛孔渗入经脉。一日一夜后，你睁开双眼，只觉体内灵力充盈，修为略有精进。虽未踏入洞府，却也小有收获。",
       },
@@ -122,9 +120,7 @@ export const ENCOUNTER_POOL: Encounter[] = [
         riskLevel: "low",
         text: "远远观望，静心感悟天劫中蕴含的大道法则",
         hint: "零风险，通过观摩天劫获得悟道感悟",
-        rewards: [
-          { type: "cultivationExp", value: 50, label: "+50 修炼值" },
-        ],
+        rewards: [{ type: "cultivationExp", value: 50, label: "+50 修炼值" }],
         successNarrative:
           "你寻了一处安全的高地，盘膝坐下，凝神观望天劫——雷光电蛇的每一道弧线都暗合天道法则，毁灭之中蕴含着创生之力。数个时辰后劫云散去，你从入定中醒来，心中对天道的感悟又深了一层。",
       },
@@ -167,9 +163,7 @@ export const ENCOUNTER_POOL: Encounter[] = [
         riskLevel: "low",
         text: "果断捏碎传送符，撤离此地",
         hint: "安全撤离，但失去此处可能的机缘",
-        rewards: [
-          { type: "cultivationExp", value: 20, label: "+20 修炼值" },
-        ],
+        rewards: [{ type: "cultivationExp", value: 20, label: "+20 修炼值" }],
         successNarrative:
           "你毫不犹豫从袖中取出一枚传送符，啪地捏碎。白光闪过，身形瞬间消失在原地。邪修的禁制扑了个空，黑袍老者怒骂一声，却也无可奈何。你出现在数十里外的一处安全之地，虽有些狼狈，但总比落入圈套强。",
       },
@@ -255,21 +249,19 @@ export function pickRandomEncounter(completedToday: number = 0): Encounter | nul
  * - 当前境界每层 +2%
  * - 最高不超过 85%
  */
-export function resolveHighRiskOutcome(
-  cultivator: {
-    spiritualRoot: SpiritualRoot;
-    realmIndex: number;   // 境界在 REALMS 中的索引
-    realmLevel: number;   // 当前境界层数
-  }
-): boolean {
+export function resolveHighRiskOutcome(cultivator: {
+  spiritualRoot: SpiritualRoot;
+  realmIndex: number; // 境界在 REALMS 中的索引
+  realmLevel: number; // 当前境界层数
+}): boolean {
   const rootInfo = SPIRITUAL_ROOTS[cultivator.spiritualRoot];
   if (!rootInfo) return Math.random() < 0.4;
 
   // 基础成功率 40% + 灵根加成 + 境界加成
-  const rootBonus = (rootInfo.rarity - 1) * 0.05;   // 1→0%, 5→20%
-  const realmBonus = (cultivator.realmIndex * 0.03 + cultivator.realmLevel * 0.02);
+  const rootBonus = (rootInfo.rarity - 1) * 0.05; // 1→0%, 5→20%
+  const realmBonus = cultivator.realmIndex * 0.03 + cultivator.realmLevel * 0.02;
 
-  const successRate = Math.min(0.85, 0.40 + rootBonus + realmBonus);
+  const successRate = Math.min(0.85, 0.4 + rootBonus + realmBonus);
 
   return Math.random() < successRate;
 }

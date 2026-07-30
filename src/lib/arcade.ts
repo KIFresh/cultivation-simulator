@@ -37,10 +37,7 @@ export interface ArcadePlayResult {
 const COIN_COST = 1;
 
 /** 投币玩一局；score 由 seed 与手感共同决定。 */
-export function playArcade(
-  stats: ArcadeStat,
-  seedInput?: string,
-): ArcadePlayResult {
+export function playArcade(stats: ArcadeStat, seedInput?: string): ArcadePlayResult {
   const seed = hashSeed(seedInput ?? `${Date.now()}`);
   const rng = mulberry32(seed);
   const score = Math.floor(rng() * 1000);

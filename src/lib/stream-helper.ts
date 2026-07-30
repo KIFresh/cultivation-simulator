@@ -36,7 +36,7 @@ export function createSSEResponse<T>(
   generator: AsyncGenerator<string>,
   onComplete?: (fullText: string) => Promise<T> | T,
   committed?: unknown,
-  onError?: (err: unknown) => unknown,
+  onError?: (err: unknown) => unknown
 ): Response {
   const encoder = new TextEncoder();
   let fullText = "";
@@ -46,22 +46,16 @@ export function createSSEResponse<T>(
       try {
         // 提交优先：占位事件已落库后，先发 committed 事件（乐观载荷 + gameEventId）
         if (committed !== undefined) {
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ committed })}\n\n`)
-          );
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ committed })}\n\n`));
         }
         for await (const chunk of generator) {
           fullText += chunk;
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ chunk })}\n\n`)
-          );
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ chunk })}\n\n`));
         }
         // 流结束，执行回调并发送 done 事件
         if (onComplete) {
           const result = await onComplete(fullText);
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ done: true, result })}\n\n`)
-          );
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, result })}\n\n`));
         } else {
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ done: true, fullText })}\n\n`)
@@ -77,11 +71,11 @@ export function createSSEResponse<T>(
             );
           } else {
             // 向后兼容：未传 onError 时回落为字符串 error（保留 stream.test.ts 旧断言）
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ error: msg })}\n\n`)
-            );
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: msg })}\n\n`));
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       } finally {
         controller.close();
       }

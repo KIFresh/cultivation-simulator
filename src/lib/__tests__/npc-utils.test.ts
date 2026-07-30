@@ -3,12 +3,8 @@ import { mergeNpcs } from "@/lib/npc-utils";
 
 describe("mergeNpcs", () => {
   it("家庭成员与地点 NPC 同名时仅保留家庭成员", () => {
-    const family = [
-      { id: "f1", name: "李建国", relation: "父亲", age: 45 },
-    ];
-    const npcs = [
-      { name: "李建国", locationId: "home", avatar: "👨" },
-    ];
+    const family = [{ id: "f1", name: "李建国", relation: "父亲", age: 45 }];
+    const npcs = [{ name: "李建国", locationId: "home", avatar: "👨" }];
     const result = mergeNpcs(family, npcs);
     expect(result).toHaveLength(1);
     expect(result[0]._src).toBe("family");
@@ -16,21 +12,15 @@ describe("mergeNpcs", () => {
   });
 
   it("地点 NPC 关系名与家庭关系冲突时跳过", () => {
-    const family = [
-      { id: "f2", name: "王母", relation: "母亲", age: 42 },
-    ];
-    const npcs = [
-      { name: "母亲", locationId: "market", avatar: "👩" },
-    ];
+    const family = [{ id: "f2", name: "王母", relation: "母亲", age: 42 }];
+    const npcs = [{ name: "母亲", locationId: "market", avatar: "👩" }];
     const result = mergeNpcs(family, npcs);
     expect(result).toHaveLength(1);
     expect(result[0]._src).toBe("family");
   });
 
   it("不冲突的家庭成员和地点 NPC 均保留", () => {
-    const family = [
-      { id: "f3", name: "张父", relation: "父亲", age: 50 },
-    ];
+    const family = [{ id: "f3", name: "张父", relation: "父亲", age: 50 }];
     const npcs = [
       { name: "赵铁柱", locationId: "school", avatar: "🧑" },
       { name: "孙小花", locationId: "market", avatar: "👩" },
@@ -47,9 +37,7 @@ describe("mergeNpcs", () => {
       { id: "f4", name: "陈父", relation: "父亲", age: 48 },
       { id: "f5", name: "陈母", relation: "母亲", age: 46 },
     ];
-    const npcs = [
-      { name: "李老师", locationId: "school", avatar: "👨‍🏫" },
-    ];
+    const npcs = [{ name: "李老师", locationId: "school", avatar: "👨‍🏫" }];
     const result = mergeNpcs(family, npcs);
     const keys = result.map((r) => r._key);
     expect(new Set(keys).size).toBe(keys.length);
@@ -59,9 +47,7 @@ describe("mergeNpcs", () => {
   });
 
   it("家庭成员 id 缺失时生成确定性 _key", () => {
-    const family = [
-      { name: "无id父", relation: "父亲", age: 40 },
-    ];
+    const family = [{ name: "无id父", relation: "父亲", age: 40 }];
     const result = mergeNpcs(family, []);
     expect(result).toHaveLength(1);
     expect(result[0]._key).toBe("family-无id父");

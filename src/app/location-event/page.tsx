@@ -21,8 +21,7 @@ function effectHints(fx: LocationEventEffect): string[] {
     out.push(fx.goldDelta > 0 ? `💰 获得 ${fx.goldDelta} 金币` : `💰 花费 ${-fx.goldDelta} 金币`);
   if (fx.healthDelta) out.push(`❤️ 健康 ${fx.healthDelta > 0 ? "+" : ""}${fx.healthDelta}`);
   if (fx.attrExp)
-    for (const [k, v] of Object.entries(fx.attrExp))
-      out.push(`📖 ${ATTR_LABEL[k] ?? k}经验 +${v}`);
+    for (const [k, v] of Object.entries(fx.attrExp)) out.push(`📖 ${ATTR_LABEL[k] ?? k}经验 +${v}`);
   if (fx.npcMeet) out.push(`🤝 遇见：${fx.npcMeet}`);
   if (fx.memory) out.push(`📝 记入记忆`);
   return out;
@@ -97,9 +96,7 @@ export default function LocationEventPage() {
         </button>
 
         <h1 className="text-2xl font-semibold tracking-wide mb-1">地点奇遇</h1>
-        <p className="text-xs text-[#5B8aa8] mb-6">
-          行走市井山野，说不定就撞上一段机缘。
-        </p>
+        <p className="text-xs text-[#5B8aa8] mb-6">行走市井山野，说不定就撞上一段机缘。</p>
 
         {loading && <p className="text-[#5B8aa8] animate-pulse">正在张望四周……</p>}
         {error && <p className="text-red-400">{error}</p>}
@@ -136,9 +133,7 @@ export default function LocationEventPage() {
 
         {done && result && (
           <div className="mt-2 rounded-2xl border border-[#234155] bg-[#0f1c26]/70 p-5">
-            <p className="text-sm text-[#cfe6f0] mb-1">
-              ✦ {result.event.title} —— 已收入经历。
-            </p>
+            <p className="text-sm text-[#cfe6f0] mb-1">✦ {result.event.title} —— 已收入经历。</p>
             <div className="flex flex-wrap gap-2 mt-2">
               {effectHints(result.event.effects).map((h, i) => (
                 <span

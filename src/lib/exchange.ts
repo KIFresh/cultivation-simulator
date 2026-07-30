@@ -54,7 +54,7 @@ export function computeExchange(
   direction: ExchangeDirection,
   tier: string,
   amount: number,
-  balances: ExchangeBalances,
+  balances: ExchangeBalances
 ): ExchangeResult {
   if (!VALID_TIERS.includes(tier as StoneTier)) {
     return { ok: false, goldDelta: 0, stoneDelta: null, error: "无效的灵石品级" };

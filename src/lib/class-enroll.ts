@@ -36,7 +36,7 @@ export function parseClassEnroll(raw: string | null | undefined): ClassEnrollRec
           !!x &&
           typeof x === "object" &&
           typeof (x as { optionId?: unknown }).optionId === "string" &&
-          typeof (x as { terms?: unknown }).terms === "number",
+          typeof (x as { terms?: unknown }).terms === "number"
       );
     }
   } catch {
@@ -54,7 +54,7 @@ const CLASS_ANNUAL_FEE_KEY = "classFees";
 /** 计算所有已报名课外班的年度属性加成与总费用 */
 export function applyClassBenefits(
   records: ClassEnrollRecord[],
-  attributes: Record<string, number>,
+  attributes: Record<string, number>
 ): { attributes: Record<string, number>; totalCost: number } {
   let totalCost = 0;
   const out = { ...attributes };
@@ -68,7 +68,11 @@ export function applyClassBenefits(
 }
 
 /** 判断某年龄是否能上某类课外班 */
-export function canEnrollClass(age: number, optionId: string, records: ClassEnrollRecord[]): boolean {
+export function canEnrollClass(
+  age: number,
+  optionId: string,
+  records: ClassEnrollRecord[]
+): boolean {
   if (age < 6 || age > 18) return false;
   const opt = CLASS_ENROLL_OPTIONS.find((o) => o.id === optionId);
   if (!opt) return false;
@@ -77,10 +81,7 @@ export function canEnrollClass(age: number, optionId: string, records: ClassEnro
 }
 
 /** 报名 / 续报一个兴趣班，返回更新后的报名记录。 */
-export function enrollClass(
-  current: ClassEnrollRecord[],
-  optionId: string,
-): ClassEnrollRecord[] {
+export function enrollClass(current: ClassEnrollRecord[], optionId: string): ClassEnrollRecord[] {
   const existing = current.find((c) => c.optionId === optionId);
   if (existing) {
     return current.map((c) => (c.optionId === optionId ? { ...c, terms: c.terms + 1 } : c));

@@ -95,10 +95,7 @@ export function parseMilestones(s?: string | null): string[] {
  * 取某年龄应触发的里程碑（已触发则跳过）。
  * 仅年龄表命中且 id 未出现在 triggeredIds 中时返回；否则 null。
  */
-export function getMilestoneForAge(
-  age: number,
-  triggeredIds: string[] = [],
-): MilestoneInfo | null {
+export function getMilestoneForAge(age: number, triggeredIds: string[] = []): MilestoneInfo | null {
   const ms = MILESTONES_BY_AGE[age];
   if (!ms) return null;
   if (triggeredIds.includes(ms.id)) return null;
@@ -106,9 +103,6 @@ export function getMilestoneForAge(
 }
 
 /** 是否应在该年龄触发里程碑（便于调用方判断，无需拿对象）。 */
-export function shouldTriggerMilestone(
-  age: number,
-  triggeredIds: string[] = [],
-): boolean {
+export function shouldTriggerMilestone(age: number, triggeredIds: string[] = []): boolean {
   return getMilestoneForAge(age, triggeredIds) !== null;
 }

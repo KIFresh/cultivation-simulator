@@ -20,7 +20,8 @@ async function handler(request: NextRequest) {
   // }
   try {
     const protocol = new URL(baseUrl).protocol;
-    if (protocol !== "https:" && protocol !== "http:") return apiError("接口地址必须使用 HTTP 或 HTTPS");
+    if (protocol !== "https:" && protocol !== "http:")
+      return apiError("接口地址必须使用 HTTP 或 HTTPS");
   } catch {
     return apiError("接口地址格式不正确");
   }
@@ -72,9 +73,12 @@ async function handler(request: NextRequest) {
     else if (status === 403) hint = "（无权限访问）";
     else if (status === 404) hint = "（接口地址不正确，请检查 baseUrl）";
     else if (status === 429) hint = "（请求过于频繁，请稍后重试）";
-    return NextResponse.json({
-      error: `查询模型列表失败${hint}`,
-    }, { status: 502 });
+    return NextResponse.json(
+      {
+        error: `查询模型列表失败${hint}`,
+      },
+      { status: 502 }
+    );
   }
 
   const data = await resp.json();

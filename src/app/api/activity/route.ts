@@ -3,7 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { getAvailableActivities, applyActivityEffects } from "@/lib";
 import { sanitizeAttributes } from "@/lib/utils";
 
-
 import { requireCultivator, apiError } from "@/lib/auth-helpers";
 import { logger } from "@/lib/logger";
 import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
@@ -20,7 +19,8 @@ async function handler(request: NextRequest) {
   const activity = activities.find((a) => a.id === activityId);
   if (!activity) return NextResponse.json({ error: "无效的活动" }, { status: 400 });
 
-  if (c.stamina < activity.staminaCost) return NextResponse.json({ error: "行动力不足" }, { status: 400 });
+  if (c.stamina < activity.staminaCost)
+    return NextResponse.json({ error: "行动力不足" }, { status: 400 });
 
   const currentAttrs: Record<string, number> = sanitizeAttributes(attributes) || {};
   const newAttrs = applyActivityEffects(activity, currentAttrs);
@@ -28,13 +28,19 @@ async function handler(request: NextRequest) {
   const [updated] = await prisma.$transaction([
     prisma.cultivator.update({
       where: { id: c.id },
-      data: { stamina: { decrement: activity.staminaCost }, gold: { increment: activity.goldDelta }, attributes: JSON.stringify(newAttrs) }}),
+      data: {
+        stamina: { decrement: activity.staminaCost },
+        gold: { increment: activity.goldDelta },
+        attributes: JSON.stringify(newAttrs),
+      },
+    }),
   ]);
 
   return NextResponse.json({
     cultivator: updated,
     newAttributes: newAttrs,
     activityName: activity.name,
-    goldDelta: activity.goldDelta});
+    goldDelta: activity.goldDelta,
+  });
 }
 export const POST = withApiErrorHandling(handler);

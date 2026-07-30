@@ -7,9 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 export default function InventoryPanel() {
-  const inventory = useGameStore(s => s.inventory);
-  const gold = useGameStore(s => s.gold);
-  const useItem = useGameStore(s => s.useItem);
+  const inventory = useGameStore((s) => s.inventory);
+  const gold = useGameStore((s) => s.gold);
+  const useItem = useGameStore((s) => s.useItem);
   const [showItems, setShowItems] = useState(false);
 
   if (!showItems) {
@@ -25,7 +25,10 @@ export default function InventoryPanel() {
       <CardHeader className="p-3 pb-0">
         <CardTitle className="text-sm flex justify-between">
           <span>🎒 背包 (💰{gold})</span>
-          <button className="text-muted-foreground hover:underline text-xs" onClick={() => setShowItems(false)}>
+          <button
+            className="text-muted-foreground hover:underline text-xs"
+            onClick={() => setShowItems(false)}
+          >
             关闭
           </button>
         </CardTitle>
@@ -35,10 +38,15 @@ export default function InventoryPanel() {
         {inventory.map((item: any, i: number) => {
           const def = getItemById(item.itemId);
           const name = item.name || def?.name || item.itemId;
-          const icon = item.icon || def?.icon || '📦';
+          const icon = item.icon || def?.icon || "📦";
           return (
-            <div key={i} className="flex justify-between items-center text-sm py-1 border-b last:border-0">
-              <span>{icon} {name} ×{item.quantity}</span>
+            <div
+              key={i}
+              className="flex justify-between items-center text-sm py-1 border-b last:border-0"
+            >
+              <span>
+                {icon} {name} ×{item.quantity}
+              </span>
               <Button variant="ghost" size="sm" onClick={() => useItem(item.itemId)}>
                 使用
               </Button>

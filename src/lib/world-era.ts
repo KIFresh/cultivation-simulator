@@ -42,7 +42,13 @@ const WORLD_ERAS: readonly WorldEra[] = [
     label: "智能协同",
     startYear: 2055,
     incomeMultiplier: 1.1,
-    careerWeights: { manufacturing: 0.9, education: 1.1, healthcare: 1.1, business: 1.15, freelance: 1.1 },
+    careerWeights: {
+      manufacturing: 0.9,
+      education: 1.1,
+      healthcare: 1.1,
+      business: 1.15,
+      freelance: 1.1,
+    },
   },
 ];
 
@@ -54,9 +60,9 @@ export function normalizeWorldYear(value: unknown): number {
 
 export function getWorldEra(worldYear: number): WorldEra {
   const normalizedYear = normalizeWorldYear(worldYear);
-  const era = [...WORLD_ERAS]
-    .reverse()
-    .find((candidate) => normalizedYear >= candidate.startYear) ?? WORLD_ERAS[0];
+  const era =
+    [...WORLD_ERAS].reverse().find((candidate) => normalizedYear >= candidate.startYear) ??
+    WORLD_ERAS[0];
 
   return { ...era, careerWeights: { ...era.careerWeights } };
 }

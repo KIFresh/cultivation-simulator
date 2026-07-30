@@ -45,9 +45,7 @@ async function postHandler(request: NextRequest) {
 
   const body = await parseJsonBody(request);
   const title =
-    typeof body?.title === "string" && body.title.trim()
-      ? body.title.trim()
-      : "无名短片";
+    typeof body?.title === "string" && body.title.trim() ? body.title.trim() : "无名短片";
   const topic =
     typeof body?.topic === "string" && body.topic.trim()
       ? body.topic.trim()

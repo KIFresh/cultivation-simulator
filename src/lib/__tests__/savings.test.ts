@@ -101,7 +101,11 @@ describe("calcPocketMoney — 父母收入系数", () => {
   });
 
   it("统一 HouseholdIncome 档位覆盖父母排列顺序", () => {
-    const household: HouseholdIncome = { monthlyIncome: 9000, contributingMembers: 2, incomeLevel: 2 };
+    const household: HouseholdIncome = {
+      monthlyIncome: 9000,
+      contributingMembers: 2,
+      incomeLevel: 2,
+    };
     const firstLow = calcPocketMoney("小学", [parent(50, 0), parent(50, 2)], household);
     const firstHigh = calcPocketMoney("小学", [parent(50, 2), parent(50, 0)], household);
     expect(firstLow.incomeMult).toBe(1.5);

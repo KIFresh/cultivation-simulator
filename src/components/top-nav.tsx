@@ -26,9 +26,7 @@ export default function TopNav() {
   }, []);
 
   const showDevTab = mounted && enabled && devMode;
-  const allTabs = showDevTab
-    ? [...NAV_TABS, { label: "调试", href: "/dev" }]
-    : NAV_TABS;
+  const allTabs = showDevTab ? [...NAV_TABS, { label: "调试", href: "/dev" }] : NAV_TABS;
 
   return (
     <>
@@ -47,8 +45,12 @@ export default function TopNav() {
               <span className="text-white calligraphy text-lg">仙</span>
             </div>
             <div>
-              <h1 className="text-lg font-bold tracking-widest text-[#7A1F18] calligraphy leading-tight">无尽仙途</h1>
-              <p className="text-[9px] text-amber-900/60 tracking-[0.3em] uppercase leading-tight">Infinity Immortal Way</p>
+              <h1 className="text-lg font-bold tracking-widest text-[#7A1F18] calligraphy leading-tight">
+                无尽仙途
+              </h1>
+              <p className="text-[9px] text-amber-900/60 tracking-[0.3em] uppercase leading-tight">
+                Infinity Immortal Way
+              </p>
             </div>
           </Link>
 
@@ -75,19 +77,26 @@ export default function TopNav() {
       </header>
 
       <style jsx>{`
-        .nav-tag { transition: all 0.2s ease; }
+        .nav-tag {
+          transition: all 0.2s ease;
+        }
         .nav-tag.active {
-          background-color: #B83227 !important;
-          color: #FFFFFF !important;
-          border-color: #B83227 !important;
+          background-color: #b83227 !important;
+          color: #ffffff !important;
+          border-color: #b83227 !important;
           transform: translateY(-2px);
           box-shadow: 0 4px 10px rgba(184, 50, 39, 0.25);
         }
         .calligraphy {
-          font-family: 'Ma Shan Zheng', 'STKaiti', 'KaiTi', '楷体', '华文行楷', cursive, serif;
+          font-family: "Ma Shan Zheng", "STKaiti", "KaiTi", "楷体", "华文行楷", cursive, serif;
         }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
       `}</style>
     </>
   );

@@ -4,11 +4,7 @@ import { create } from "zustand";
 import { getAvailableActions, canBreakthrough } from "@/lib";
 import type { Action } from "@/lib/cultivation-data";
 import { safeJsonParse } from "@/lib/json-helper";
-import type {
-  CultivatorData,
-  NarrativeDisplay,
-  FamilyMember,
-} from "@/app/dashboard/types";
+import type { CultivatorData, NarrativeDisplay, FamilyMember } from "@/app/dashboard/types";
 import type { InventoryItem } from "@/lib";
 import { consumeNarrativeStream } from "@/lib/sse-client";
 
@@ -130,7 +126,7 @@ function deriveStoreFields(raw: any) {
     cultivator.realmLevel,
     cultivator.cultivationExp,
     cultivator.spiritualRoot,
-    cultivator.breakthroughBuff || 0,
+    cultivator.breakthroughBuff || 0
   );
   const actions = getAvailableActions(worldId, age, cultivator.realm, location || undefined);
 
@@ -166,7 +162,10 @@ function applyNarrativeResult(set: (partial: any) => void, data: any): void {
     streamingText: null,
     lastActionResult: data,
     actionLoading: false,
-    canBreakthrough: typeof data.canBreakthrough === "boolean" ? data.canBreakthrough : derived.canBreakthrough ?? s.canBreakthrough,
+    canBreakthrough:
+      typeof data.canBreakthrough === "boolean"
+        ? data.canBreakthrough
+        : (derived.canBreakthrough ?? s.canBreakthrough),
   }));
 }
 
@@ -191,7 +190,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   setCultivator: (data) => {
     if (!data) {
-      set({ cultivator: null, gold: 0, inventory: [], location: null, unlockedLocations: null, availableActions: [], canBreakthrough: false });
+      set({
+        cultivator: null,
+        gold: 0,
+        inventory: [],
+        location: null,
+        unlockedLocations: null,
+        availableActions: [],
+        canBreakthrough: false,
+      });
       return;
     }
     set((state) => {
@@ -259,13 +266,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
         await consumeNarrativeStream(res, {
           onChunk: (c) => set((s: any) => ({ streamingText: (s.streamingText || "") + c })),
           onDone: (data) => applyNarrativeResult(set, data),
-          onError: (e) => set({ actionLoading: false, streamingText: null, narrativeError: { message: e?.message || "叙事生成失败" } }),
+          onError: (e) =>
+            set({
+              actionLoading: false,
+              streamingText: null,
+              narrativeError: { message: e?.message || "叙事生成失败" },
+            }),
         });
       } else {
         applyNarrativeResult(set, await res.json());
       }
     } catch (e) {
-      set({ actionLoading: false, streamingText: null, narrativeError: { message: e instanceof Error ? e.message : "行动执行失败" } });
+      set({
+        actionLoading: false,
+        streamingText: null,
+        narrativeError: { message: e instanceof Error ? e.message : "行动执行失败" },
+      });
     }
   },
 
@@ -288,13 +304,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
         await consumeNarrativeStream(res, {
           onChunk: (c) => set((s: any) => ({ streamingText: (s.streamingText || "") + c })),
           onDone: (data) => applyNarrativeResult(set, data),
-          onError: (e) => set({ actionLoading: false, streamingText: null, narrativeError: { message: e?.message || "叙事生成失败" } }),
+          onError: (e) =>
+            set({
+              actionLoading: false,
+              streamingText: null,
+              narrativeError: { message: e?.message || "叙事生成失败" },
+            }),
         });
       } else {
         applyNarrativeResult(set, await res.json());
       }
     } catch (e) {
-      set({ actionLoading: false, streamingText: null, narrativeError: { message: e instanceof Error ? e.message : "突破失败" } });
+      set({
+        actionLoading: false,
+        streamingText: null,
+        narrativeError: { message: e instanceof Error ? e.message : "突破失败" },
+      });
     }
   },
 
@@ -331,7 +356,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
       applyNarrativeResult(set, data);
     } catch (e) {
-      set({ actionLoading: false, narrativeError: { message: e instanceof Error ? e.message : "推进季度失败" } });
+      set({
+        actionLoading: false,
+        narrativeError: { message: e instanceof Error ? e.message : "推进季度失败" },
+      });
     }
   },
 
@@ -351,7 +379,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (data.cultivator) set((state) => ({ ...state, ...deriveStoreFields(data.cultivator) }));
       set({ actionLoading: false });
     } catch (e) {
-      set({ actionLoading: false, narrativeError: { message: e instanceof Error ? e.message : "使用物品失败" } });
+      set({
+        actionLoading: false,
+        narrativeError: { message: e instanceof Error ? e.message : "使用物品失败" },
+      });
     }
   },
 
@@ -382,7 +413,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
         narrativeRetrying: false,
       }));
     } catch (e) {
-      set({ narrativeError: { message: e instanceof Error ? e.message : "重试失败" }, narrativeRetrying: false });
+      set({
+        narrativeError: { message: e instanceof Error ? e.message : "重试失败" },
+        narrativeRetrying: false,
+      });
     }
   },
 
