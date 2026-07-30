@@ -7,6 +7,7 @@ import type { NarrativeEffect } from "./narrative-effects";
 
 import { syncProviderConfig, callAI, warmupAI } from "./narrative/provider";
 export { syncProviderConfig, callAI, warmupAI };
+import { safeJsonParse } from "./json-helper";
 import { logger } from "./logger";
 
 function normalizeNarrativeKeys(o: unknown): void {
@@ -156,12 +157,8 @@ const ATTR_LABELS: Record<string, string> = {
 function safeParseAttrs(raw: unknown): Record<string, number> {
   if (!raw) return {};
   if (typeof raw === "object") return raw as Record<string, number>;
-  try {
-    const p = JSON.parse(raw as string);
-    return typeof p === "object" && p ? (p as Record<string, number>) : {};
-  } catch {
-    return {};
-  }
+  const p = safeJsonParse(raw as string, {} as Record<string, unknown>);
+  return typeof p === "object" && p ? (p as Record<string, number>) : {};
 }
 
 /** 把玩家当前仪表盘数据拼成一段供 AI 参考的上下文。 */

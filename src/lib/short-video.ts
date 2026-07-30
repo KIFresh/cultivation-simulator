@@ -37,7 +37,7 @@ export function getShortVideoFavorites(id: string): ShortVideo[] {
   try {
     const raw = window.localStorage.getItem(favoriteKey(id));
     if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
+    const parsed: unknown = safeJsonParse(raw, []);
     if (Array.isArray(parsed)) return parsed as ShortVideo[];
   } catch {
     // ignore
@@ -65,7 +65,7 @@ export function saveShortVideoBoon(id: string, boon: BoonEntry): BoonEntry[] {
   let list: BoonEntry[] = [];
   try {
     const raw = window.localStorage.getItem(key);
-    if (raw) list = (JSON.parse(raw) as BoonEntry[]) ?? [];
+    if (raw) list = safeJsonParse(raw, [] as BoonEntry[]);
   } catch {
     list = [];
   }
