@@ -1,0 +1,20 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Source code
+*.ts text diff=typescript
+*.tsx text diff=typescript
+*.css text diff=css
+*.json text
+*.md text
+
+# Binary files
+*.db binary
+*.db-journal binary
+*.png binary
+*.jpg binary
+*.ico binary
+
+# Git
+.gitattributes text eol=lf
+.gitignore text eol=lf
