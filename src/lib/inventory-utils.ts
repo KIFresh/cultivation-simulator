@@ -2,6 +2,7 @@
 // 复用 cultivation-data 中已定义的 InventoryItem 类型，避免重复声明。
 
 import type { InventoryItem } from "./cultivation-data";
+import { safeJsonParse } from "./json-helper";
 
 export type { InventoryItem };
 
@@ -9,7 +10,7 @@ export type { InventoryItem };
 export function parseInventory(raw: string | null | undefined): InventoryItem[] {
   if (!raw) return [];
   try {
-    const parsed: unknown = JSON.parse(raw);
+    const parsed: unknown = safeJsonParse(raw, []);
     if (!Array.isArray(parsed)) return [];
     return parsed.filter(isInventoryItemLike).map((it) => ({
       itemId: it.itemId,
@@ -47,7 +48,7 @@ export function parseAttributes(
   }
   if (typeof raw === "string") {
     try {
-      const parsed: unknown = JSON.parse(raw);
+      const parsed: unknown = safeJsonParse(raw, {});
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
         return coerceRecord(parsed as Record<string, unknown>);
       }

@@ -1,3 +1,5 @@
+import { safeJsonParse } from "./json-helper";
+
 // ============================================================
 // 修仙模拟器 — 轮回天赋槽（#6 高阶 sink）共享定义
 // ============================================================
@@ -44,7 +46,7 @@ export interface TalentSlot {
 
 export function parseTalentSlots(raw?: string | null): TalentSlot[] {
   try {
-    const a = JSON.parse(raw || "[]");
+    const a = safeJsonParse(raw, [] as any[]);
     return Array.isArray(a) ? (a as TalentSlot[]) : [];
   } catch {
     return [];

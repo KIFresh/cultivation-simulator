@@ -2,6 +2,7 @@
 // 复用 weather 模块的 BoonEntry 类型作为收藏条目。
 
 import type { BoonEntry } from "@/lib/weather";
+import { safeJsonParse } from "./json-helper";
 
 export interface ShortVideo {
   id: string;

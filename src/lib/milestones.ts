@@ -3,6 +3,8 @@
 // 里程碑是叙事节拍，无选项；推进引擎查表、未触发过则生成，写入 milestones 字段去重。
 // 现代都市修仙风格文案（与 mortal-events / narrative 基调一致）。
 
+import { safeJsonParse } from "./json-helper";
+
 export interface MilestoneInfo {
   id: string;
   age: number; // 触发年龄（整数岁，边界季 newAge）
@@ -84,7 +86,7 @@ export const MILESTONES_BY_AGE: Record<number, MilestoneInfo> = {
 export function parseMilestones(s?: string | null): string[] {
   if (!s) return [];
   try {
-    const o = JSON.parse(s);
+    const o = safeJsonParse(s, [] as any[]);
     return Array.isArray(o) ? o.filter((x) => typeof x === "string") : [];
   } catch {
     return [];

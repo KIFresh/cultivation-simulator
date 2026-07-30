@@ -1,6 +1,8 @@
 // 街机厅：投币开玩，手速与运气齐飞。
 // 该模块对应的 API 路由由其他流程维护；此处提供自洽的游戏逻辑。
 
+import { safeJsonParse } from "./json-helper";
+
 export interface ArcadeStat {
   coinsInserted: number;
   plays: number;
@@ -11,7 +13,7 @@ export interface ArcadeStat {
 export function parseArcadeStats(raw: string | null | undefined): ArcadeStat {
   if (!raw) return { coinsInserted: 0, plays: 0, wins: 0, bestScore: 0 };
   try {
-    const p: unknown = JSON.parse(raw);
+    const p: unknown = safeJsonParse(raw, {} as Record<string, unknown>);
     if (p && typeof p === "object") {
       const o = p as Record<string, unknown>;
       return {

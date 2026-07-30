@@ -1,6 +1,8 @@
 // 读书 / 卦象 —— 被 lib/__tests__/reading.test.ts 依赖。
 // 重建依据：测试导入契约（parseReadingLog / readBook / applyReadingResult / BOOK_POOL / type ReadingLog）。
 
+import { safeJsonParse } from "./json-helper";
+
 export interface BookEntry {
   title: string;
   domain: string;
@@ -93,7 +95,7 @@ export function parseReadingLog(raw: string | null | undefined): ReadingLog {
   const base: ReadingLog = { booksRead: 0, knowledge: 0, list: [] };
   if (!raw) return base;
   try {
-    const p = JSON.parse(raw) as unknown;
+    const p = safeJsonParse(raw, {} as Record<string, unknown>) as unknown;
     if (typeof p !== "object" || p === null) return base;
     const obj = p as Record<string, unknown>;
     const listRaw = Array.isArray(obj.list) ? (obj.list as unknown[]) : [];

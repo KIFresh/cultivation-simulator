@@ -1,6 +1,8 @@
 // 内容安全过滤 —— 被 lib/__tests__/content-safety.test.ts 依赖（AI 叙事合规）。
 // 重建依据：测试导入契约（scanText / guardUserPrompt / checkNarrativeSafe / safeReturn / ContentBlockedError）。
 
+import { safeJsonParse } from "./json-helper";
+
 export type SafetyLevel = "low" | "medium" | "high" | "critical";
 
 export interface ScanResult {
@@ -78,7 +80,7 @@ export function guardUserPrompt(text: string): void {
 function extractNarrative(json: string | null | undefined): string {
   if (!json) return "";
   try {
-    const o = JSON.parse(json) as Record<string, unknown>;
+    const o = safeJsonParse(json, {} as Record<string, unknown>);
     return typeof o.narrative === "string" ? o.narrative : "";
   } catch {
     return "";

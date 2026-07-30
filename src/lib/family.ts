@@ -2,6 +2,7 @@
 // 被 src/app/create/page.tsx 与 src/app/dev/page.tsx 使用，结果以 JSON 存 localStorage。
 
 import type { FamilyMember } from "@/app/dashboard/types";
+import { safeJsonParse } from "./json-helper";
 import { getCareerDisplayName, initializeFamilyCareer } from "./family-career";
 
 export interface EarthFamily {
@@ -132,7 +133,7 @@ function clampIntimacy(v: number): number {
 export function parseFamily(raw: string | null): EarthFamily {
   if (!raw) return { members: [] };
   try {
-    const parsed: unknown = JSON.parse(raw);
+    const parsed: unknown = safeJsonParse(raw, { members: [] });
     if (
       parsed &&
       typeof parsed === "object" &&

@@ -2,6 +2,8 @@
 // 凡人期（earth）在 6 岁边界自动获得一只种子随机宠物；之后每年成长、亲密度缓慢自然增长。
 // 宠物状态存 cultivator.pet JSON。纯逻辑零 DB。
 
+import { safeJsonParse } from "./json-helper";
+
 export type PetType = "cat" | "dog" | "rabbit" | "bird" | "turtle";
 
 export interface PetState {
@@ -71,7 +73,7 @@ function mulberry32(seed: number): () => number {
 export function parsePet(s?: string | null): PetState | null {
   if (!s) return null;
   try {
-    const o = JSON.parse(s) as Partial<PetState>;
+    const o = safeJsonParse(s, {} as Record<string, unknown>) as Partial<PetState>;
     if (o && typeof o.type === "string" && typeof o.intimacy === "number") {
       return o as PetState;
     }

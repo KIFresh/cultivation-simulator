@@ -5,6 +5,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { buildSummaryFromEntries } from "@/lib/narrative";
+import { safeJsonParse } from "./json-helper";
 
 // ============================================================
 // 类型定义
@@ -106,9 +107,7 @@ export async function buildNarrativeSnapshot(cultivator: {
   let recentSummary: string | undefined;
   if (cultivator.storyEntries) {
     try {
-      const entries = JSON.parse(
-        typeof cultivator.storyEntries === "string" ? cultivator.storyEntries : "[]"
-      );
+      const entries = safeJsonParse(cultivator.storyEntries, []);
       if (Array.isArray(entries) && entries.length > 0) {
         recentSummary = buildSummaryFromEntries(entries);
       }

@@ -1,6 +1,8 @@
 // 街头机缘：按「角色 + 年龄 + 季度 + 街区」种子生成，可复现、不改数值。
 // 被 src/app/api/streets/route.ts 与 src/app/streets/page.tsx 使用。
 
+import { safeJsonParse } from "./json-helper";
+
 export type DistrictKey = "oldtown" | "commercial" | "subway" | "park" | "bridge";
 
 export interface District {
@@ -163,7 +165,7 @@ export function loadStreetBoons(userId: string): BoonEntry[] {
   try {
     const raw = storage.getItem(STORAGE_PREFIX + userId);
     if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
+    const parsed: unknown = safeJsonParse(raw, []);
     if (!Array.isArray(parsed)) return [];
     return parsed.filter(
       (b): b is BoonEntry =>

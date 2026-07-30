@@ -1,6 +1,8 @@
 // 课外班：报名兴趣班，年复一年锤炼心性。
 // 该模块对应的 API 路由由其他流程维护；此处提供自洽数据。
 
+import { safeJsonParse } from "./json-helper";
+
 export interface ClassEnrollOption {
   id: string;
   name: string;
@@ -29,7 +31,7 @@ export function getClassEnrollOptions(): ClassEnrollOption[] {
 export function parseClassEnroll(raw: string | null | undefined): ClassEnrollRecord[] {
   if (!raw) return [];
   try {
-    const p: unknown = JSON.parse(raw);
+    const p: unknown = safeJsonParse(raw, []);
     if (Array.isArray(p)) {
       return p.filter(
         (x): x is ClassEnrollRecord =>
