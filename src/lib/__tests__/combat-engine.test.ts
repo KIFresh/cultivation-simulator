@@ -66,6 +66,14 @@ describe('combat-engine', () => {
       const power = calculateCombatPower(player);
       expect(power).toBeGreaterThan(0);
     });
+
+    it('境界倍率影响战力', () => {
+      const player1 = makePlayer({ cultivator: { ...makePlayer().cultivator, realm: '凡人' } });
+      const player2 = makePlayer({ cultivator: { ...makePlayer().cultivator, realm: '筑基期' } });
+      const power1 = calculateCombatPower(player1);
+      const power2 = calculateCombatPower(player2);
+      expect(power2).toBeGreaterThan(power1);
+    });
   });
 
   describe('resolveBattle', () => {
@@ -92,6 +100,30 @@ describe('combat-engine', () => {
       expect(loot.gold).toBeGreaterThanOrEqual(0);
       expect(loot.exp).toBeGreaterThanOrEqual(0);
       expect(Array.isArray(loot.items)).toBe(true);
+      vi.restoreAllMocks();
+    });
+
+    it('普通敌人 + 低 luck 时不生成物品', () => {
+      vi.spyOn(Math, 'random').mockReturnValue(0.9);
+      const enemy = { id: 'test', name: '测试', realm: '凡人', combatPower: 100, rarity: '普通' as const, locationIds: ['wild'], drops: ['spirit_stone'] };
+      const loot = generateLoot(enemy, 0);
+      expect(loot.items).toHaveLength(0);
+      vi.restoreAllMocks();
+    });
+
+    it('精英敌人有基础掉落率', () => {
+      vi.spyOn(Math, 'random').mockReturnValue(0.1);
+      const enemy = { id: 'test', name: '测试', realm: '凡人', combatPower: 100, rarity: '精英' as const, locationIds: ['wild'], drops: ['spirit_stone'] };
+      const loot = generateLoot(enemy, 0);
+      expect(loot.items.length).toBeGreaterThanOrEqual(1);
+      vi.restoreAllMocks();
+    });
+
+    it('BOSS 敌人有基础掉落率', () => {
+      vi.spyOn(Math, 'random').mockReturnValue(0.1);
+      const enemy = { id: 'test', name: '测试', realm: '凡人', combatPower: 100, rarity: 'BOSS' as const, locationIds: ['wild'], drops: ['spirit_stone'] };
+      const loot = generateLoot(enemy, 0);
+      expect(loot.items.length).toBeGreaterThanOrEqual(1);
       vi.restoreAllMocks();
     });
   });
@@ -132,6 +164,25 @@ describe('combat-engine', () => {
       expect(penalty.itemLoss).not.toContain('sword');
       vi.restoreAllMocks();
     });
+
+    it('goldLoss 不超过当前持有金币', () => {
+      const penalty = applyPenalty(0.5, 0);
+      expect(penalty.goldLoss).toBe(0);
+    });
+
+    it('mindDemonDelta 仅在 ratio<1 时存在', () => {
+      const penalty0 = applyPenalty(0.5, 100);
+      expect(penalty0.mindDemonDelta).toBe(10);
+
+      const penalty1 = applyPenalty(1.5, 100);
+      expect(penalty1.mindDemonDelta).toBeUndefined();
+
+      const penalty2 = applyPenalty(3, 100);
+      expect(penalty2.mindDemonDelta).toBeUndefined();
+
+      const penalty3 = applyPenalty(5, 100);
+      expect(penalty3.mindDemonDelta).toBeUndefined();
+    });
   });
 
   describe('getCombatNarrativeText', () => {
@@ -152,6 +203,27 @@ describe('combat-engine', () => {
       const result = await resolveCombat(makePlayer());
       expect(result.win).toBe(true);
       expect(result.narrative).toContain('并无敌人');
+    });
+
+    it('境界倍率影响胜负', async () => {
+      vi.spyOn(Math, 'random').mockReturnValue(0.4);
+
+      const playerLow = makePlayer({
+        attributes: { root: 0, spirit: 0, insight: 0 },
+        cultivator: { ...makePlayer().cultivator, realm: '凡人' },
+      });
+      const playerHigh = makePlayer({
+        attributes: { root: 0, spirit: 0, insight: 0 },
+        cultivator: { ...makePlayer().cultivator, realm: '筑基期' },
+      });
+
+      const resultLow = await resolveCombat(playerLow, 'wild_dog', 'wild');
+      const resultHigh = await resolveCombat(playerHigh, 'wild_dog', 'wild');
+
+      expect(resultLow.win).toBe(false);
+      expect(resultHigh.win).toBe(true);
+
+      vi.restoreAllMocks();
     });
   });
 });

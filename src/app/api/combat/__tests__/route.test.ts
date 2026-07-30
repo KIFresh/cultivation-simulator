@@ -78,15 +78,20 @@ describe('Combat API - POST', () => {
     expect(d.loot.gold).toBe(20);
   });
 
-  it('战斗失败扣除金币和寿元', async () => {
+  it('战斗失败返回 penalty 并包含可配置字段', async () => {
     mockResolveCombat.mockResolvedValue({
       win: false, style: '惨败', narrative: '不敌对手',
-      penalty: { goldLoss: 10, injuryDebuff: 1, lifespanLoss: 2 },
+      penalty: { goldLoss: 10, mindDemonDelta: 5, injuryDebuff: 1, lifespanLoss: 2 },
       enemy: { id: 'e1', name: '山贼' },
     });
     const res = await POST(makeRequest({ enemyId: 'e1' }));
     const d = await res.json();
     expect(d.win).toBe(false);
+    expect(d.penalty).toBeDefined();
+    expect(d.penalty.goldLoss).toBe(10);
+    expect(d.penalty.mindDemonDelta).toBe(5);
+    expect(d.penalty.injuryDebuff).toBe(1);
+    expect(d.penalty.lifespanLoss).toBe(2);
   });
 
   it("请求体伪造高属性不会传入战斗引擎", async () => {
@@ -168,5 +173,74 @@ describe('Combat API - POST', () => {
     expect(d.cultivator).toBeDefined();
     expect(d.cultivator.gold).toBe(120);
     expect(d.cultivator.cultivationExp).toBe(130);
+  });
+
+  it("战败 penalty 触发 cultivator snapshot 更新", async () => {
+    mockResolveCombat.mockResolvedValue({
+      win: false, style: '惨败', narrative: '不敌对手',
+      penalty: { goldLoss: 10, mindDemonDelta: 5, injuryDebuff: 1, lifespanLoss: 2 },
+      enemy: { id: 'e1', name: '山贼' },
+    });
+    const updatedCultivator = makeCultivator({ injuryDebuff: 1, maxAge: 78 });
+    const tx = {
+      cultivator: { update: vi.fn().mockResolvedValue(updatedCultivator) },
+      gameEvent: { create: vi.fn().mockResolvedValue({ id: 'evt1' }) },
+    };
+    mockPrisma.$transaction.mockImplementation((cb: any) => cb(tx));
+    const res = await POST(makeRequest({ enemyId: 'e1' }));
+    const d = await res.json();
+    expect(d.win).toBe(false);
+    expect(d.cultivator).toBeDefined();
+    expect(d.cultivator.injuryDebuff).toBe(1);
+    expect(d.cultivator.maxAge).toBe(78);
+    const updateCall = tx.cultivator.update.mock.calls[0]?.[0];
+    expect(updateCall.data.injuryDebuff).toBe(1);
+    expect(updateCall.data.maxAge).toBe(78);
+  });
+
+  it("战败 inventory 扣物：扣除未装备物品", async () => {
+    mockRequireCultivator.mockResolvedValue({
+      cultivator: makeCultivator({
+        inventory: JSON.stringify([
+          { itemId: 'spirit_stone', quantity: 3, equipped: false },
+          { itemId: 'herb', quantity: 2, equipped: false },
+          { itemId: 'sword', quantity: 1, equipped: true },
+        ]),
+      }),
+    });
+    mockResolveCombat.mockResolvedValue({
+      win: false, style: '惨败', narrative: '不敌对手',
+      penalty: { goldLoss: 0, itemLoss: ['spirit_stone', 'herb'] },
+      enemy: { id: 'e1', name: '山贼' },
+    });
+    const updatedCultivator = makeCultivator({
+      inventory: JSON.stringify([
+        { itemId: 'spirit_stone', quantity: 2, equipped: false },
+        { itemId: 'herb', quantity: 1, equipped: false },
+        { itemId: 'sword', quantity: 1, equipped: true },
+      ]),
+    });
+    const tx = {
+      cultivator: { update: vi.fn().mockResolvedValue(updatedCultivator) },
+      gameEvent: { create: vi.fn().mockResolvedValue({ id: 'evt1' }) },
+    };
+    mockPrisma.$transaction.mockImplementation((cb: any) => cb(tx));
+    const res = await POST(makeRequest({ enemyId: 'e1' }));
+    const d = await res.json();
+    expect(d.win).toBe(false);
+    expect(d.cultivator).toBeDefined();
+    const updateCall = tx.cultivator.update.mock.calls[0]?.[0];
+    const updatedInv = JSON.parse(updateCall.data.inventory);
+    expect(updatedInv).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ itemId: 'spirit_stone', quantity: 2 }),
+        expect.objectContaining({ itemId: 'herb', quantity: 1 }),
+        expect.objectContaining({ itemId: 'sword', quantity: 1, equipped: true }),
+      ])
+    );
+    // 确保装备物品未被扣除
+    const sword = updatedInv.find((i: any) => i.itemId === 'sword');
+    expect(sword).toBeDefined();
+    expect(sword.equipped).toBe(true);
   });
 });
