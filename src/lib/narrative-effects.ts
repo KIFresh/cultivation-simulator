@@ -18,6 +18,7 @@
 import { z } from "zod";
 import { prisma } from "./prisma";
 import { clampGoldDelta } from "./gold";
+import { safeJsonParse } from "./json-helper";
 
 // ── 1. 效果模式匹配 ──────────────────────────────────────────────────────
 
@@ -533,7 +534,7 @@ export async function applyEffects(
         });
         const currentExp: Record<string, number> = current?.attributeExp
           ? typeof current.attributeExp === "string"
-            ? JSON.parse(current.attributeExp)
+            ? safeJsonParse(current.attributeExp, {})
             : current.attributeExp
           : {};
         const merged = { ...currentExp };
@@ -557,7 +558,7 @@ export async function applyEffects(
         });
         const entries: any[] = current?.storyEntries
           ? typeof current.storyEntries === "string"
-            ? JSON.parse(current.storyEntries)
+            ? safeJsonParse(current.storyEntries, [])
             : current.storyEntries
           : [];
         entries.push({

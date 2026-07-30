@@ -9,6 +9,7 @@
 
 import { SHOP_ITEMS, REALM_ORDER, ITEMS } from "./cultivation-data";
 import type { Enemy } from "./enemy-data";
+import { safeJsonParse } from "./json-helper";
 
 const ROB_CHANCE = 0.15;
 const ENEMY_POWER_COEFF = 3;
@@ -22,21 +23,11 @@ function realmIndex(realm: string): number {
 function parseInventory(
   raw: string | null | undefined
 ): { itemId: string; quantity: number; equipped: boolean }[] {
-  if (!raw) return [];
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return [];
-  }
+  return safeJsonParse(raw, [] as { itemId: string; quantity: number; equipped: boolean }[]);
 }
 
 export function parseMilestonesJson(raw: string | null | undefined): Record<string, any> {
-  if (!raw) return {};
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return {};
-  }
+  return safeJsonParse(raw, {});
 }
 
 function todayKey(): string {
