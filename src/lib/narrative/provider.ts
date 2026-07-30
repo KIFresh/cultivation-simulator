@@ -40,6 +40,17 @@ function loadProviders(): ProviderConfig[] {
   return providers;
 }
 
+// ============================================================
+// 超时工具：避免单个 provider 假死阻塞整个请求
+// ============================================================
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  const timer = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+  );
+  return Promise.race([promise, timer]);
+}
+
 export async function callAI(params: { systemPrompt: string; userPrompt: string; maxTokens?: number; temperature?: number }): Promise<string> {
   await syncProviderConfig().catch((e) => { logger.error("callAI: syncProviderConfig 失败", e); });
   const providers = loadProviders();
@@ -55,27 +66,39 @@ export async function callAI(params: { systemPrompt: string; userPrompt: string;
         case "anthropic": {
           const Anthropic = (await import("@anthropic-ai/sdk")).default;
           const client = new Anthropic({ apiKey: provider.apiKey });
-          const resp = await client.messages.create({
-            model, max_tokens: maxTokens, system: params.systemPrompt,
-            messages: [{ role: "user", content: params.userPrompt }], temperature,
-          });
+          const resp = await withTimeout(
+            client.messages.create({
+              model, max_tokens: maxTokens, system: params.systemPrompt,
+              messages: [{ role: "user", content: params.userPrompt }], temperature,
+            }),
+            15_000,
+            `Provider anthropic (${model})`
+          );
           return (resp.content as Array<{ type: string; text?: string }>).filter((c) => c.type === "text").map((c) => c.text || "").join("");
         }
         case "openai": {
           const OpenAI = (await import("openai")).default;
           const client = new OpenAI({ apiKey: provider.apiKey, ...(provider.baseUrl ? { baseURL: provider.baseUrl } : {}) });
-          const resp = await client.chat.completions.create({
-            model, max_tokens: maxTokens, temperature,
-            messages: [{ role: "system", content: params.systemPrompt }, { role: "user", content: params.userPrompt }],
-          });
+          const resp = await withTimeout(
+            client.chat.completions.create({
+              model, max_tokens: maxTokens, temperature,
+              messages: [{ role: "system", content: params.systemPrompt }, { role: "user", content: params.userPrompt }],
+            }),
+            15_000,
+            `Provider openai (${model})`
+          );
           return resp.choices[0]?.message?.content || "";
         }
         case "ollama": {
           const baseUrl = (provider.baseUrl || "http://localhost:11434").replace(/\/$/, "");
-          const resp = await fetch(`${baseUrl}/api/chat`, {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ model, stream: false, options: { temperature, num_predict: maxTokens }, messages: [{ role: "system", content: params.systemPrompt }, { role: "user", content: params.userPrompt }] }),
-          });
+          const resp = await withTimeout(
+            fetch(`${baseUrl}/api/chat`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ model, stream: false, options: { temperature, num_predict: maxTokens }, messages: [{ role: "system", content: params.systemPrompt }, { role: "user", content: params.userPrompt }] }),
+            }),
+            15_000,
+            `Provider ollama (${model})`
+          );
           if (!resp.ok) throw new Error(`Ollama error: ${resp.status}`);
           const data = await resp.json();
           return data.message?.content || "";
