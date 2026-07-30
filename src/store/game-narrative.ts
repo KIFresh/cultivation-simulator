@@ -1,7 +1,7 @@
 import { deriveStoreFields } from "./game-helpers";
 
 /** 统一回填：处理道消 / 叙事 / 修炼者派生 / 突破门控 */
-export function applyNarrativeResult(set: (partial: any) => void, data: any): void {
+export function applyNarrativeResult(set: (partial: any) => void, data: Record<string, unknown>): void {
   if (data?.daoXiao) {
     set((s: any) => ({
       ...s,

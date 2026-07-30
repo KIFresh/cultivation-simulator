@@ -6,7 +6,7 @@ import type { CultivatorData } from "@/app/dashboard/types";
 
 let lastRequest: { endpoint: string; body: Record<string, unknown> } | null = null;
 
-export function initActions(set: any, get: any) {
+export function initActions(set: (partial: any) => void, get: () => any) {
   return {
     setUserId: (id: string | null) => set({ userId: id }),
 
@@ -58,7 +58,7 @@ export function initActions(set: any, get: any) {
       if (!userId) throw new Error("未找到用户，请先创建修炼者");
       if (actionLoading) return;
       set({ actionLoading: true, narrativeError: null, streamingText: "" });
-      let familyData: Record<string, any> | null = null;
+      let familyData: Record<string, unknown> | null = null;
       try {
         const raw = typeof window !== "undefined" ? window.localStorage.getItem("family") : null;
         if (raw) familyData = JSON.parse(raw);
@@ -86,8 +86,8 @@ export function initActions(set: any, get: any) {
         if (ct.includes("text/event-stream")) {
           await consumeNarrativeStream(res, {
             onChunk: (c: string) => set((s: any) => ({ streamingText: (s.streamingText || "") + c })),
-            onDone: (data: any) => applyNarrativeResult(set, data),
-            onError: (e: any) =>
+            onDone: (data: Record<string, unknown>) => applyNarrativeResult(set, data),
+            onError: (e: Error | { message?: string }) =>
               set({
                 actionLoading: false,
                 streamingText: null,
@@ -124,8 +124,8 @@ export function initActions(set: any, get: any) {
         if (ct.includes("text/event-stream")) {
           await consumeNarrativeStream(res, {
             onChunk: (c: string) => set((s: any) => ({ streamingText: (s.streamingText || "") + c })),
-            onDone: (data: any) => applyNarrativeResult(set, data),
-            onError: (e: any) =>
+            onDone: (data: Record<string, unknown>) => applyNarrativeResult(set, data),
+            onError: (e: Error | { message?: string }) =>
               set({
                 actionLoading: false,
                 streamingText: null,
