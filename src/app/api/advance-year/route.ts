@@ -10,7 +10,7 @@ import { requireCultivator } from "@/lib/auth-helpers";
  */
 export async function POST(_request: NextRequest) {
   const auth = await requireCultivator(_request);
-  if (auth.error) return auth.error;
+  if ("error" in auth) return auth.error;
   return NextResponse.json(
     {
       error: "此接口已废弃，请使用 /api/advance-quarter",

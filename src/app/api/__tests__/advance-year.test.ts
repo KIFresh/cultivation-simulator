@@ -1,11 +1,17 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { POST } from "../../api/advance-year/route";
+
+const mockRequireCultivator = vi.fn().mockResolvedValue({ cultivator: {} as any });
+
+vi.mock("@/lib/auth-helpers", () => ({
+  requireCultivator: (...args: any[]) => mockRequireCultivator(...args),
+}));
 
 function makeRequest(): NextRequest {
   return {
     json: () => Promise.resolve({}),
-    headers: new Map(),
+    headers: new Map([["x-user-id", "user-1"]]),
   } as unknown as NextRequest;
 }
 

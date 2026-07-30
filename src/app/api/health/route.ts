@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic"; // 禁止缓存，每次实查
 
 async function handler(request: NextRequest) {
   const auth = await requireCultivator(request);
-  if (auth.error) return auth.error;
+  if ("error" in auth) return auth.error;
   const started = Date.now();
   try {
     await prisma.$queryRaw`SELECT 1`;

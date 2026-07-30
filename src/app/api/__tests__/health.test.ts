@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { NextRequest } from "next/server";
 import { GET } from "../../api/health/route";
+
+// Mock auth-helpers to bypass requireCultivator in health check tests
+const mockRequireCultivator = vi.fn().mockResolvedValue({ cultivator: {} as any });
+vi.mock("@/lib/auth-helpers", () => ({
+  requireCultivator: (...args: any[]) => mockRequireCultivator(...args),
+}));
 
 // Mock prisma
 vi.mock("@/lib/prisma", () => ({
@@ -7,6 +14,12 @@ vi.mock("@/lib/prisma", () => ({
     $queryRaw: vi.fn(),
   },
 }));
+
+function makeRequest(): NextRequest {
+  return new NextRequest("http://localhost/api/health", {
+    headers: { "x-user-id": "user-1" },
+  });
+}
 
 describe("Health API", () => {
   beforeEach(() => {
@@ -17,7 +30,7 @@ describe("Health API", () => {
     const { prisma } = await import("@/lib/prisma");
     (prisma.$queryRaw as any).mockResolvedValueOnce([{ 1: 1 }]);
 
-    const response = await GET();
+    const response = await GET(makeRequest());
     const data = await response.json();
 
     expect(data.status).toBe("ok");
@@ -30,7 +43,7 @@ describe("Health API", () => {
     const { prisma } = await import("@/lib/prisma");
     (prisma.$queryRaw as any).mockRejectedValueOnce(new Error("Connection failed"));
 
-    const response = await GET();
+    const response = await GET(makeRequest());
     const data = await response.json();
 
     expect(response.status).toBe(503);

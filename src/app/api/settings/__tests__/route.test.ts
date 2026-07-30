@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { NextRequest } from "next/server";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { NextRequest, NextResponse } from "next/server";
+import { GET, POST } from "../route";
 
 const mockPrisma = vi.hoisted(() => ({
   appSetting: {
@@ -10,17 +11,26 @@ const mockPrisma = vi.hoisted(() => ({
   $transaction: vi.fn(),
 }));
 const mockNarrative = vi.hoisted(() => ({ syncProviderConfig: vi.fn() }));
+const mockAuth = vi.hoisted(() => ({
+  requireCultivator: vi.fn().mockResolvedValue({ cultivator: {} as any }),
+  requireAdminKey: vi.fn((key: string) => key === "admin-test-key"),
+  apiError: vi.fn((message: string, status: number, code?: string) => {
+    const res = NextResponse.json({ error: message, ...(code ? { code } : {}) }, { status });
+    return res;
+  }),
+}));
 
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/narrative", () => mockNarrative);
-
-import { GET, POST } from "../route";
+vi.mock("@/lib/auth-helpers", () => mockAuth);
 
 const ADMIN_KEY = "admin-test-key";
+const USER_ID = "test-user-id";
 function request(method = "GET", body?: unknown, adminKey?: string) {
   return new NextRequest("http://localhost/api/settings", {
     method,
     headers: {
+      "x-user-id": USER_ID,
       ...(body ? { "Content-Type": "application/json" } : {}),
       ...(adminKey ? { "x-admin-key": adminKey } : {}),
     },
