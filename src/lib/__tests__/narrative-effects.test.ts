@@ -1,4 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// Mock clampGoldDelta to avoid prisma.goldTransactionRecord dependency in unit tests
+vi.mock('../gold', () => ({
+  clampGoldDelta: (delta: number, currentGold: number, maxAbsDelta = 10000) => {
+    const n = typeof delta === 'number' ? delta : Number(delta);
+    if (!Number.isFinite(n)) return 0;
+    let d = Math.trunc(n);
+    const cap = Math.abs(maxAbsDelta);
+    if (d > cap) d = cap;
+    if (d < -cap) d = -cap;
+    if (currentGold + d < 0) d = -currentGold;
+    if (currentGold + d > 10_000_000) d = 10_000_000 - currentGold;
+    return d;
+  },
+}));
+
 import {
   NarrativeEffectSchema,
   extractEffects,
@@ -111,6 +127,12 @@ describe('clampEffect', () => {
     expect(clampEffect({ kind: 'gold', delta: 50 }, { ...config, currentGold: 180 })).toEqual({ kind: 'gold', delta: 20 });
   });
 
+  it('gold 受 maxGoldAbsDelta 限制', () => {
+    const cfg: ClampConfig = { currentGold: 1000, maxGoldAbsDelta: 50 };
+    expect(clampEffect({ kind: 'gold', delta: 100 }, cfg)).toEqual({ kind: 'gold', delta: 50 });
+    expect(clampEffect({ kind: 'gold', delta: -100 }, cfg)).toEqual({ kind: 'gold', delta: -50 });
+  });
+
   it('stamina 不超出 [0, maxStamina]', () => {
     expect(clampEffect({ kind: 'stamina', delta: 10 }, { ...config, currentStamina: 95 })).toEqual({ kind: 'stamina', delta: 5 });
     expect(clampEffect({ kind: 'stamina', delta: -10 }, { ...config, currentStamina: 5 })).toEqual({ kind: 'stamina', delta: -5 });
@@ -141,6 +163,16 @@ describe('aggregateEffects', () => {
     const gold = result.filter((e) => e.kind === 'gold');
     expect(gold).toHaveLength(1);
     if (gold[0].kind === 'gold') expect(gold[0].delta).toBe(30);
+  });
+
+  it('聚合同类 gold 正负混合效果累加', () => {
+    const result = aggregateEffects([
+      { kind: 'gold', delta: 10 },
+      { kind: 'gold', delta: -4 },
+    ]);
+    const gold = result.filter((e) => e.kind === 'gold');
+    expect(gold).toHaveLength(1);
+    if (gold[0].kind === 'gold') expect(gold[0].delta).toBe(6);
   });
 
   it('聚合后保留其他效果', () => {
