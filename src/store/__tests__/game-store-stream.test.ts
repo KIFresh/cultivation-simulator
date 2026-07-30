@@ -28,8 +28,7 @@ global.fetch = mockFetch;
 
 // Mock window.localStorage
 if (typeof window === "undefined") {
-  // @ts-ignore
-  global.window = { localStorage: { getItem: vi.fn(), setItem: vi.fn() } };
+  (global as any).window = { localStorage: { getItem: vi.fn(), setItem: vi.fn() } };
 }
 
 describe("game-store-stream", () => {

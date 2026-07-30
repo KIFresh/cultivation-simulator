@@ -193,14 +193,11 @@ describe("game-store", () => {
 
   describe("bootstrap", () => {
     it("should do nothing when window is undefined", () => {
-      // @ts-ignore
-      const origWindow = global.window;
-      // @ts-ignore
-      delete global.window;
+      const origWindow = (global as any).window;
+      delete (global as any).window;
       useGameStore.getState().bootstrap();
       expect(useGameStore.getState().userId).toBeNull();
-      // @ts-ignore
-      global.window = origWindow;
+      (global as any).window = origWindow;
     });
   });
 

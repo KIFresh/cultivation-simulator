@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { apiError, requireAdminKey } from "@/lib/auth-helpers";
+import { apiError, requireAdminKey, requireCultivator } from "@/lib/auth-helpers";
 import { syncProviderConfig } from "@/lib/narrative";
 import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
 import { logger } from "@/lib/logger";
@@ -25,12 +25,16 @@ function publicSettings(settings: { key: string; value: string }[]) {
 }
 
 async function getHandler(request: NextRequest) {
+  const auth = await requireCultivator(request);
+  if (auth.error) return auth.error;
   if (!isAuthorized(request)) return apiError("管理员密钥无效", 401, "ADMIN_REQUIRED");
   const settings = await prisma.appSetting.findMany();
   return NextResponse.json({ settings: publicSettings(settings) });
 }
 
 async function postHandler(request: NextRequest) {
+  const auth = await requireCultivator(request);
+  if (auth.error) return auth.error;
   if (!isAuthorized(request)) return apiError("管理员密钥无效", 401, "ADMIN_REQUIRED");
   const body = await parseJsonBody(request);
   const { settings } = body;

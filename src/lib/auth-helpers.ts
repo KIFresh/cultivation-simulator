@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { safeJsonParse } from "./json-helper";
 
 // ── CUID 格式校验 ──────────────────────────────────────────
 // Prisma 默认用 cuid() 生成 ID，格式如 "clx3abc..."
@@ -192,11 +193,4 @@ export function requireAdminKey(providedKey: unknown): boolean {
 }
 
 // ── 安全 JSON.parse ───────────────────────────────────────
-export function safeJsonParse<T>(raw: string | null | undefined, fallback: T): T {
-  if (!raw) return fallback;
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
+export { safeJsonParse } from "./json-helper";
