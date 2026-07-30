@@ -55,7 +55,7 @@ describe("mergeNpcs", () => {
     expect(new Set(keys).size).toBe(keys.length);
     expect(keys).toContain("family-f4");
     expect(keys).toContain("family-f5");
-    expect(keys).toContain("location-school");
+    expect(keys).toContain("location-李老师");
   });
 
   it("家庭成员 id 缺失时生成确定性 _key", () => {
@@ -74,5 +74,29 @@ describe("mergeNpcs", () => {
   it("null/undefined 输入容错", () => {
     expect(mergeNpcs(undefined as any, undefined as any)).toHaveLength(0);
     expect(mergeNpcs(null as any, null as any)).toHaveLength(0);
+  });
+
+  it("同一地点的多个 NPC 生成不同的 _key", () => {
+    const npcs = [
+      { name: "父亲", locationId: "home", avatar: "👨" },
+      { name: "母亲", locationId: "home", avatar: "👩" },
+      { name: "爷爷", locationId: "home", avatar: "👴" },
+    ];
+    const result = mergeNpcs([], npcs);
+    const keys = result.map((r) => r._key);
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(result).toHaveLength(3);
+  });
+
+  it("同名地点 NPC 按输入顺序追加计数后缀保证唯一", () => {
+    const npcs = [
+      { name: "陌生人", locationId: "market" },
+      { name: "陌生人", locationId: "market" },
+      { name: "陌生人", locationId: "market" },
+    ];
+    const result = mergeNpcs([], npcs);
+    const keys = result.map((r) => r._key);
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(result).toHaveLength(3);
   });
 });

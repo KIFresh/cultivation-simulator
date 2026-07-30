@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireCultivator } from "@/lib/auth-helpers";
+import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
+import { logger } from "@/lib/logger";
 
 interface Formula {
   id: string;
@@ -28,57 +30,51 @@ function parseUnlocked(raw: string | null): string[] {
 }
 
 // GET — 丹方列表与已解锁情况
-export async function GET(request: NextRequest) {
-  try {
-    const auth = await requireCultivator(request);
-    if ("error" in auth) return auth.error;
-    const cultivator = auth.cultivator;
-    const unlocked = parseUnlocked(cultivator.unlockedFormulas);
-    return NextResponse.json({
-      unlockedFormulas: unlocked,
-      formulas: FORMULAS.map((f) => ({ ...f, unlocked: unlocked.includes(f.id) })),
-    });
-  } catch (error) {
-    console.error("获取丹方失败:", error);
-    return NextResponse.json({ error: "获取丹方失败" }, { status: 500 });
-  }
+async function getHandler(request: NextRequest) {
+  const auth = await requireCultivator(request);
+  if ("error" in auth) return auth.error;
+  const cultivator = auth.cultivator;
+  const unlocked = parseUnlocked(cultivator.unlockedFormulas);
+  return NextResponse.json({
+    unlockedFormulas: unlocked,
+    formulas: FORMULAS.map((f) => ({ ...f, unlocked: unlocked.includes(f.id) })),
+  });
 }
+
+export const GET = withApiErrorHandling(getHandler);
 
 // POST — 习得（购买）一个丹方
-export async function POST(request: NextRequest) {
-  try {
-    const auth = await requireCultivator(request);
-    if ("error" in auth) return auth.error;
-    const cultivator = auth.cultivator;
+async function postHandler(request: NextRequest) {
+  const auth = await requireCultivator(request);
+  if ("error" in auth) return auth.error;
+  const cultivator = auth.cultivator;
 
-    const body = await request.json();
-    const formula = FORMULAS.find((f) => f.id === body?.formulaId);
-    if (!formula) {
-      return NextResponse.json({ error: "未找到该丹方", success: false }, { status: 404 });
-    }
-
-    const unlocked = parseUnlocked(cultivator.unlockedFormulas);
-    if (unlocked.includes(formula.id)) {
-      return NextResponse.json({ error: "已习得该丹方", success: false }, { status: 400 });
-    }
-    if (cultivator.gold < formula.cost) {
-      return NextResponse.json({ error: "灵石不足，无法购得丹方", success: false }, { status: 400 });
-    }
-
-    const newUnlocked = [...unlocked, formula.id];
-    const updated = await prisma.cultivator.update({
-      where: { id: cultivator.id },
-      data: { gold: { increment: -formula.cost }, unlockedFormulas: JSON.stringify(newUnlocked) },
-    });
-
-    return NextResponse.json({
-      success: true,
-      formula,
-      unlockedFormulas: newUnlocked,
-      gold: updated.gold,
-    });
-  } catch (error) {
-    console.error("习得丹方失败:", error);
-    return NextResponse.json({ error: "习得丹方失败" }, { status: 500 });
+  const body = await parseJsonBody(request);
+  const formula = FORMULAS.find((f) => f.id === body?.formulaId);
+  if (!formula) {
+    return NextResponse.json({ error: "未找到该丹方", success: false }, { status: 404 });
   }
+
+  const unlocked = parseUnlocked(cultivator.unlockedFormulas);
+  if (unlocked.includes(formula.id)) {
+    return NextResponse.json({ error: "已习得该丹方", success: false }, { status: 400 });
+  }
+  if (cultivator.gold < formula.cost) {
+    return NextResponse.json({ error: "灵石不足，无法购得丹方", success: false }, { status: 400 });
+  }
+
+  const newUnlocked = [...unlocked, formula.id];
+  const updated = await prisma.cultivator.update({
+    where: { id: cultivator.id },
+    data: { gold: { increment: -formula.cost }, unlockedFormulas: JSON.stringify(newUnlocked) },
+  });
+
+  return NextResponse.json({
+    success: true,
+    formula,
+    unlockedFormulas: newUnlocked,
+    gold: updated.gold,
+  });
 }
+
+export const POST = withApiErrorHandling(postHandler);

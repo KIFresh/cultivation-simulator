@@ -50,7 +50,7 @@ export default function SpiritPetPage() {
           upgradeCosts: data.upgradeCosts ?? [],
         });
       }
-    } catch (e) { console.error(e); }
+    } catch { /* 忽略 */ }
     finally { setLoading(false); }
   }, []);
 

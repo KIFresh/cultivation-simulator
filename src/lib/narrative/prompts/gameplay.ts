@@ -7,6 +7,7 @@ import { buildSystemPrompt, SYSTEM_PROMPT_CIVILIAN } from "./system";
 import { buildStateContext, type CultivatorState } from "@/lib/narrative";
 import { formatRealmLevel, type SpiritualRoot } from "@/lib/cultivation-data";
 import { extractJson, type RegularNarrative, type EncounterNarrative, type NarrativeResult } from "@/lib/narrative";
+import { logger } from "@/lib/logger";
 
 // ── 1. 日常修炼 ───────────────────────────────────────────────────────────
 
@@ -35,7 +36,7 @@ export async function generateDailyCultivationNarrative(params: {
     const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 800, temperature: 0.8 });
     return extractJson(text, { type: "DAILY_CULTIVATION", title: "日常修炼", narrative: `${params.cultivatorName}找了个安静的角落，按功法试着凝神调息……`, mood: "静", hint: "持之以恒", summary: `${params.cultivatorName}潜心修炼。` });
   } catch {
-    console.error("AI生成失败");
+    logger.error("AI生成失败");
     return { type: "DAILY_CULTIVATION", title: "日常修炼", narrative: `${params.cultivatorName}埋头苦练，感觉自己对这功法又摸到了一点门道。`, mood: "静", hint: "持之以恒", summary: `${params.cultivatorName}静心修炼。` };
   }
 }
@@ -67,7 +68,7 @@ export async function generateBreakthroughNarrative(params: {
     const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 1000, temperature: 0.9 });
     return extractJson(text, { type: "BREAKTHROUGH", title: `${params.toRealm}突破！`, narrative: `${params.cultivatorName}只觉得体内某处被猛地冲开，浑身一震——成功踏入了${params.toRealm}！`, mood: "燃", hint: "恭喜突破", summary: `${params.cultivatorName}成功突破至${params.toRealm}。` });
   } catch {
-    console.error("AI生成失败");
+    logger.error("AI生成失败");
     return { type: "BREAKTHROUGH", title: `突破！${params.toRealm}`, narrative: `${params.cultivatorName}终于捅破了那层窗户纸，气息为之一变！`, mood: "燃", hint: "大道在前", summary: `${params.cultivatorName}突破${params.toRealm}。` };
   }
 }
@@ -96,7 +97,7 @@ export async function generateEncounterNarrative(params: {
     const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 800, temperature: 0.9 });
     return extractJson(text, { type: "ENCOUNTER", title: "意外发现", narrative: `${params.cultivatorName}在修炼途中，撞见了一处不对劲的地方……`, choices: [{ text: "小心探查", risk: "low", hint: "稳扎稳打" }, { text: "深入探索", risk: "medium", hint: "风险与机遇并存" }, { text: "全力闯入", risk: "high", hint: "富贵险中求" }], mood: "奇", summary: `${params.cultivatorName}发现一处不对劲的地方。` });
   } catch {
-    console.error("奇遇生成失败");
+    logger.error("奇遇生成失败");
     return { type: "ENCOUNTER", title: "意外发现", narrative: `${params.cultivatorName}撞见了一处不对劲的地方……`, choices: [{ text: "小心探查", risk: "low", hint: "稳扎稳打" }, { text: "深入探索", risk: "medium", hint: "风险与机遇并存" }, { text: "全力闯入", risk: "high", hint: "富贵险中求" }], mood: "奇", summary: `${params.cultivatorName}发现一处不对劲的地方。` };
   }
 }
@@ -141,7 +142,7 @@ ${params.freeInput ? `玩家描述：${params.freeInput}` : ""}
       type: "ACTION", title: "行动", narrative: `${params.cultivatorName}${params.actionName}了一番。`, mood: "静", hint: "", summary: `${params.cultivatorName}${params.actionName}。`,
     });
   } catch {
-    console.error("AI生成失败");
+    logger.error("AI生成失败");
     return { type: "ACTION", title: "行动", narrative: `${params.cultivatorName}${params.actionName}了一番。`, mood: "静", hint: "", summary: `${params.cultivatorName}${params.actionName}。` };
   }
 }
@@ -175,7 +176,7 @@ export async function generateYearAdvanceNarrative(params: {
     });
     return extractJson(text, { type: "YEAR_ADVANCE", title: "一岁一礼", narrative: `岁月如梭，${params.cultivatorName}又长了一岁。`, mood: "悟", hint: "", summary: `${params.cultivatorName}迎来了${params.age}岁。` });
   } catch {
-    console.error("年志生成失败");
+    logger.error("年志生成失败");
     return { type: "YEAR_ADVANCE", title: "一岁一礼", narrative: `${params.cultivatorName}又长了一岁。`, mood: "悟", hint: "", summary: `${params.cultivatorName}迎来了${params.age}岁。` };
   }
 }

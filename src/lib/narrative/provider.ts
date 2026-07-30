@@ -2,6 +2,8 @@
 // narrative/provider.ts — AI 供应方配置与调用（唯一真相源）
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { logger } from "@/lib/logger";
+
 interface ProviderConfig {
   priority: number;
   type: "anthropic" | "openai" | "ollama";
@@ -39,7 +41,7 @@ function loadProviders(): ProviderConfig[] {
 }
 
 export async function callAI(params: { systemPrompt: string; userPrompt: string; maxTokens?: number; temperature?: number }): Promise<string> {
-  await syncProviderConfig().catch((e) => { console.error("callAI: syncProviderConfig 失败", e); });
+  await syncProviderConfig().catch((e) => { logger.error("callAI: syncProviderConfig 失败", e); });
   const providers = loadProviders();
   if (providers.length === 0) throw new Error("NO_PROVIDER_CONFIGURED");
 

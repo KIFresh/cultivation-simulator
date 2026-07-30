@@ -30,7 +30,7 @@ interface StreamChunk {
   narrative?: NarrativeData;
   narrativeError?: NarrativeErrorPayload;
   committed?: { gameEventId?: string; characterName?: string };
-  done?: boolean;
+  done?: { result: unknown };
   fullText?: string;
   error?: unknown;
 }
@@ -105,6 +105,15 @@ export async function fetchStreamNarrative(
           }
           if (chunk.narrativeError) {
             result.narrativeError = chunk.narrativeError;
+          }
+          if (chunk.done && chunk.done.result) {
+            // done 事件携带完整业务载荷，合并到 result.narrative
+            const doneResult = chunk.done.result as Record<string, unknown>;
+            result.narrative = { ...(result.narrative ?? {}), ...doneResult };
+            if (doneResult.characterName) {
+              result.characterName = doneResult.characterName as string;
+            }
+            continue;
           }
           if (chunk.error) {
             const errMsg = typeof chunk.error === "string" ? chunk.error : (chunk.error as Record<string, unknown>)?.message;

@@ -26,28 +26,19 @@ beforeEach(() => {
 });
 
 describe('generateActionNarrative - freeInput 保 Intent', () => {
-  it('AI 返回空 narrative 且有 freeInput 时，fallback 保留具体意图', async () => {
+  it('AI 返回空 narrative 时抛出错误', async () => {
     mockCallAI.mockResolvedValueOnce('{"type":"ACTION","title":"","narrative":"","mood":"静","hint":"","summary":""}');
-    const result = await generateActionNarrative({ ...BASE_PARAMS, freeInput: '向爸爸要钱' });
-    expect(result.narrative).toBe('赵晓安向爸爸要钱。');
-    expect(result.summary).toBe('赵晓安向爸爸要钱。');
-    expect(result.title).toBe('向爸爸要钱');
-    expect(result.narrative).not.toContain('与人交谈，有所感悟');
+    await expect(generateActionNarrative({ ...BASE_PARAMS, freeInput: '向爸爸要钱' })).rejects.toThrow('叙事生成失败');
   });
 
-  it('AI 抛错且有 freeInput 时，fallback 保留具体意图', async () => {
+  it('AI 抛错时向上传播错误', async () => {
     mockCallAI.mockRejectedValueOnce(new Error('AI 服务暂不可用'));
-    const result = await generateActionNarrative({ ...BASE_PARAMS, freeInput: '叫妈妈' });
-    expect(result.narrative).toBe('赵晓安叫妈妈。');
-    expect(result.summary).toBe('赵晓安叫妈妈。');
-    expect(result.title).toBe('叫妈妈');
+    await expect(generateActionNarrative({ ...BASE_PARAMS, freeInput: '叫妈妈' })).rejects.toThrow('叙事生成失败');
   });
 
-  it('无 freeInput 时保持通用行动 fallback', async () => {
+  it('无 freeInput 且 AI 抛错时向上传播错误', async () => {
     mockCallAI.mockRejectedValueOnce(new Error('AI 服务暂不可用'));
-    const result = await generateActionNarrative(BASE_PARAMS);
-    expect(result.narrative).toBe('赵晓安与人交谈，顺手把事做完了。');
-    expect(result.summary).toBe('赵晓安与人交谈。');
+    await expect(generateActionNarrative(BASE_PARAMS)).rejects.toThrow('叙事生成失败');
   });
 
   it('AI 正常返回时优先使用 AI 结果', async () => {
@@ -84,16 +75,13 @@ describe('generateActionNarrative - 选中角色约束', () => {
     expect(promptArg).toContain('即使玩家描述未出现其姓名或称谓');
   });
 
-  it('选中 NPC 且 AI 返回错误时，fallback 保留目标与主动行为', async () => {
+  it('选中 NPC 且 AI 返回错误时向上传播错误', async () => {
     mockCallAI.mockRejectedValueOnce(new Error('AI 服务暂不可用'));
-    const result = await generateActionNarrative({ ...BASE_PARAMS, npcNames: ['赵母'], freeInput: '递上一杯热茶' });
-    expect(result.narrative).toBe('赵晓安主动走到赵母面前，递上一杯热茶。');
-    expect(result.summary).toContain('赵母');
+    await expect(generateActionNarrative({ ...BASE_PARAMS, npcNames: ['赵母'], freeInput: '递上一杯热茶' })).rejects.toThrow('叙事生成失败');
   });
 
-  it('选中 NPC 且没有输入时，fallback 仍保留目标', async () => {
+  it('选中 NPC 且没有输入时 AI 抛错仍向上传播', async () => {
     mockCallAI.mockRejectedValueOnce(new Error('AI 服务暂不可用'));
-    const result = await generateActionNarrative({ ...BASE_PARAMS, npcNames: ['赵母'] });
-    expect(result.narrative).toBe('赵晓安主动走到赵母面前，进行与人交谈。');
+    await expect(generateActionNarrative({ ...BASE_PARAMS, npcNames: ['赵母'] })).rejects.toThrow('叙事生成失败');
   });
 });

@@ -7,14 +7,24 @@ import type { NarrativeEffect } from "./narrative-effects";
 
 import { syncProviderConfig, callAI, warmupAI } from "./narrative/provider";
 export { syncProviderConfig, callAI, warmupAI };
+import { logger } from "./logger";
 
 function normalizeNarrativeKeys(o: unknown): void {
   if (!o || typeof o !== "object") return;
   const obj = o as Record<string, unknown>;
-  // 正文：兼容 narrative / narr / content / text 等变体
+  // 正文：兼容 AI 各种拼写变体（narrative / narrary / narrable / narrrative 等）
+  const narrKey = Object.keys(obj).find((k) => k.startsWith("narr"));
   const body =
-    obj.narrative ?? obj.narr ?? obj.content ?? obj.text;
+    narrKey ? obj[narrKey] : obj.content ?? obj.text;
   if (typeof body === "string") obj.narrative = body;
+  // 如果仍未找到 narrative，尝试找第一个包含中文的长字符串字段
+  if (!obj.narrative || typeof obj.narrative !== "string" || !obj.narrative.trim()) {
+    const chineseKey = Object.keys(obj).find((k) => {
+      const v = obj[k];
+      return typeof v === "string" && v.length > 20 && /[\u4e00-\u9fff]/.test(v);
+    });
+    if (chineseKey) obj.narrative = obj[chineseKey] as string;
+  }
   // 标题、概要、寄语、心境的简写兼容
   if (obj.title === undefined && typeof obj.t === "string") obj.title = obj.t;
   if (obj.summary === undefined) {
@@ -25,7 +35,7 @@ function normalizeNarrativeKeys(o: unknown): void {
   if (obj.mood === undefined && typeof obj.m === "string") obj.mood = obj.m;
 }
 
-export function extractJson<T>(text: string, fallback: T): T {
+export function extractJson(text: string, fallback: any): any {
   let parsed: unknown = null;
 
   // 1. 直接解析（AI 返回纯净 JSON 时）
@@ -53,7 +63,7 @@ export function extractJson<T>(text: string, fallback: T): T {
 
   if (!parsed || typeof parsed !== "object") return fallback;
   normalizeNarrativeKeys(parsed);
-  return parsed as T;
+  return parsed;
 }
 
 /**
@@ -383,8 +393,13 @@ export async function generateDailyCultivationNarrative(params: {
 
   try {
     const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 800, temperature: 0.8 });
-    return extractJson(text, { type: "DAILY_CULTIVATION", title: "日常修炼", narrative: `${params.cultivatorName}找了个安静的角落，按功法试着凝神调息……`, mood: "静", hint: "持之以恒", summary: `${params.cultivatorName}潜心修炼。` });
-  } catch { console.error("AI生成失败"); return { type: "DAILY_CULTIVATION", title: "日常修炼", narrative: `${params.cultivatorName}埋头苦练，感觉自己对这功法又摸到了一点门道。`, mood: "静", hint: "持之以恒", summary: `${params.cultivatorName}静心修炼。` }; }
+    const result = extractJson(text, { type: "DAILY_CULTIVATION" as const, title: "日常修炼", narrative: "", mood: "静", hint: "持之以恒", summary: `${params.cultivatorName}潜心修炼。` });
+    if (!result.narrative) throw new Error("AI返回内容为空");
+    return result;
+  } catch (e) {
+    logger.error("日常叙事AI生成失败:", e);
+    throw new Error(`叙事生成失败: ${e instanceof Error ? e.message : "未知错误"}`);
+  }
 }
 
 /** 生成境界突破叙事 */
@@ -411,8 +426,13 @@ export async function generateBreakthroughNarrative(params: {
 
   try {
     const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 1000, temperature: 0.9 });
-    return extractJson(text, { type: "BREAKTHROUGH", title: `${params.toRealm}突破！`, narrative: `${params.cultivatorName}只觉得体内某处被猛地冲开，浑身一震——成功踏入了${params.toRealm}！`, mood: "燃", hint: "恭喜突破", summary: `${params.cultivatorName}成功突破至${params.toRealm}。` });
-  } catch { console.error("AI生成失败"); return { type: "BREAKTHROUGH", title: `突破！${params.toRealm}`, narrative: `${params.cultivatorName}终于捅破了那层窗户纸，气息为之一变！`, mood: "燃", hint: "大道在前", summary: `${params.cultivatorName}突破${params.toRealm}。` }; }
+    const result = extractJson(text, { type: "BREAKTHROUGH" as const, title: `${params.toRealm}突破！`, narrative: "", mood: "燃", hint: "恭喜突破", summary: `${params.cultivatorName}成功突破至${params.toRealm}。` });
+    if (!result.narrative) throw new Error("AI返回内容为空");
+    return result;
+  } catch (e) {
+    logger.error("突破叙事AI生成失败:", e);
+    throw new Error(`叙事生成失败: ${e instanceof Error ? e.message : "未知错误"}`);
+  }
 }
 
 /** 生成随机奇遇叙事 */
@@ -436,8 +456,13 @@ export async function generateEncounterNarrative(params: {
 
   try {
     const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 800, temperature: 0.9 });
-    return extractJson(text, { type: "ENCOUNTER", title: "意外发现", narrative: `${params.cultivatorName}在修炼途中，撞见了一处不对劲的地方……`, choices: [{ text: "小心探查", risk: "low", hint: "稳扎稳打" }, { text: "深入探索", risk: "medium", hint: "风险与机遇并存" }, { text: "全力闯入", risk: "high", hint: "富贵险中求" }], mood: "奇", summary: `${params.cultivatorName}发现一处不对劲的地方。` });
-  } catch { console.error("奇遇生成失败"); return { type: "ENCOUNTER", title: "意外发现", narrative: `${params.cultivatorName}撞见了一处不对劲的地方……`, choices: [{ text: "小心探查", risk: "low", hint: "稳扎稳打" }, { text: "深入探索", risk: "medium", hint: "风险与机遇" }, { text: "全力闯入", risk: "high", hint: "富贵险中求" }], mood: "奇", summary: `${params.cultivatorName}发现一处不对劲的地方。` }; }
+    const result = extractJson(text, { type: "ENCOUNTER" as const, title: "意外发现", narrative: "", choices: [{ text: "小心探查", risk: "low", hint: "稳扎稳打" }, { text: "深入探索", risk: "medium", hint: "风险与机遇并存" }, { text: "全力闯入", risk: "high", hint: "富贵险中求" }], mood: "奇", summary: `${params.cultivatorName}发现一处不对劲的地方。` });
+    if (!result.narrative) throw new Error("AI返回内容为空");
+    return result;
+  } catch (e) {
+    logger.error("奇遇AI生成失败:", e);
+    throw new Error(`叙事生成失败: ${e instanceof Error ? e.message : "未知错误"}`);
+  }
 }
 
 /** 生成 NPC 对话 */
@@ -454,8 +479,13 @@ export async function generateNPCDialogue(params: {
 
   try {
     const text = await callAI({ systemPrompt: buildSystemPrompt(), userPrompt: prompt, maxTokens: 800, temperature: 0.8 });
-    return extractJson(text, { type: "NPC_DIALOGUE", title: `与${params.npcName}的对话`, narrative: `${params.npcName}看了${params.cultivatorName}一眼，微微点头。`, mood: "奇", npcMood: "友善", summary: `与${params.npcName}交谈。` });
-  } catch { console.error("NPC对话失败"); return { type: "NPC_DIALOGUE", title: `与${params.npcName}的对话`, narrative: `${params.npcName}正忙着，没空理你。`, mood: "静", npcMood: "冷淡", summary: `${params.npcName}不便打扰。` }; }
+    const result = extractJson(text, { type: "NPC_DIALOGUE" as const, title: `与${params.npcName}的对话`, narrative: "", mood: "奇", npcMood: "友善", summary: `与${params.npcName}交谈。` });
+    if (!result.narrative) throw new Error("AI返回内容为空");
+    return result;
+  } catch (e) {
+    logger.error("NPC对话AI生成失败:", e);
+    throw new Error(`叙事生成失败: ${e instanceof Error ? e.message : "未知错误"}`);
+  }
 }
 
 /** 生成行动叙事 */
@@ -514,11 +544,6 @@ ${params.giftDecision ? `【服务端结算】本次行动馈赠：获得金币 
 
   const trimmedFreeInput = (params.freeInput ?? "").trim();
   const hasSpecificIntent = /[\u4e00-\u9fff]/.test(trimmedFreeInput);
-  const fallbackAction = selectedTargetText
-    ? `${params.cultivatorName}主动走到${selectedTargetText}面前${hasSpecificIntent ? `，${trimmedFreeInput}` : `，进行${params.actionName}`}`
-    : hasSpecificIntent
-      ? `${params.cultivatorName}${trimmedFreeInput}`
-      : `${params.cultivatorName}${params.actionName}`;
 
   let postHint = "继续探索";
   if (params.actionName === "与人交谈") postHint = "找人多聊聊";
@@ -527,30 +552,14 @@ ${params.giftDecision ? `【服务端结算】本次行动馈赠：获得金币 
 
   try {
     const text = await callAI({ systemPrompt: buildSystemPrompt(params.worldId), userPrompt: prompt, maxTokens: 800, temperature: 0.85 });
-    const result: RegularNarrative = extractJson(text, { type: "ACTION", title: params.actionName, narrative: `${params.cultivatorName}${params.actionName}。${params.actionDescription}`, mood: "悟", hint: postHint, summary: `${params.cultivatorName}${params.actionName}。` });
+    const result = extractJson(text, { type: "ACTION" as const, title: params.actionName, narrative: "", mood: "悟", hint: postHint, summary: `${params.cultivatorName}${params.actionName}。` });
     if (!result.narrative || !result.narrative.trim()) {
-      if (hasSpecificIntent) {
-        result.narrative = `${fallbackAction}。`;
-        result.title = (trimmedFreeInput.slice(0, 10) || params.actionName);
-        result.summary = `${fallbackAction}。`;
-      } else {
-        result.narrative = selectedTargetText ? `${fallbackAction}。` : `${params.cultivatorName}${params.actionName}，有所感悟。`;
-      }
+      throw new Error("AI返回内容为空");
     }
     return result;
   } catch (e) {
-    console.error("行动叙事AI生成失败:", e);
-    if (hasSpecificIntent || selectedTargetText) {
-      return {
-        type: "ACTION",
-        title: trimmedFreeInput.slice(0, 10) || params.actionName,
-        narrative: `${fallbackAction}。`,
-        mood: "静",
-        hint: postHint,
-        summary: `${fallbackAction}。`,
-      };
-    }
-    return { type: "ACTION", title: params.actionName, narrative: `${params.cultivatorName}${params.actionName}，顺手把事做完了。`, mood: "静", hint: postHint, summary: `${params.cultivatorName}${params.actionName}。` };
+    logger.error("行动叙事AI生成失败:", e);
+    throw new Error(`叙事生成失败: ${e instanceof Error ? e.message : "未知错误"}`);
   }
 }
 
@@ -584,8 +593,13 @@ ${params.extraContext ? `\n【背景】${params.extraContext}` : ""}
 
   try {
     const text = await callAI({ systemPrompt: buildSystemPrompt(params.worldId), userPrompt: prompt, maxTokens: 600, temperature: 0.8 });
-    return extractJson(text, { type: "YEAR_ADVANCE", title: `${params.cultivatorName}的第${params.newAge}年`, narrative: `又是一年过去，${params.cultivatorName}又长大了一岁。`, mood: "静", hint: "岁月不居", summary: `${params.cultivatorName}又长大了一岁。` });
-  } catch { console.error("AI生成失败"); return { type: "YEAR_ADVANCE", title: `${params.cultivatorName}的第${params.newAge}年`, narrative: `又是一年过去，${params.cultivatorName}又长大了一岁。`, mood: "静", hint: "岁月不居", summary: `${params.cultivatorName}又长大了一岁。` }; }
+    const result = extractJson(text, { type: "YEAR_ADVANCE" as const, title: `${params.cultivatorName}的第${params.newAge}年`, narrative: "", mood: "静", hint: "岁月不居", summary: `${params.cultivatorName}又长大了一岁。` });
+    if (!result.narrative) throw new Error("AI返回内容为空");
+    return result;
+  } catch (e) {
+    logger.error("年度叙事AI生成失败:", e);
+    throw new Error(`叙事生成失败: ${e instanceof Error ? e.message : "未知错误"}`);
+  }
 }
 
 /** 生成家庭对话 */
@@ -616,8 +630,13 @@ ${recentHistory ? `【最近对话】\n${recentHistory}` : ""}
 
   try {
     const text = await callAI({ systemPrompt: buildSystemPrompt(params.worldId), userPrompt: prompt, maxTokens: 500, temperature: 0.85 });
-    return extractJson(text, { type: "FAMILY_DIALOGUE", title: "家庭对话", narrative: `${params.familyMemberRelation}看了你一眼，点了点头。`, mood: "静", intimacyDelta: 0, npcMood: "平淡", summary: `与${params.familyMemberRelation}交谈。` });
-  } catch { console.error("AI生成失败"); return { type: "FAMILY_DIALOGUE", title: "家庭对话", narrative: `${params.familyMemberRelation}正在忙，没听清你说什么。`, mood: "静", intimacyDelta: 0, npcMood: "平淡", summary: `${params.familyMemberRelation}正在忙。` }; }
+    const result = extractJson(text, { type: "FAMILY_DIALOGUE" as const, title: "家庭对话", narrative: "", mood: "静", intimacyDelta: 0, npcMood: "平淡", summary: `与${params.familyMemberRelation}交谈。` });
+    if (!result.narrative) throw new Error("AI返回内容为空");
+    return result;
+  } catch (e) {
+    logger.error("家庭对话AI生成失败:", e);
+    throw new Error(`叙事生成失败: ${e instanceof Error ? e.message : "未知错误"}`);
+  }
 }
 
 /** 先天禀赋 → 中性（非修仙）描述，避免叙事中出现世界观字眼 */
@@ -789,9 +808,9 @@ ${ageHint}
 - 严禁向读者点明或暗示"这是某种世界观"。你写的就是真实的现代生活，不要加旁白解释
 
 【家庭构成要求】
-- 叙事正文必须自然说明家庭的基本构成：有哪些家庭成员（父母、祖辈、兄弟姐妹），他们的身份、姓名、大致年龄，以及是否同住
+- 叙事正文必须自然说明家庭的基本构成：有哪些家庭成员（仅限于父母、兄弟姐妹等直系亲属，不包括祖辈、叔伯、姑舅、堂表等旁系亲属），他们的身份、姓名、大致年龄，以及是否同住
 - 不能只列姓名而不交代关系。例如不要写"李建国走了过来"却不说明他是父亲还是邻居
-- family数组必须完整对应正文中出现的核心家庭成员，不得遗漏正文中明确出场的人物
+- family数组只收录直系亲属（父亲、母亲、兄弟姐妹），不得包含祖辈（祖父/祖母/外公/外婆）、叔伯、姑舅、堂表等旁系亲属
 - 每位成员的 relation、name、age、alive 必须与正文一致
 - suggestedName 必须与正文中给主角取的名字完全一致
 - 禁止出现关系与姓名矛盾：正文写"父亲李建国"，但 family 中"李建国"的 relation 却是"舅舅"
@@ -808,7 +827,7 @@ ${ageHint}
 
   try {
     const text = await callAI({ systemPrompt: SYSTEM_PROMPT_CIVILIAN, userPrompt: prompt, maxTokens: 1000, temperature: 0.85 });
-    const result: BirthNarrativeResult = extractJson(text, {
+    const result = extractJson(text, {
       type: "BIRTH",
       title: "新生命降临",
       narrative: "",
@@ -834,6 +853,10 @@ ${ageHint}
     if (!result.family || result.family.length === 0) {
       result.family = params.family && params.family.length > 0 ? params.family : [];
     }
+
+    // 过滤：只保留直系亲属（父母、兄弟姐妹）
+    const IMMEDIATE_RELATIONS = new Set(["父亲", "母亲", "爸爸", "妈妈", "爹", "娘", "哥哥", "姐姐", "弟弟", "妹妹", "兄长", "长兄", "大哥", "二哥", "小弟", "大姐", "二姐", "小妹", "兄弟", "姐妹"]);
+    result.family = result.family.filter((m: BirthFamilyMember) => IMMEDIATE_RELATIONS.has(m.relation));
 
     // ── 三方一致性校验 ──────────────────────────────────
     const named = result.suggestedName || "";
@@ -880,7 +903,7 @@ ${ageHint}
     }
     return result;
   } catch (e) {
-    console.error("出生叙事AI生成失败:", e);
+    logger.error("出生叙事AI生成失败:", e);
     const detail = (e as Error).message || String(e);
     throw new Error(`出生叙事AI生成失败: ${detail}`);
   }

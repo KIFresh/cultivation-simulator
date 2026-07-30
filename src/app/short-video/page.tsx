@@ -34,7 +34,7 @@ export default function ShortVideoPage() {
         setCultivator({ id: c.id, name: c.name, gold: c.gold ?? 0 });
       }
       if (vData.videos) setVideos(vData.videos);
-    } catch (e) { console.error(e); }
+    } catch { /* 忽略 */ }
     finally { setLoading(false); }
   }, []);
 

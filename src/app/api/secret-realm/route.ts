@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireCultivator } from "@/lib/auth-helpers";
+import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
+import { logger } from "@/lib/logger";
 
 interface RealmReward {
   attr?: string;
@@ -65,19 +67,18 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ realms: accessible, unlockedLocations: cultivator.unlockedLocations });
   } catch (error) {
-    console.error("获取秘境失败:", error);
+    logger.error("获取秘境失败:", error);
     return NextResponse.json({ error: "获取秘境失败" }, { status: 500 });
   }
 }
 
 // POST — 探索秘境
-export async function POST(request: NextRequest) {
-  try {
+async function postHandler(request: NextRequest) {
     const auth = await requireCultivator(request);
     if ("error" in auth) return auth.error;
     const cultivator = auth.cultivator;
 
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     const realm = REALMS.find((r) => r.id === body?.realmId);
     if (!realm) {
       return NextResponse.json({ error: "未找到该秘境" }, { status: 404 });
@@ -161,8 +162,6 @@ export async function POST(request: NextRequest) {
       goldGained: 0,
       item: null,
     });
-  } catch (error) {
-    console.error("探索秘境失败:", error);
-    return NextResponse.json({ error: "探索秘境失败" }, { status: 500 });
-  }
 }
+
+export const POST = withApiErrorHandling(postHandler);

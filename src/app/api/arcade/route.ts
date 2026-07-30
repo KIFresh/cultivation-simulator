@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireCultivator } from "@/lib/auth-helpers";
+import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
+import { logger } from "@/lib/logger";
 
 interface ArcadeGame {
   id: string;
@@ -40,19 +42,18 @@ export async function GET(request: NextRequest) {
     const cultivator = auth.cultivator;
     return NextResponse.json({ arcadeStats: parseStats(cultivator.arcadeStats), games: GAMES });
   } catch (error) {
-    console.error("获取游艺信息失败:", error);
+    logger.error("获取游艺信息失败:", error);
     return NextResponse.json({ error: "获取游艺信息失败" }, { status: 500 });
   }
 }
 
 // POST — 游玩一个项目
-export async function POST(request: NextRequest) {
-  try {
+async function postHandler(request: NextRequest) {
     const auth = await requireCultivator(request);
     if ("error" in auth) return auth.error;
     const cultivator = auth.cultivator;
 
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     const game = GAMES.find((g) => g.id === body?.gameId);
     if (!game) {
       return NextResponse.json({ error: "未找到该游艺" }, { status: 404 });
@@ -85,8 +86,6 @@ export async function POST(request: NextRequest) {
       gold: updated.gold,
       arcadeStats: stats,
     });
-  } catch (error) {
-    console.error("游艺进行失败:", error);
-    return NextResponse.json({ error: "游艺进行失败" }, { status: 500 });
-  }
 }
+
+export const POST = withApiErrorHandling(postHandler);

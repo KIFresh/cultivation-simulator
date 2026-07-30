@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireCultivator } from "@/lib/auth-helpers";
+import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
+import { logger } from "@/lib/logger";
 
-export async function POST(request: NextRequest) {
-  try {
-    const auth = await requireCultivator(request);
-    if ("error" in auth) return auth.error;
-    const cultivator = auth.cultivator;
+async function handler(request: NextRequest) {
+  const auth = await requireCultivator(request);
+  if ("error" in auth) return auth.error;
+  const cultivator = auth.cultivator;
 
-    const body = await request.json();
+  const body = await parseJsonBody(request);
     const { narrative = "这是一次预热的叙述生成。" } = body;
 
     const res = await fetch(`${request.nextUrl.origin}/api/narrative`, {
@@ -27,8 +28,5 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ ok: true, narrative: data.narrative });
-  } catch (error) {
-    console.error("AI 预热失败:", error);
-    return NextResponse.json({ error: "AI 预热失败" }, { status: 500 });
-  }
 }
+export const POST = withApiErrorHandling(handler);

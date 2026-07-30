@@ -80,6 +80,9 @@ export default function Home() {
     if (!res.ok || !data?.user) {
       throw new Error(data?.error || `角色生成失败（${res.status}）`);
     }
+    if (!data.user.id) {
+      throw new Error("角色创建成功，但未返回用户 ID");
+    }
     localStorage.setItem("userId", data.user.id);
     localStorage.setItem("userDisplayName", data.user.name);
     // attributes 已通过 API 写入 DB
@@ -120,6 +123,7 @@ export default function Home() {
           const sr = await fetchStreamNarrative("/api/narrative?stream=true", birthBody, {
             onChunk: (text: string) => setBirthStream((prev) => cleanNarrativeStream(prev + text)),
             headers: { "x-user-id": data.user.id },
+            signal: AbortSignal.timeout(30000),
           });
           if (sr?.narrativeError) {
             setBirthStream("");
@@ -144,9 +148,8 @@ export default function Home() {
       }
     };
     if (await genNarrative()) { router.push("/dashboard"); }
-    } catch (error) {
-      console.error("快速生成失败:", error);
-      toast.error(error instanceof Error ? error.message : "快速生成失败，请检查网络或服务配置");
+    } catch {
+      toast.error("快速生成失败，请检查网络或服务配置");
     } finally {
       setQuickCreating(false);
     }

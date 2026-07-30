@@ -38,7 +38,7 @@ export default function ReadingPage() {
       }
       if (rData.availableBooks) setBooks(rData.availableBooks);
       if (rData.readingLog) setLog(rData.readingLog);
-    } catch (e) { console.error(e); }
+    } catch { /* 忽略 */ }
     finally { setLoading(false); }
   }, []);
 

@@ -74,10 +74,9 @@ export default function DevPage() {
         });
         if (!r.ok) { const ed = await r.json().catch(() => ({})); throw new Error(ed.error || "出生叙事生成失败"); }
         return true;
-      } catch (err) {
-        console.error("出生叙事生成失败:", err);
+      } catch {
         return new Promise((resolve) => {
-          toast.error(`出生叙事生成失败: ${(err as Error).message}`, {
+          toast.error("出生叙事生成失败，请重试", {
             action: { label: "重试", onClick: () => resolve(genNarrative()) },
             duration: 10000,
           });

@@ -4,10 +4,12 @@ import { requireCultivator } from "@/lib/auth-helpers";
 import { parseAttributes } from "@/lib/inventory-utils";
 import { MORTAL_EVENTS, DINNER_EVENTS, FESTIVAL_EVENTS, EXAM_EVENTS } from "@/lib/mortal-events";
 import { applyEffects, clampEffectsArray, type NarrativeEffect, type ClampConfig } from "@/lib/narrative-effects";
+import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
+import { logger } from "@/lib/logger";
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
+async function postHandler(request: NextRequest) {
+
+    const body = await parseJsonBody(request);
     const { eventId, optionIndex } = body;
     if (typeof eventId !== "string" || typeof optionIndex !== "number") {
       return NextResponse.json({ error: "缺少必要参数" }, { status: 400 });
@@ -100,7 +102,6 @@ export async function POST(request: NextRequest) {
     const updated = await prisma.cultivator.findUnique({ where: { id: cultivator.id } });
 
     return NextResponse.json({ cultivator: updated, narrative: option.narrative });
-  } catch (error) {
-    return NextResponse.json({ error: "事件结算失败" }, { status: 500 });
-  }
 }
+
+export const POST = withApiErrorHandling(postHandler);

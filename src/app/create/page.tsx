@@ -147,13 +147,10 @@ export default function CreatePage() {
           }
           const json = await birthRes.json();
           return { ok: true, suggestedName: json.suggestedName, family: json.family, cultivator: json.cultivator };
-        } catch (err) {
-          console.error("出生叙事生成失败:", err);
+        } catch {
+          toast.error("出生叙事生成失败，请重试");
           return new Promise((resolve) => {
-            toast.error(`出生叙事生成失败: ${(err as Error).message}`, {
-              action: { label: "重试", onClick: () => resolve(genNarrative()) },
-              duration: 10000,
-            });
+            setTimeout(() => resolve(genNarrative()), 1000);
           });
         }
       };
@@ -180,7 +177,7 @@ export default function CreatePage() {
       }
 
       router.replace("/dashboard");
-    } catch (err) { console.error(err); alert("创建失败"); setLoading(false); setStreamingText(null); }
+    } catch { alert("创建失败"); setLoading(false); setStreamingText(null); }
   };
 
   // 天赋选择切换

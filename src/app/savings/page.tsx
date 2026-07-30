@@ -27,7 +27,7 @@ export default function SavingsPage() {
         const c = cData.user.cultivator;
         setCultivator({ id: c.id, name: c.name, gold: c.gold ?? 0, savings: c.savings ?? 0 });
       }
-    } catch (e) { console.error(e); }
+    } catch { /* 忽略 */ }
     finally { setLoading(false); }
   }, []);
 

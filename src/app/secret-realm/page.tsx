@@ -33,7 +33,7 @@ export default function SecretRealmPage() {
         setCultivator({ id: c.id, name: c.name, stamina: c.stamina ?? 0, realm: c.realm });
       }
       if (rData.realms) setRealms(rData.realms);
-    } catch (e) { console.error(e); }
+    } catch { /* 忽略 */ }
     finally { setLoading(false); }
   }, []);
 

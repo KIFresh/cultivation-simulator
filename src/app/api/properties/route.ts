@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { PROPERTY_DEFS } from "@/lib/property-data";
 import { requireCultivator, apiError } from "@/lib/auth-helpers";
 import { json } from "@/lib/json-helper";
+import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
 import { logger } from "@/lib/logger";
 
 export async function GET(request: NextRequest) {
@@ -14,9 +15,8 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ properties: json.properties(auth.cultivator.properties), defs: PROPERTY_DEFS });
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
+async function postHandler(request: NextRequest) {
+    const body = await parseJsonBody(request);
     const { userId, action, propertyId, propertyType, furnitureId } = body;
     if (!userId || !action) return apiError("缺少参数", 400);
 
@@ -75,8 +75,6 @@ export async function POST(request: NextRequest) {
       default:
         return apiError("未知操作", 400);
     }
-  } catch (error) {
-    logger.error("资产操作失败:", error);
-    return apiError("操作失败", 500);
-  }
 }
+
+export const POST = withApiErrorHandling(postHandler);

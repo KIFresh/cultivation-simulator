@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireCultivator, apiError } from "@/lib/auth-helpers";
+import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
+import { logger } from "@/lib/logger";
 import {
   generateBreakthroughNarrative,
   type StoryEntry,
@@ -19,15 +21,14 @@ const PROTECTOR_EFFECTS: Record<string, { failReduce: number; mindReduce: number
   duijie: { failReduce: 60, mindReduce: 90 },
 };
 
-export async function POST(request: NextRequest) {
-  try {
-    const auth = await requireCultivator(request);
-    if ("error" in auth) return auth.error;
-    const cultivator = auth.cultivator;
+async function handler(request: NextRequest) {
+  const auth = await requireCultivator(request);
+  if ("error" in auth) return auth.error;
+  const cultivator = auth.cultivator;
 
-    const body = await request.json();
-    const { protector } = body;
-    const isStream = new URL(request.url).searchParams.get("stream") === "true";
+  const body = await parseJsonBody(request);
+  const { protector } = body;
+  const isStream = new URL(request.url).searchParams.get("stream") === "true";
 
     if (cultivator.realm === "凡人") {
       return NextResponse.json({ error: "凡人无法突破，需先灵气觉醒" }, { status: 400 });
@@ -113,8 +114,6 @@ export async function POST(request: NextRequest) {
       return streamNarrativeResult(breakthroughEvent.id, narrativeResult, breakthroughResult, updatedCultivator);
     }
     return NextResponse.json(breakthroughResult);
-  } catch (error) {
-    console.error("突破失败:", error);
-    return NextResponse.json({ error: "突破失败" }, { status: 500 });
-  }
 }
+
+export const POST = withApiErrorHandling(handler);

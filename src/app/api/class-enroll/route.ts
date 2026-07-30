@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireCultivator } from "@/lib/auth-helpers";
+import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
+import { logger } from "@/lib/logger";
 
 interface ClassInfo {
   id: string;
@@ -43,47 +45,44 @@ export async function GET(request: NextRequest) {
     const cultivator = auth.cultivator;
     return NextResponse.json({ classEnroll: parseEnroll(cultivator.classEnroll), availableClasses: CLASSES });
   } catch (error) {
-    console.error("获取学堂信息失败:", error);
+    logger.error("获取学堂信息失败:", error);
     return NextResponse.json({ error: "获取学堂信息失败" }, { status: 500 });
   }
 }
 
 // POST — 选修一门课程
-export async function POST(request: NextRequest) {
-  try {
-    const auth = await requireCultivator(request);
-    if ("error" in auth) return auth.error;
-    const cultivator = auth.cultivator;
+async function postHandler(request: NextRequest) {
+  const auth = await requireCultivator(request);
+  if ("error" in auth) return auth.error;
+  const cultivator = auth.cultivator;
 
-    const body = await request.json();
-    const cls = CLASSES.find((c) => c.id === body?.classId);
-    if (!cls) {
-      return NextResponse.json({ error: "未找到该课程", success: false }, { status: 404 });
-    }
-
-    const current = parseEnroll(cultivator.classEnroll);
-    if (current && current.classId === cls.id) {
-      return NextResponse.json({ error: "已选修此课程", success: false }, { status: 400 });
-    }
-    if (cultivator.gold < cls.cost) {
-      return NextResponse.json({ error: "灵石不足，无法入学", success: false }, { status: 400 });
-    }
-
-    const enroll: EnrollInfo = {
-      classId: cls.id,
-      name: cls.name,
-      school: cls.school,
-      enrolledAt: new Date().toISOString(),
-    };
-
-    const updated = await prisma.cultivator.update({
-      where: { id: cultivator.id },
-      data: { gold: { increment: -cls.cost }, classEnroll: JSON.stringify(enroll) },
-    });
-
-    return NextResponse.json({ success: true, classEnroll: enroll, gold: updated.gold });
-  } catch (error) {
-    console.error("入学失败:", error);
-    return NextResponse.json({ error: "入学失败" }, { status: 500 });
+  const body = await parseJsonBody(request);
+  const cls = CLASSES.find((c) => c.id === body?.classId);
+  if (!cls) {
+    return NextResponse.json({ error: "未找到该课程", success: false }, { status: 404 });
   }
+
+  const current = parseEnroll(cultivator.classEnroll);
+  if (current && current.classId === cls.id) {
+    return NextResponse.json({ error: "已选修此课程", success: false }, { status: 400 });
+  }
+  if (cultivator.gold < cls.cost) {
+    return NextResponse.json({ error: "灵石不足，无法入学", success: false }, { status: 400 });
+  }
+
+  const enroll: EnrollInfo = {
+    classId: cls.id,
+    name: cls.name,
+    school: cls.school,
+    enrolledAt: new Date().toISOString(),
+  };
+
+  const updated = await prisma.cultivator.update({
+    where: { id: cultivator.id },
+    data: { gold: { increment: -cls.cost }, classEnroll: JSON.stringify(enroll) },
+  });
+
+  return NextResponse.json({ success: true, classEnroll: enroll, gold: updated.gold });
 }
+
+export const POST = withApiErrorHandling(postHandler);

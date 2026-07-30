@@ -36,6 +36,7 @@ const STORAGE_KEYS = {
 export function useDashboardState() {
   const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
+  const [userIdReady, setUserIdReady] = useState(false);
   const [cultivator, setCultivator] = useState<CultivatorData | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -218,8 +219,7 @@ export function useDashboardState() {
         }
         // 不在这里设置 narrative，避免与 store 订阅冲突
       }
-    } catch (err) {
-      console.error("加载角色失败:", err);
+    } catch {
     } finally {
       setLoading(false);
     }
@@ -230,35 +230,39 @@ export function useDashboardState() {
     const dm = localStorage.getItem(STORAGE_KEYS.devMode) === "true";
     setDevMode(dm);
     if (!id && !dm) {
+      setUserIdReady(true);
       router.push("/");
       return;
     }
-    if (id) setUserId(id);
-    if (dm && !id) {
-      const tempId = "dev_" + Date.now();
-      localStorage.setItem(STORAGE_KEYS.userId, tempId);
-      setUserId(tempId);
+    const effectiveId = id || (dm ? "dev_" + Date.now() : null);
+    if (effectiveId) {
+      setUserId(effectiveId);
+      if (dm && !id) {
+        localStorage.setItem(STORAGE_KEYS.userId, effectiveId);
+      }
     }
+    setUserIdReady(true);
   }, [router]);
 
   useEffect(() => {
-    if (userId) {
-      loadCultivator();
-      // 额外加载叙事历史
-      fetch(`/api/events?limit=50`)
-        .then((r) => r.json())
-        .then((evData) => {
-          if (evData.events && evData.events.length > 0) {
-            const history: NarrativeDisplay[] = evData.events.map((ev: any) => {
-              let mood = "静";
-              try { const parsed = JSON.parse(ev.reward || "{}"); if (parsed.mood) mood = parsed.mood; } catch {}
-              return { title: ev.title, narrative: ev.narrative, mood };
-            });
-            setNarrativeHistory(history);
-          }
-        });
-    }
-  }, [userId]);
+    if (!userId || !userIdReady) return;
+    loadCultivator();
+    // 额外加载叙事历史
+    fetch(`/api/events?limit=50`)
+      .then((r) => r.json())
+      .then((evData) => {
+        if (evData.events && evData.events.length > 0) {
+          const history: NarrativeDisplay[] = evData.events.map((ev: any) => {
+            let mood = "静";
+            try { const parsed = JSON.parse(ev.reward || "{}"); if (parsed.mood) mood = parsed.mood; } catch {}
+            return { title: ev.title, narrative: ev.narrative, mood };
+          });
+          setNarrativeHistory(history);
+          // 如果没有当前叙事，将最新事件设为当前显示叙事
+          setNarrative((prev) => prev || history[0]);
+        }
+      });
+  }, [userId, userIdReady, loadCultivator]);
 
   useEffect(() => {
     loadLocalData();

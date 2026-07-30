@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireCultivator } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 import { computeExchange, type ExchangeDirection } from "@/lib/exchange";
+import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
+import { logger } from "@/lib/logger";
 
 const STONE_COL: Record<string, "spiritStoneLow" | "spiritStoneMid" | "spiritStoneHigh"> = {
   low: "spiritStoneLow",
@@ -30,9 +32,8 @@ export async function GET(request: NextRequest) {
   });
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
+async function postHandler(request: NextRequest) {
+    const body = await parseJsonBody(request);
     const { direction, tier, amount } = body;
     const auth = await requireCultivator(request);
     if ("error" in auth) return auth.error;
@@ -57,7 +58,6 @@ export async function POST(request: NextRequest) {
       gold: updated.gold ?? 0,
       spiritStones: readStones(updated),
     });
-  } catch (e) {
-    return NextResponse.json({ error: "兑换失败" }, { status: 500 });
-  }
 }
+
+export const POST = withApiErrorHandling(postHandler);

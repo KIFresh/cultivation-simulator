@@ -22,7 +22,7 @@ export type MergedNpc<T extends NpcLike, U extends NpcLike> =
  * 每个返回条目包含稳定 `_key` 字段供 React key 使用。
  *
  * - 家庭成员 key 格式：`family-${id || name || relation}`
- * - 地点 NPC key 格式：`location-${locationId || name}`
+ * - 地点 NPC key 格式：`location-${name || locationId}`，同名时追加 `-1`、`-2` 后缀
  */
 export function mergeNpcs<T extends NpcLike, U extends NpcLike>(
   familyMembers: T[],
@@ -35,12 +35,14 @@ export function mergeNpcs<T extends NpcLike, U extends NpcLike>(
     (familyMembers ?? []).map((fm) => fm.relation).filter(Boolean),
   );
 
-  const result: MergedNpc<T, U>[] = (familyMembers ?? []).map((fm) => ({
+  const result: MergedNpc<T, U>[] = (familyMembers ?? []).map((fm, idx) => ({
     ...fm,
     avatar: fm.avatar ?? "👤",
     _src: "family" as const,
     _key: `family-${fm.id || fm.name || fm.relation || "unknown"}`,
   }));
+
+  const seenLocationKeys = new Map<string, number>();
 
   for (const npc of currentNPCs ?? []) {
     // 跳过：与家庭成员同名、或名称/关系与家庭关系冲突
@@ -48,11 +50,16 @@ export function mergeNpcs<T extends NpcLike, U extends NpcLike>(
     if (familyRelations.has(npc.name)) continue;
     if (npc.relation && familyRelations.has(npc.relation)) continue;
 
+    let baseKey = `location-${npc.name || npc.locationId || "unknown"}`;
+    const count = seenLocationKeys.get(baseKey) ?? 0;
+    const key = count > 0 ? `${baseKey}-${count}` : baseKey;
+    seenLocationKeys.set(baseKey, count + 1);
+
     result.push({
       ...npc,
       avatar: npc.avatar ?? "👤",
       _src: "location" as const,
-      _key: `location-${npc.locationId || npc.name || "unknown"}`,
+      _key: key,
     });
   }
 

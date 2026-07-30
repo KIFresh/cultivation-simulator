@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useGameStore } from "@/store";
 import { getItemById } from "@/lib/cultivation-data";
 import type { InventoryItem } from "@/lib/cultivation-data";
@@ -27,6 +28,7 @@ function categorizeItems(inventory: InventoryItem[]) {
 }
 
 export default function ItemsPage() {
+  const router = useRouter();
   const inventory = useGameStore((s) => s.inventory);
   const useItem = useGameStore((s) => s.useItem);
   const actionLoading = useGameStore((s) => s.actionLoading);
@@ -80,20 +82,45 @@ export default function ItemsPage() {
             <p className="text-xs text-[#D49B4B] mt-0.5">✨ {effect}</p>
           )}
         </div>
-        {showUseButton && def?.useEffect && (
-          <Button
-            size="sm"
-            variant="default"
-            disabled={actionLoading || usingId === item.inv.itemId}
-            onClick={() => handleUse(item.inv.itemId)}
-            className="shrink-0 h-7 text-xs"
-          >
-            {usingId === item.inv.itemId ? "使用中..." : useLabel}
-          </Button>
+        {showUseButton && def?.useEffect ? (
+          <div className="flex gap-1 shrink-0">
+            <Button
+              size="sm"
+              variant="default"
+              disabled={actionLoading || usingId === item.inv.itemId}
+              onClick={() => handleUse(item.inv.itemId)}
+              className="h-7 text-xs"
+            >
+              {usingId === item.inv.itemId ? "使用中..." : useLabel}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 w-7 text-xs p-0"
+              onClick={() => setOpenItemId(item.inv.itemId)}
+              title="详情"
+            >
+              ℹ
+            </Button>
+          </div>
+        ) : (
+          <div className="shrink-0">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 w-7 text-xs p-0"
+              onClick={() => setOpenItemId(item.inv.itemId)}
+              title="详情"
+            >
+              ℹ
+            </Button>
+          </div>
         )}
       </div>
     );
   };
+
+  const [openItemId, setOpenItemId] = useState<string | null>(null);
 
   if (inventory.length === 0) {
     return (
@@ -117,6 +144,18 @@ export default function ItemsPage() {
   return (
     <main className="min-h-screen bg-[#FAF7F3]">
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+        {/* 返回按钮 */}
+        <button
+          onClick={() => router.push("/dashboard")}
+          className="flex items-center gap-1 text-sm text-[#8B7355] hover:text-[#2C1E1E] transition-colors"
+          aria-label="返回仪表盘"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 12H5" />
+            <path d="M12 19l-7-7 7-7" />
+          </svg>
+          返回
+        </button>
         {/* 页面标题 */}
         <div>
           <h1 className="text-xl font-bold text-[#2C1E1E]">🎒 背包物品</h1>
@@ -163,6 +202,26 @@ export default function ItemsPage() {
             </div>
           </section>
         )}
+
+        {openItemId && (() => {
+          const def = getItemById(openItemId);
+          const inv = inventory.find((i) => i.itemId === openItemId);
+          if (!def) return null;
+          return (
+            <div className="border border-[#EADCD0] bg-white rounded-lg p-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-medium text-[#2C1E1E]">{def.name}</p>
+                  <p className="text-xs text-[#8B7355]">×{inv?.quantity ?? 0}</p>
+                </div>
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setOpenItemId(null)}>关闭</Button>
+              </div>
+              {def.description && <p className="text-xs text-[#8B7355] mt-2">{def.description}</p>}
+              {def.effect && <p className="text-xs text-[#D49B4B] mt-1">✨ {def.effect}</p>}
+              {def.useLabel && <p className="text-xs text-[#8B7355] mt-2">使用方式：{def.useLabel}</p>}
+            </div>
+          );
+        })()}
       </div>
     </main>
   );

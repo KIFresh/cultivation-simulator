@@ -4,6 +4,9 @@ import { SPIRITUAL_ROOTS, type SpiritualRoot } from "@/lib";
 import { hashPassword } from "@/lib/auth";
 import { signSession, SESSION_COOKIE_NAME } from "@/lib/session";
 import { requireCultivator } from "@/lib/auth-helpers";
+import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
+import { logger } from "@/lib/logger";
+import { calculateMaxStamina } from "@/lib/cultivation-data";
 
 /** 登录/注册成功后向响应写入 HttpOnly 签名会话 cookie */
 function setSessionCookie(response: NextResponse, userId: string): NextResponse {
@@ -18,9 +21,9 @@ function setSessionCookie(response: NextResponse, userId: string): NextResponse 
 }
 
 // POST — 创建修炼者 + 记忆操作
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     const { action, ...rest } = body;
 
     // 更新记忆条目
@@ -123,6 +126,7 @@ export async function POST(request: NextRequest) {
               worldYear: 2025,
               attributes: body.attributes ? JSON.stringify(body.attributes) : undefined,
               gender: body.gender,
+              stamina: calculateMaxStamina(1, body.attributes),
             },
           },
         },
@@ -171,6 +175,7 @@ export async function POST(request: NextRequest) {
               worldYear: 2025,
               attributes: body.attributes ? JSON.stringify(body.attributes) : undefined,
               gender: body.gender,
+              stamina: calculateMaxStamina(1, body.attributes),
             },
           },
         },
@@ -194,18 +199,20 @@ export async function POST(request: NextRequest) {
 
     return setSessionCookie(NextResponse.json({ user: result }), result.id);
   } catch (error) {
-    console.error("创建修炼者失败:", error);
+    logger.error("创建修炼者失败:", error);
     return NextResponse.json({ error: "创建失败，请重试" }, { status: 500 });
   }
 }
 
+export const POST = withApiErrorHandling(postHandler);
+
 // PATCH — 更新位置（旅行消耗）
-export async function PATCH(request: NextRequest) {
+async function patchHandler(request: NextRequest) {
   try {
     const auth = await requireCultivator(request);
     if ("error" in auth) return auth.error;
     const cultivator = auth.cultivator;
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     const { location, stamina, gold } = body;
 
     const updateData: Record<string, unknown> = {};
@@ -220,13 +227,15 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ cultivator: updated });
   } catch (error) {
-    console.error("更新修炼者失败:", error);
+    logger.error("更新修炼者失败:", error);
     return NextResponse.json({ error: "更新失败" }, { status: 500 });
   }
 }
 
+export const PATCH = withApiErrorHandling(patchHandler);
+
 // GET — 获取修炼者信息
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     const auth = await requireCultivator(request);
     if ("error" in auth) return auth.error;
@@ -260,10 +269,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ user });
   } catch (error) {
-    console.error("获取修炼者失败:", error);
+    logger.error("获取修炼者失败:", error);
     return NextResponse.json(
       { error: "获取失败" },
       { status: 500 }
     );
   }
 }
+
+export const GET = withApiErrorHandling(getHandler);

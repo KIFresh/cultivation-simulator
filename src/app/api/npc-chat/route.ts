@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireCultivator, apiError } from "@/lib/auth-helpers";
+import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
+import { logger } from "@/lib/logger";
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     const auth = await requireCultivator(request);
     if ("error" in auth) return auth.error;
     const cultivator = auth.cultivator;
 
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     const { message } = body;
 
     if (!message) {
@@ -26,7 +28,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ cultivator: updated });
   } catch (error) {
-    console.error("NPC 对话失败:", error);
+    logger.error("NPC 对话失败:", error);
     return NextResponse.json({ error: "对话失败" }, { status: 500 });
   }
 }
+
+export const POST = withApiErrorHandling(postHandler);

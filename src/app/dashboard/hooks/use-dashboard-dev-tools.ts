@@ -99,9 +99,8 @@ export function useDevTools({ onAfterCreate }: UseDevToolsOptions = {}): UseDevT
           localStorage.setItem("cultivatorName", birthData.cultivator?.name || birthData.suggestedName);
         }
         return true;
-      } catch (err) {
-        console.error("出生叙事生成失败:", err);
-        return showRetry(`出生叙事生成失败: ${(err as Error).message}`);
+      } catch {
+        return showRetry("出生叙事生成失败，请重试");
       }
     };
 
@@ -109,9 +108,8 @@ export function useDevTools({ onAfterCreate }: UseDevToolsOptions = {}): UseDevT
       onAfterCreate?.();
       window.location.reload();
     }
-    } catch (error) {
-      console.error("快速生成失败:", error);
-      toast.error(error instanceof Error ? error.message : "快速生成失败，请检查网络或服务配置");
+    } catch {
+      toast.error("快速生成失败，请检查网络或服务配置");
     }
   }, [onAfterCreate]);
 

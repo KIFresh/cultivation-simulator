@@ -32,7 +32,7 @@ export default function NeighborsPage() {
         setCultivator({ id: c.id, name: c.name, gold: c.gold ?? 0 });
       }
       if (nData.neighbors) setNeighbors(nData.neighbors);
-    } catch (e) { console.error(e); }
+    } catch { /* 忽略 */ }
     finally { setLoading(false); }
   }, []);
 

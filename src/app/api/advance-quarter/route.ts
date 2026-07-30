@@ -37,16 +37,18 @@ import {
 import { getWorldEra } from "@/lib/world-era";
 import { decayToxicity } from "@/lib/quarter-effects";
 
-export async function POST(request: NextRequest) {
-  try {
-    // ── 鉴权 ──────────────────────────────────────────────
-    const auth = await requireCultivator(request);
-    if ("error" in auth) return auth.error;
+import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
+import { logger } from "@/lib/logger";
 
-    const cultivator = auth.cultivator;
+async function handler(request: NextRequest) {
+  // ── 鉴权 ──────────────────────────────────────────────
+  const auth = await requireCultivator(request);
+  if ("error" in auth) return auth.error;
 
-    // ── 仅接受客户端传入的提示字段 ──
-    await request.json().catch(() => {});
+  const cultivator = auth.cultivator;
+
+  // ── 仅接受客户端传入的提示字段 ──
+  const body = await parseJsonBody(request).catch(() => ({} as Record<string, unknown>));
 
     // ── 服务端权威状态 ──────────────────────────────────
     // 属性、职业、schoolRank 均从数据库读取，不信任客户端
@@ -260,7 +262,7 @@ export async function POST(request: NextRequest) {
             }
           }
         } catch (error) {
-          console.error("跨年家庭职业结算失败", { cultivatorId: cultivator.id, error });
+          logger.error("跨年家庭职业结算失败", { cultivatorId: cultivator.id, error });
           return apiError("家庭职业结算失败，请稍后重试", 500, "FAMILY_CAREER_SETTLEMENT_FAILED");
         }
       }
@@ -392,7 +394,7 @@ export async function POST(request: NextRequest) {
       });
     } catch (error) {
       if (yearWrapped && cultivator.worldId === "earth") {
-        console.error("跨年家庭职业结算持久化失败", { cultivatorId: cultivator.id, error });
+        logger.error("跨年家庭职业结算持久化失败", { cultivatorId: cultivator.id, error });
         return apiError("家庭职业结算失败，请稍后重试", 500, "FAMILY_CAREER_SETTLEMENT_FAILED");
       }
       throw error;
@@ -445,8 +447,6 @@ export async function POST(request: NextRequest) {
       newAttributes,
       canBreakthrough: canBreak,
     });
-  } catch (error) {
-    console.error("季节推进失败:", error);
-    return NextResponse.json({ error: "季节推进失败" }, { status: 500 });
-  }
 }
+
+export const POST = withApiErrorHandling(handler);

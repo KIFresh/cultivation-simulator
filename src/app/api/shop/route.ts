@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getShopItems, getRealmIndex, isRealmSufficient } from "@/lib";
 import { requireCultivator } from "@/lib/auth-helpers";
+import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
+import { logger } from "@/lib/logger";
 
 const MAX_QUANTITY = 99;
 
@@ -16,7 +18,7 @@ function parseInventory(raw: string | null | undefined): InventoryEntry[] {
   try { return JSON.parse(raw); } catch { return []; }
 }
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   const realm = new URL(request.url).searchParams.get("realm") || undefined;
   const location = new URL(request.url).searchParams.get("location") || undefined;
   const isMarket = location === "market";
@@ -35,13 +37,13 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ items });
 }
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     const auth = await requireCultivator(request);
     if ("error" in auth) return auth.error;
 
     const { cultivator: c } = auth;
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     const { itemId, quantity = 1 } = body;
 
     if (!itemId) return NextResponse.json({ error: "缺少商品 ID" }, { status: 400 });
@@ -85,7 +87,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ cultivator: updated, item: shopItem.item, quantity: qty, totalCost });
   } catch (error) {
-    console.error("购买失败:", error);
+    logger.error("购买失败:", error);
     return NextResponse.json({ error: "购买失败" }, { status: 500 });
   }
 }
+
+export const GET = withApiErrorHandling(getHandler);
+export const POST = withApiErrorHandling(postHandler);

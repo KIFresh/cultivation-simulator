@@ -31,9 +31,11 @@ import { sanitizeAttributes } from "@/lib/utils";
 import { calculateMaxStamina } from "@/lib/cultivation-data";
 import { requireCultivator } from "@/lib/auth-helpers";
 import { getCareerDisplayName, initializeFamilyCareer, NEUTRAL_FAMILY_ECONOMIC_BACKGROUND } from "@/lib/family-career";
+import { withApiErrorHandling, badRequest, parseJsonBody } from "@/lib/api-error";
+import { logger } from "@/lib/logger";
 
 // POST — 生成叙事 + 处理突破
-export async function POST(request: NextRequest) {
+async function handler(request: NextRequest) {
   try {
     const auth = await requireCultivator(request);
     if ("error" in auth) return auth.error;
@@ -188,8 +190,8 @@ export async function POST(request: NextRequest) {
           updatedCultivator = result.updated;
           savedFamily = result.family || [];
         } catch (e) {
-          console.error("BIRTH: 事务写入失败", e);
-          return NextResponse.json({ error: `BIRTH写入失败: ${(e as Error).message}` }, { status: 500 });
+          logger.error("BIRTH: 事务写入失败", e);
+          return NextResponse.json({ error: "出生叙事保存失败，请重试", code: "BIRTH_WRITE_FAILED" }, { status: 500 });
         }
 
         const birthPayload = {
@@ -555,13 +557,12 @@ export async function POST(request: NextRequest) {
         );
     }
   } catch (error) {
-    console.error("叙事生成失败:", error);
-    const msg = process.env.NODE_ENV === "development"
-      ? (error as Error).message || "生成失败，请重试"
-      : "生成失败，请重试";
+    logger.error("叙事生成失败:", error);
     return NextResponse.json(
-      { error: msg },
-      { status: 500 }
+      { error: "叙事生成失败，请重试", code: "NARRATIVE_FAILED" },
+      { status: 500 },
     );
   }
 }
+
+export const POST = withApiErrorHandling(handler);

@@ -106,10 +106,10 @@ export interface CultivatorWithUser {
   unlockedLocations: string | null;
   unlockedFormulas: string | null;
   toxicity: number;
-    health: number;
-      furnaceEquipped: string | null;
-      properties: string | null;
-    cultivationExp: number;
+  health: number;
+  furnaceEquipped: string | null;
+  properties: string | null;
+  cultivationExp: number;
   totalExp: number;
 }
 

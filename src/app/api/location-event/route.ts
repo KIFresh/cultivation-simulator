@@ -15,6 +15,8 @@ import {
   type StoryEntry,
 } from "@/lib/narrative";
 import { clampGoldDelta } from "@/lib/gold";
+import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
+import { logger } from "@/lib/logger";
 
 function parseRelations(raw: string | null | undefined): Record<string, unknown> {
   if (!raw) return {};
@@ -31,8 +33,7 @@ function dayKey(): string {
 }
 
 // GET：为当前地点摇一个事件（当天同人同地稳定）
-export async function GET(request: NextRequest) {
-  try {
+async function getHandler(request: NextRequest) {
     const auth = await requireCultivator(request);
     if ("error" in auth) return auth.error;
     const c = auth.cultivator;
@@ -40,21 +41,17 @@ export async function GET(request: NextRequest) {
     const age = c.age ?? 1;
     const event = rollLocationEvent(c.id, locationId, age, dayKey());
     return NextResponse.json({ locationId, event: event ?? null });
-  } catch {
-    return NextResponse.json({ error: "无法摇取地点事件" }, { status: 500 });
-  }
 }
 
 // POST：应用指定事件的效果（金币/健康/属性经验/相遇NPC/记忆）
-export async function POST(request: NextRequest) {
-  try {
+async function postHandler(request: NextRequest) {
     const auth = await requireCultivator(request);
     if ("error" in auth) return auth.error;
     const c = auth.cultivator;
     const locationId = c.location || "home";
     const age = c.age ?? 1;
 
-    const body = await request.json().catch(() => ({}));
+    const body = await parseJsonBody(request);
     const { eventId } = body as { eventId: string };
     if (!eventId) return apiError("缺少事件参数");
 
@@ -119,7 +116,7 @@ export async function POST(request: NextRequest) {
       npcRelations: updatedC.npcRelations,
       storyEntries: updatedC.storyEntries,
     });
-  } catch {
-    return NextResponse.json({ error: "经历事件失败" }, { status: 500 });
-  }
 }
+
+export const GET = withApiErrorHandling(getHandler);
+export const POST = withApiErrorHandling(postHandler);

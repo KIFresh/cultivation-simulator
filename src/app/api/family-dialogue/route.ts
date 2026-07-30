@@ -12,6 +12,7 @@ import { streamNarrativeResult } from "@/lib/narrative-stream";
 import { prisma } from "@/lib/prisma";
 import { requireCultivator, apiError } from "@/lib/auth-helpers";
 import { json } from "@/lib/json-helper";
+import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
 import { logger } from "@/lib/logger";
 import { applyEffects, clampEffectsArray, type NarrativeEffect, type ApplyContext } from "@/lib/narrative-effects";
 import { NARRATIVE_EFFECT_WHITELISTS, checkEffectWhitelist } from "@/lib/narrative-schema";
@@ -26,9 +27,8 @@ function hasPhone(inventoryRaw: string | null): boolean {
   } catch { return false; }
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
+async function postHandler(request: NextRequest) {
+  const body = await parseJsonBody(request);
     const { familyMemberName, familyMemberRelation, playerMessage } = body;
     const isStream = new URL(request.url).searchParams.get("stream") === "true";
 
@@ -166,8 +166,5 @@ export async function POST(request: NextRequest) {
       return streamNarrativeResult(familyMember.id, result, familyResult, updatedCultivator);
     }
     return NextResponse.json(familyResult);
-  } catch (error) {
-    logger.error("家庭对话生成失败:", error);
-    return NextResponse.json({ error: "对话生成失败" }, { status: 500 });
-  }
 }
+export const POST = withApiErrorHandling(postHandler);

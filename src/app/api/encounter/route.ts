@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireCultivator, apiError } from "@/lib/auth-helpers";
+import { logger } from "@/lib/logger";
+import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
+
 import {
   shouldTriggerEncounter,
   pickRandomEncounter,
@@ -23,8 +26,7 @@ const ENCOUNTER_ITEM_MAP: Record<string, string> = {
 // ============================================================
 // GET — 尝试触发奇遇（在完成任务后调用 或 手动探索）
 // ============================================================
-export async function GET(request: NextRequest) {
-  try {
+async function getHandler(request: NextRequest) {
     const auth = await requireCultivator(request);
     if ("error" in auth) return auth.error;
     const cultivator = auth.cultivator;
@@ -106,22 +108,19 @@ export async function GET(request: NextRequest) {
       encounter: serializeEncounter(encounter),
       encountersToday: encountersToday + 1,
     });
-  } catch (error) {
-    console.error("触发奇遇失败:", error);
-    return NextResponse.json({ error: "触发失败" }, { status: 500 });
-  }
 }
+
+export const GET = withApiErrorHandling(getHandler);
 
 // ============================================================
 // POST — 选择奇遇选项，结算奖励/惩罚
 // ============================================================
-export async function POST(request: NextRequest) {
-  try {
+async function postHandler(request: NextRequest) {
     const auth = await requireCultivator(request);
     if ("error" in auth) return auth.error;
     const cultivator = auth.cultivator;
 
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     const { eventId, choiceIndex } = body;
 
     if (!eventId || choiceIndex === undefined) {
@@ -158,7 +157,9 @@ export async function POST(request: NextRequest) {
     try {
       const rewardData = JSON.parse(gameEvent.reward || "{}");
       encounterId = rewardData.encounterId || null;
-    } catch {}
+    } catch (e) {
+      logger.warn("奇遇: 解析已有事件奖励失败", { gameEventId: gameEvent.id, cause: e });
+    }
     const encounter = encounterId
       ? ENCOUNTER_POOL.find((e) => e.id === encounterId)
       : ENCOUNTER_POOL.find((e) => e.title === gameEvent.title);
@@ -210,7 +211,9 @@ export async function POST(request: NextRequest) {
     let inventory: { itemId: string; quantity: number; equipped: boolean }[] = [];
     try {
       inventory = JSON.parse(cultivator.inventory || '[]');
-    } catch {}
+    } catch (e) {
+      logger.warn("奇遇: 解析库存失败，使用空数组", { cultivatorId: cultivator.id, cause: e });
+    }
 
     for (const itemLabel of result.specialItems) {
       const itemId = ENCOUNTER_ITEM_MAP[itemLabel];
@@ -264,8 +267,6 @@ export async function POST(request: NextRequest) {
         stamina: updatedCultivator.stamina,
       },
     });
-  } catch (error) {
-    console.error("结算奇遇失败:", error);
-    return NextResponse.json({ error: "结算失败" }, { status: 500 });
-  }
 }
+
+export const POST = withApiErrorHandling(postHandler);

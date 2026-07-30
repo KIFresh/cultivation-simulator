@@ -36,7 +36,7 @@ export default function ExchangePage() {
       const eData = await eRes.json();
       if (cData.user?.cultivator) setGold(cData.user.cultivator.gold ?? 0);
       if (eData.spiritStones) setStones(eData.spiritStones);
-    } catch (e) { console.error(e); }
+    } catch { /* 忽略 */ }
     finally { setLoading(false); }
   }, []);
 

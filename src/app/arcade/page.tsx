@@ -35,7 +35,7 @@ export default function ArcadePage() {
       }
       if (aData.arcadeStats) setStats(aData.arcadeStats);
       if (aData.games) setGames(aData.games);
-    } catch (e) { console.error(e); }
+    } catch { /* 忽略 */ }
     finally { setLoading(false); }
   }, []);
 

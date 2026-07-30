@@ -11,6 +11,8 @@ import {
   HATCH_COST_STONE,
   consumeInventoryItem,
 } from "@/lib/spirit-pet";
+import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
+import { logger } from "@/lib/logger";
 
 function grassCount(inv: { itemId: string; quantity?: number }[]): number {
   return inv.find((i) => i.itemId === "spirit_grass")?.quantity ?? 0;
@@ -45,12 +47,11 @@ export async function GET(request: NextRequest) {
 }
 
 // POST：hatch（孵化）/ upgrade（培育升级）/ upkeep（手动养护）
-export async function POST(request: NextRequest) {
-  try {
-    const auth = await requireCultivator(request);
+async function postHandler(request: NextRequest) {
+  const auth = await requireCultivator(request);
     if ("error" in auth) return auth.error;
     const c = auth.cultivator as any;
-    const body = await request.json().catch(() => ({}));
+    const body = await parseJsonBody(request);
     const action = body.action as string;
     const pets = parseSpiritPets(c.petState);
     const inv = parseInventory(c.inventory);
@@ -123,7 +124,7 @@ export async function POST(request: NextRequest) {
     }
 
     return apiError("未知操作");
-  } catch {
-    return NextResponse.json({ error: "操作失败" }, { status: 500 });
-  }
 }
+
+export const POST = withApiErrorHandling(postHandler);
+

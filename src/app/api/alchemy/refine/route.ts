@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireCultivator, apiError } from "@/lib/auth-helpers";
 import { logger } from "@/lib/logger";
+import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
 import {
   getFormulaById, getFurnaceById, getDefaultFurnace,
   determineQuality, getTalentBonus, getTalentQualityLift, getAllFormulas,
@@ -13,9 +14,8 @@ import {
  * Body: { userId, formulaId }
  * 返回增量状态: { stamina, inventory, success, product, quality, furnaceBroken, expGained }
  */
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
+async function postHandler(request: NextRequest) {
+  const body = await parseJsonBody(request);
     const { userId, formulaId } = body;
     if (!userId || !formulaId) return apiError("缺少必填参数", 400);
 
@@ -134,11 +134,10 @@ export async function POST(request: NextRequest) {
       furnaceBroken: result.furnaceBroken,
       expGained: success ? formula.difficultyLevel * 10 : formula.difficultyLevel * 3,
     });
-  } catch (error) {
-    logger.error("[alchemy/refine] 炼丹失败:", error);
-    return NextResponse.json({ error: "炼丹失败" }, { status: 500 });
-  }
+
 }
+
+export const POST = withApiErrorHandling(postHandler);
 
 // ============================================================
 // 辅助函数

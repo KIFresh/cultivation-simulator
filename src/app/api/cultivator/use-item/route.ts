@@ -2,14 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getItemById, TECHNIQUES } from "@/lib";
 import { requireCultivator } from "@/lib/auth-helpers";
+import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
+import { logger } from "@/lib/logger";
 
 // POST — 使用物品
-export async function POST(request: NextRequest) {
-  try {
+async function postHandler(request: NextRequest) {
     const auth = await requireCultivator(request);
     if ("error" in auth) return auth.error;
     const cultivator = auth.cultivator;
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     const { itemId, quantity = 1 } = body;
 
     if (!itemId) {
@@ -122,8 +123,6 @@ export async function POST(request: NextRequest) {
       message,
       cultivator: updated,
     });
-  } catch (error) {
-    console.error("使用物品失败:", error);
-    return NextResponse.json({ error: "使用失败" }, { status: 500 });
-  }
 }
+
+export const POST = withApiErrorHandling(postHandler);

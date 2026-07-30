@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireCultivator } from "@/lib/auth-helpers";
+import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
+import { logger } from "@/lib/logger";
 
 interface NpcDef {
   name: string;
@@ -30,18 +32,15 @@ function npcsAt(location: string): NpcDef[] {
 }
 
 // GET — 列出当前地点的人物
-export async function GET(request: NextRequest) {
-  try {
-    const auth = await requireCultivator(request);
-    if ("error" in auth) return auth.error;
-    const cultivator = auth.cultivator;
-    const location = cultivator.location ?? "home";
-    return NextResponse.json({ location, npcs: npcsAt(location) });
-  } catch (error) {
-    console.error("获取地点人物失败:", error);
-    return NextResponse.json({ error: "无法加载地点人物" }, { status: 500 });
-  }
+async function getHandler(request: NextRequest) {
+  const auth = await requireCultivator(request);
+  if ("error" in auth) return auth.error;
+  const cultivator = auth.cultivator;
+  const location = cultivator.location ?? "home";
+  return NextResponse.json({ location, npcs: npcsAt(location) });
 }
+
+export const GET = withApiErrorHandling(getHandler);
 
 // POST — 与地点人物交互
 export async function POST(request: NextRequest) {
@@ -50,7 +49,7 @@ export async function POST(request: NextRequest) {
     if ("error" in auth) return auth.error;
     const cultivator = auth.cultivator;
 
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     const action = body?.action;
     const npcName = body?.npcName;
 
@@ -75,7 +74,7 @@ export async function POST(request: NextRequest) {
       message,
     });
   } catch (error) {
-    console.error("与地点人物交互失败:", error);
+    logger.error("与地点人物交互失败:", error);
     return NextResponse.json({ error: "交互失败" }, { status: 500 });
   }
 }

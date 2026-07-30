@@ -42,7 +42,7 @@ export default function TopNav() {
       <header className="sticky top-0 z-50 bg-[#FAF7F3]/95 backdrop-blur border-b border-[#D2C6B2]">
         <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col md:flex-row justify-between items-center gap-3">
           {/* 品牌区 */}
-          <Link href="/dashboard" className="flex items-center space-x-3 shrink-0">
+          <Link href="/" className="flex items-center space-x-3 shrink-0 cursor-pointer">
             <div className="w-9 h-9 bg-[#B83227] flex items-center justify-center rounded-lg shadow-md rotate-3">
               <span className="text-white calligraphy text-lg">仙</span>
             </div>

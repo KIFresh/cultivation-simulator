@@ -9,6 +9,7 @@ import {
   fallbackBirthName,
   validateBirthConsistency,
   generateActionNarrative,
+  extractJson,
 } from '../narrative';
 import { getFateFirstMeetOffset } from '../encounter-data';
 
@@ -236,5 +237,42 @@ describe('narrative', () => {
       const errors = validateBirthConsistency(narrative, '小明', family);
       expect(errors.some(e => e.includes('重复'))).toBe(true);
     });
+  });
+});
+
+describe('extractJson - AI 拼写错误兼容', () => {
+  it('应兼容 narrary 拼写', () => {
+    const result = extractJson('{"type":"BIRTH","narrary":"商贾之家的客厅里"}', { narrative: "" });
+    expect(result.narrative).toBe('商贾之家的客厅里');
+  });
+
+  it('应兼容 narrable 拼写', () => {
+    const result = extractJson('{"type":"BIRTH","narrable":"凌晨三点，医院产房，祖父李守仁坐在长椅上，手里摩挲着一本泛黄的族谱。"}', { narrative: "" });
+    expect(result.narrative).toBe('凌晨三点，医院产房，祖父李守仁坐在长椅上，手里摩挲着一本泛黄的族谱。');
+  });
+
+  it('应兼容 narrrative 拼写', () => {
+    const result = extractJson('{"type":"BIRTH","narrrative":"双r叙事，这是一段很长的中文叙事文本，用来测试AI拼写错误的兼容性。"}', { narrative: "" });
+    expect(result.narrative).toBe('双r叙事，这是一段很长的中文叙事文本，用来测试AI拼写错误的兼容性。');
+  });
+
+  it('应兼容正确拼写 narrative', () => {
+    const result = extractJson('{"type":"BIRTH","narrative":"正确的叙事，这是一段很长的中文叙事文本。"}', { narrative: "" });
+    expect(result.narrative).toBe('正确的叙事，这是一段很长的中文叙事文本。');
+  });
+
+  it('无 narr 字段时回退到 content', () => {
+    const result = extractJson('{"type":"BIRTH","content":"content叙事，这是一段很长的中文叙事文本。"}', { narrative: "" });
+    expect(result.narrative).toBe('content叙事，这是一段很长的中文叙事文本。');
+  });
+
+  it('无 narr/content 字段时找第一个长中文字段', () => {
+    const result = extractJson('{"type":"BIRTH","description":"这是一段很长的中文叙事文本，用来测试AI返回的字段名完全不匹配时能否正确识别。"}', { narrative: "" });
+    expect(result.narrative).toBe('这是一段很长的中文叙事文本，用来测试AI返回的字段名完全不匹配时能否正确识别。');
+  });
+
+  it('无任何有效字段时 narrative 为 undefined', () => {
+    const result = extractJson('{"type":"BIRTH"}', { narrative: "fallback" });
+    expect(result.narrative).toBeUndefined();
   });
 });

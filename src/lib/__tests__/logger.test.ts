@@ -1,30 +1,38 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { logger } from '../logger';
+import { describe, it, expect, vi } from "vitest";
+import { Logger, logger } from "@/lib/logger";
 
-describe('logger', () => {
-  let spy: ReturnType<typeof vi.spyOn>;
-  beforeEach(() => {
-    spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+describe("Logger", () => {
+  const log = new Logger("debug");
+
+  it("保留 Error 对象结构", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    log.error(new Error("test error"));
+    const args = spy.mock.calls[0];
+    expect(args.some((a) => a instanceof Error)).toBe(true);
+    spy.mockRestore();
   });
 
-  it('info logs with prefix', () => {
-    logger.info('test info', 'extra');
-    expect(console.log).toHaveBeenCalledWith('[info] test info extra');
+  it("保留对象结构", () => {
+    const spy = vi.spyOn(console, "info").mockImplementation(() => {});
+    log.info("test", { key: "value" });
+    const args = spy.mock.calls[0];
+    expect(args.some((a) => typeof a === "object" && a !== null)).toBe(true);
+    spy.mockRestore();
   });
 
-  it('warn logs with prefix', () => {
-    logger.warn('test warn');
-    expect(console.log).toHaveBeenCalledWith('[warn] test warn');
+  it("debug 级别不输出到 info", () => {
+    const spy = vi.spyOn(console, "info").mockImplementation(() => {});
+    logger.setMinLevel("error");
+    logger.info("should not be logged");
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+    logger.setMinLevel("info");
   });
 
-  it('error logs with prefix', () => {
-    logger.error('test error', { code: 1 });
-    expect(console.log).toHaveBeenCalledWith('[error] test error [object Object]');
-  });
-
-  it('debug is suppressed by default minLevel info', () => {
-    const prev = spy.mock.calls.length;
-    logger.debug('debug msg');
-    expect(spy.mock.calls.length).toBe(prev);
+  it("warn 使用 console.warn", () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    log.warn("test warning");
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
   });
 });

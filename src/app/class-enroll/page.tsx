@@ -38,7 +38,7 @@ export default function ClassEnrollPage() {
       }
       if (eData.classEnroll) setCurrent(eData.classEnroll);
       if (eData.availableClasses) setClasses(eData.availableClasses);
-    } catch (e) { console.error(e); }
+    } catch { /* 忽略 */ }
     finally { setLoading(false); }
   }, []);
 

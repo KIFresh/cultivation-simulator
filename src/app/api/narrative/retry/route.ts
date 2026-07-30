@@ -3,15 +3,15 @@ import { prisma } from "@/lib/prisma";
 import { requireCultivator } from "@/lib/auth-helpers";
 import { generateBirthNarrative } from "@/lib/narrative";
 import { getCareerDisplayName, initializeFamilyCareer, NEUTRAL_FAMILY_ECONOMIC_BACKGROUND } from "@/lib/family-career";
+import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
+import { logger } from "@/lib/logger";
 
-
-export async function POST(request: NextRequest) {
-  try {
+async function postHandler(request: NextRequest) {
     const auth = await requireCultivator(request);
     if ("error" in auth) return auth.error;
     const cultivator = auth.cultivator;
 
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     const { type, params, gameEventId } = body ?? {};
 
     if (!type) {
@@ -99,8 +99,6 @@ export async function POST(request: NextRequest) {
       cultivator: { id: cultivator.id, name: validName },
       gameEventId: gameEventId ?? null,
     });
-  } catch (error) {
-    console.error("叙事重试失败:", error);
-    return NextResponse.json({ error: "叙事生成失败" }, { status: 500 });
   }
-}
+
+export const POST = withApiErrorHandling(postHandler);

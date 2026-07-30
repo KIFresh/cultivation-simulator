@@ -5,6 +5,7 @@
 import { callAI } from "@/lib/narrative/provider";
 import { SYSTEM_PROMPT_CIVILIAN } from "./system";
 import { extractJson, type BirthNarrativeResult, type BirthFamilyMember } from "@/lib/narrative";
+import { logger } from "@/lib/logger";
 
 /** 先天禀赋 → 中性（非修仙）描述，避免叙事中出现世界观字眼 */
 const BIRTH_TRAIT_MAP: Record<string, string> = {
@@ -216,7 +217,7 @@ ${params.cultivatorName ? `【备用名】${params.cultivatorName}` : ""}
     }
     return result;
   } catch (e) {
-    console.error("出生叙事AI生成失败:", e);
+    logger.error("出生叙事AI生成失败:", e);
     const detail = (e as Error).message || String(e);
     throw new Error(`出生叙事AI生成失败: ${detail}`);
   }

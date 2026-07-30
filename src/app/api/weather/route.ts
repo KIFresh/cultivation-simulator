@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireCultivator } from "@/lib/auth-helpers";
+import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
+import { logger } from "@/lib/logger";
+
+// Note: logger is available for future use but not needed in current handler
+// because withApiErrorHandling catches all errors and logs them internally.
 
 interface WeatherDef {
   key: string;
@@ -18,43 +23,40 @@ const WEATHER_TYPES: WeatherDef[] = [
 ];
 
 // POST — 感知当前天时（无请求体）
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
+  const auth = await requireCultivator(request);
+  if ("error" in auth) return auth.error;
+  const cultivator = auth.cultivator;
+
+  let body: Record<string, unknown> = {};
   try {
-    const auth = await requireCultivator(request);
-    if ("error" in auth) return auth.error;
-    const cultivator = auth.cultivator;
-
-    let body: Record<string, unknown> = {};
-    try {
-      body = await request.json();
-    } catch {
-      body = {};
-    }
-
-    const base = WEATHER_TYPES[Math.floor(Math.random() * WEATHER_TYPES.length)];
-    const location = cultivator.location ?? "未知之地";
-
-    await prisma.gameEvent
-      .create({
-        data: {
-          cultivatorId: cultivator.id,
-          type: "WEATHER",
-          title: `天象·${base.label}`,
-          narrative: `${location}今日${base.label}。${base.desc}`,
-          reward: JSON.stringify({ weather: base.key, effect: base.effect }),
-        },
-      })
-      .catch(() => {});
-
-    return NextResponse.json({
-      weather: base.key,
-      label: base.label,
-      description: base.desc,
-      location,
-      effect: base.effect,
-    });
-  } catch (error) {
-    console.error("感知天时失败:", error);
-    return NextResponse.json({ error: "无法感知天时" }, { status: 500 });
+    body = await parseJsonBody(request);
+  } catch {
+    body = {};
   }
+
+  const base = WEATHER_TYPES[Math.floor(Math.random() * WEATHER_TYPES.length)];
+  const location = cultivator.location ?? "未知之地";
+
+  await prisma.gameEvent
+    .create({
+      data: {
+        cultivatorId: cultivator.id,
+        type: "WEATHER",
+        title: `天象·${base.label}`,
+        narrative: `${location}今日${base.label}。${base.desc}`,
+        reward: JSON.stringify({ weather: base.key, effect: base.effect }),
+      },
+    })
+    .catch(() => {});
+
+  return NextResponse.json({
+    weather: base.key,
+    label: base.label,
+    description: base.desc,
+    location,
+    effect: base.effect,
+  });
 }
+
+export const POST = withApiErrorHandling(postHandler);
