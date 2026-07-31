@@ -721,6 +721,7 @@ ${params.giftDecision ? `【服务端结算】本次行动馈赠：获得金币 
     return result;
   } catch (e) {
     logger.error("行动叙事AI生成失败:", e);
+    if (e instanceof AllProvidersFailedError) throw e;
     throw new Error(`叙事生成失败: ${e instanceof Error ? e.message : "未知错误"}`);
   }
 }
