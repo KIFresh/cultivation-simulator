@@ -2,7 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireCultivator } from "@/lib/auth-helpers";
 import { executeAction, type ActionResult } from "@/server/action/action-service";
 import { streamNarrativeResult } from "@/lib/narrative-stream";
-import { withApiErrorHandling, badRequest, parseJsonBody } from "@/lib/api-error";
+import {
+  withApiErrorHandling,
+  AppError,
+  badRequest,
+  parseJsonBody,
+  serviceUnavailable,
+} from "@/lib/api-error";
+import { AllProvidersFailedError } from "@/lib/narrative/provider";
+
+function actionProviderError(error: unknown): AppError {
+  const failures = (error as { failures?: Array<{ code?: string }> }).failures;
+  const codes = new Set((failures ?? []).map((failure) => failure.code));
+  if (codes.has("HTTP_401")) return serviceUnavailable("AI 叙事服务 API Key 无效或未授权，请重新配置", error);
+  if (codes.has("HTTP_404") || codes.has("MODEL_UNSUPPORTED"))
+    return serviceUnavailable("AI 叙事服务接口地址或模型不存在，请检查配置", error);
+  if (codes.has("TIMEOUT")) return serviceUnavailable("AI 叙事服务响应超时，请稍后重试", error);
+  if (codes.has("EMPTY_RESPONSE"))
+    return serviceUnavailable("AI 叙事服务返回了空内容，请重试或更换模型", error);
+  return serviceUnavailable("AI 叙事服务暂时不可用，请稍后重试", error);
+}
 
 async function handler(request: NextRequest) {
   const auth = await requireCultivator(request);
@@ -28,10 +47,16 @@ async function handler(request: NextRequest) {
   if (!actionId)
     return NextResponse.json(badRequest("缺少必填参数: actionId").toJSON(), { status: 400 });
 
-  const result = await executeAction(
-    { actionId, freeInput, worldId, attributes, npcIds, npcNames, familyMemberId },
-    cultivator
-  );
+  let result: ActionResult;
+  try {
+    result = await executeAction(
+      { actionId, freeInput, worldId, attributes, npcIds, npcNames, familyMemberId },
+      cultivator
+    );
+  } catch (error) {
+    if (error instanceof AllProvidersFailedError) throw actionProviderError(error);
+    throw error;
+  }
 
   if (result.status === "daoXiao") {
     return NextResponse.json({ daoXiao: true, summary: result.summary });
