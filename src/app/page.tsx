@@ -3,14 +3,16 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { User, LogOut } from "lucide-react";
+import { Settings, User, LogOut } from "lucide-react";
 import { toast } from "sonner";
+import SettingsDialog from "@/components/settings-dialog";
 import { useDevModeEnabled } from "@/hooks/use-dev-mode";
 import { fetchStreamNarrative, cleanNarrativeStream } from "@/lib/stream-client";
 
 export default function Home() {
   const router = useRouter();
   const [devMode, setDevMode] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
   const [userName, setUserName] = useState("");
   const [birthStream, setBirthStream] = useState("");
@@ -339,6 +341,13 @@ export default function Home() {
             <span className="text-2xl font-black tracking-[0.2em] text-[#2C2C2C]">无尽仙途</span>
           </div>
           <div className="flex gap-8 items-center">
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="text-[#5C5C5C] hover:text-[#8B2626] transition-colors"
+              title="设置"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
             {/* 对接 Next.js 路由的登录入口 */}
             {loggedIn ? (
               <div className="flex items-center gap-2">
@@ -485,6 +494,11 @@ export default function Home() {
           </div>
         </div>
       </div>
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        onDevModeChange={setDevMode}
+      />
     </div>
   );
 }

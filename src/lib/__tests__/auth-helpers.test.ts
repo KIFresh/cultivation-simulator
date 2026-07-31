@@ -6,6 +6,7 @@ import {
   requireFields,
   sanitizeString,
   clampInt,
+  isPrivateOrLocalUrl,
   safeJsonParse,
 } from "../auth-helpers";
 
@@ -113,6 +114,21 @@ describe("auth-helpers", () => {
     it("should return fallback for invalid input", () => {
       expect(clampInt(NaN, 0, 100, 42)).toBe(42);
       expect(clampInt("abc", 0, 100, 10)).toBe(10);
+    });
+  });
+
+  describe("isPrivateOrLocalUrl", () => {
+    it("should detect localhost", () => {
+      expect(isPrivateOrLocalUrl("http://localhost:3000/api")).toBe(true);
+    });
+
+    it("should detect private IP ranges", () => {
+      expect(isPrivateOrLocalUrl("http://192.168.1.1")).toBe(true);
+      expect(isPrivateOrLocalUrl("http://10.0.0.1")).toBe(true);
+    });
+
+    it("should return false for public URLs", () => {
+      expect(isPrivateOrLocalUrl("https://example.com")).toBe(false);
     });
   });
 
