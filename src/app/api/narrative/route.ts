@@ -43,6 +43,18 @@ import {
 import { withApiErrorHandling, badRequest, parseJsonBody } from "@/lib/api-error";
 import { logger } from "@/lib/logger";
 
+function classifyNarrativeError(error: unknown): { code: string; message: string } {
+  const detail = error instanceof Error ? error.message : String(error);
+  if (detail.includes("NO_PROVIDER_CONFIGURED"))
+    return { code: "NO_PROVIDER", message: "未配置可用的 AI 叙事服务，请检查供应方设置" };
+  if (detail.includes("timed out") || detail.includes("TIMEOUT"))
+    return { code: "PROVIDER_TIMEOUT", message: "AI 叙事服务响应超时，请稍后重试" };
+  if (detail.includes("返回内容为空"))
+    return { code: "EMPTY_RESPONSE", message: "AI 叙事服务返回了空内容，请重试或更换模型" };
+  if (detail.includes("ALL_PROVIDERS_FAILED"))
+    return { code: "PROVIDER_UNAVAILABLE", message: "AI 叙事服务暂时不可用，请检查接口地址和 API Key" };
+  return { code: "NARRATIVE_FAILED", message: "出生叙事生成失败，请稍后重试" };
+}
 // POST — 生成叙事 + 处理突破
 async function handler(request: NextRequest) {
   try {
@@ -661,8 +673,9 @@ async function handler(request: NextRequest) {
     }
   } catch (error) {
     logger.error("叙事生成失败:", error);
+    const diagnosis = classifyNarrativeError(error);
     return NextResponse.json(
-      { error: "叙事生成失败，请重试", code: "NARRATIVE_FAILED" },
+      { error: diagnosis.message, code: diagnosis.code },
       { status: 500 }
     );
   }

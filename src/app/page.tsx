@@ -146,9 +146,10 @@ export default function Home() {
       };
       let lastBirthPayload: { params: unknown; gameEventId?: string | null } | undefined;
       const genNarrative = async (): Promise<boolean> => {
-        const showRetry = () => {
+        const showRetry = (message = "出生叙事生成失败，请稍后重试") => {
           // 角色已创建成功；重试必须复用这名角色，不能再次调用快速生成。
           toast.error("出生叙事生成失败", {
+            description: message,
             action: {
               label: "重试叙事",
               onClick: async () => {
@@ -192,7 +193,7 @@ export default function Home() {
                 params: sr.narrativeError.params,
                 gameEventId: sr.narrativeError.gameEventId,
               };
-              return showRetry();
+              return showRetry(sr.narrativeError.message);
             }
             birthData = sr.narrative;
             birthName = sr.characterName || sr.narrative?.characterName;
@@ -202,7 +203,7 @@ export default function Home() {
               params: birthData.narrativeError.params,
               gameEventId: birthData.narrativeError.gameEventId,
             };
-            return showRetry();
+            return showRetry(birthData.narrativeError.message);
           }
           if (birthName && birthName.length >= 2 && birthName.length <= 10) {
             localStorage.setItem("characterName", birthName);

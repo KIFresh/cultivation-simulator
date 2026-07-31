@@ -42,7 +42,13 @@ export function streamNarrativeResult(
     committed,
     (err: unknown) => ({
       gameEventId: eventId,
-      message: err instanceof Error ? err.message : String(err),
+      type: "NARRATIVE",
+      code: err instanceof Error && err.message.includes("返回内容为空")
+        ? "EMPTY_RESPONSE"
+        : "NARRATIVE_FAILED",
+      message: err instanceof Error && err.message.includes("返回内容为空")
+        ? "AI 叙事服务返回了空内容，请重试或更换模型"
+        : "出生叙事生成失败，请稍后重试",
     })
   );
 }

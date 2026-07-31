@@ -60,11 +60,15 @@ export async function fetchStreamNarrative(
     });
 
     if (!res.ok || !res.body) {
+      const payload = await res.json().catch(() => null) as {
+        error?: string;
+        code?: string;
+      } | null;
       return {
         narrativeError: {
           type: "HTTP",
-          code: "HTTP_" + (res?.status ?? 0),
-          message: "叙事服务响应异常",
+          code: payload?.code || "HTTP_" + (res?.status ?? 0),
+          message: payload?.error || "叙事服务响应异常",
           gameEventId: null,
           params: body,
         },

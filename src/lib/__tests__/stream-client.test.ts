@@ -36,10 +36,19 @@ describe("stream-client", () => {
     });
 
     it("should return HTTP error for non-ok response", async () => {
-      global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500, body: null });
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        body: null,
+        json: vi.fn().mockResolvedValue({
+          code: "EMPTY_RESPONSE",
+          error: "AI 叙事服务返回了空内容，请重试或更换模型",
+        }),
+      });
       const result = await fetchStreamNarrative("/api/narrative", {});
       expect(result.narrativeError).toBeDefined();
-      expect(result.narrativeError!.code).toBe("HTTP_500");
+      expect(result.narrativeError!.code).toBe("EMPTY_RESPONSE");
+      expect(result.narrativeError!.message).toContain("空内容");
     });
   });
 
