@@ -35,6 +35,15 @@ describe("stream-client", () => {
       expect(result.narrativeError!.code).toBe("STREAM_ERROR");
     });
 
+    it("should classify signal timeout with a safe provider timeout message", async () => {
+      global.fetch = vi.fn().mockRejectedValue(new Error("signal timed out"));
+      const result = await fetchStreamNarrative("/api/narrative", {});
+      expect(result.narrativeError).toMatchObject({
+        code: "PROVIDER_TIMEOUT",
+        message: "AI 叙事服务响应超时，请稍后重试",
+      });
+    });
+
     it("should return HTTP error for non-ok response", async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: false,

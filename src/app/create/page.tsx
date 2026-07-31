@@ -208,7 +208,9 @@ export default function CreatePage() {
           });
           if (!birthRes.ok) {
             const errData = await birthRes.json().catch(() => ({}));
-            throw new Error(errData.error || `出生叙事生成失败 (${birthRes.status})`);
+            const requestId = birthRes.headers.get("x-request-id") || errData.requestId;
+            const detail = errData.error || `出生叙事生成失败 (${birthRes.status})`;
+            throw new Error(requestId ? `${detail}（requestId: ${requestId}）` : detail);
           }
           const ct = birthRes.headers.get("content-type") || "";
           if (ct.includes("text/event-stream")) {
@@ -224,7 +226,11 @@ export default function CreatePage() {
                 };
               },
               onError: (e) => {
-                throw e instanceof Error ? e : new Error(String(e?.message || "叙事生成失败"));
+                const message = e instanceof Error
+                  ? e.message
+                  : e?.message || e?.narrativeError?.message || "叙事生成失败";
+                const requestId = e instanceof Error ? undefined : e?.requestId || e?.narrativeError?.requestId;
+                throw new Error(requestId ? `${message}（requestId: ${requestId}）` : message);
               },
             });
             return { ok: true, ...result };
@@ -236,11 +242,10 @@ export default function CreatePage() {
             family: json.family,
             cultivator: json.cultivator,
           };
-        } catch {
-          toast.error("出生叙事生成失败，请重试");
-          return new Promise((resolve) => {
-            setTimeout(() => resolve(genNarrative()), 1000);
-          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          toast.error("出生叙事生成失败", { description: message });
+          return { ok: false };
         }
       };
       const birth = await genNarrative();

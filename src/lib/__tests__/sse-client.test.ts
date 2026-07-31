@@ -14,7 +14,7 @@ function makeStreamResponse(chunks: string[]): Response {
       index++;
     },
   });
-  return { body: readable, ok: true } as Response;
+  return { body: readable, ok: true, headers: new Headers({ "x-request-id": "req-1" }) } as Response;
 }
 
 function makeErrorResponse(): Response {
@@ -74,6 +74,38 @@ describe("consumeNarrativeStream", () => {
       { onChunk: vi.fn(), onDone: vi.fn(), onError: vi.fn(), onCommitted }
     );
     expect(onCommitted).toHaveBeenCalledWith("c1");
+  });
+
+  it("解包服务端嵌套的 narrativeError", async () => {
+    const onError = vi.fn();
+    await consumeNarrativeStream(
+      makeStreamResponse([
+        'data: {"error":{"narrativeError":{"type":"NARRATIVE","code":"PROVIDER_TIMEOUT","message":"AI 叙事服务响应超时，请稍后重试","gameEventId":"evt-1"}}}\n\n',
+      ]),
+      { onChunk: vi.fn(), onDone: vi.fn(), onError }
+    );
+    expect(onError).toHaveBeenCalledWith({
+      type: "NARRATIVE",
+      code: "PROVIDER_TIMEOUT",
+      message: "AI 叙事服务响应超时，请稍后重试",
+      gameEventId: "evt-1",
+      requestId: "req-1",
+    });
+  });
+
+  it("处理没有末尾空行的错误事件", async () => {
+    const onError = vi.fn();
+    await consumeNarrativeStream(
+      makeStreamResponse([
+        'data: {"error":{"narrativeError":{"code":"NO_PROVIDER","message":"未配置可用的 AI 叙事服务"}}}',
+      ]),
+      { onChunk: vi.fn(), onDone: vi.fn(), onError }
+    );
+    expect(onError).toHaveBeenCalledWith({
+      code: "NO_PROVIDER",
+      message: "未配置可用的 AI 叙事服务",
+      requestId: "req-1",
+    });
   });
 
   it("calls onError when error event arrives", async () => {

@@ -38,7 +38,33 @@ export async function consumeNarrativeStream(res: Response, handlers: SSEHandler
         if ("committed" in json) handlers.onCommitted?.(json.committed);
         else if ("chunk" in json) handlers.onChunk(json.chunk);
         else if ("done" in json) handlers.onDone(json.result ?? json.done);
-        else if ("error" in json) handlers.onError(json.error);
+        else if ("error" in json) {
+          const error = json.error?.narrativeError ?? json.error;
+          const requestId = res.headers.get("x-request-id");
+          handlers.onError(requestId && error && typeof error === "object" && !error.requestId
+            ? { ...error, requestId }
+            : error);
+        }
+      }
+    }
+    // 兼容流结束时最后一个事件没有附带额外空行的代理实现。
+    const raw = buffer.trim();
+    const dataLine = raw.split("\n").find((l) => l.startsWith("data: "));
+    if (dataLine) {
+      try {
+        const json = JSON.parse(dataLine.slice(6));
+        if ("committed" in json) handlers.onCommitted?.(json.committed);
+        else if ("chunk" in json) handlers.onChunk(json.chunk);
+        else if ("done" in json) handlers.onDone(json.result ?? json.done);
+        else if ("error" in json) {
+          const error = json.error?.narrativeError ?? json.error;
+          const requestId = res.headers.get("x-request-id");
+          handlers.onError(requestId && error && typeof error === "object" && !error.requestId
+            ? { ...error, requestId }
+            : error);
+        }
+      } catch {
+        // 忽略不完整或非法的尾部事件。
       }
     }
   } catch (e) {

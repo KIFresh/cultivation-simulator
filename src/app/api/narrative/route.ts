@@ -40,7 +40,7 @@ import {
   initializeFamilyCareer,
   NEUTRAL_FAMILY_ECONOMIC_BACKGROUND,
 } from "@/lib/family-career";
-import { withApiErrorHandling, badRequest, parseJsonBody } from "@/lib/api-error";
+import { withApiErrorHandling, badRequest, parseJsonBody, requestIdFrom } from "@/lib/api-error";
 import { logger } from "@/lib/logger";
 import { AllProvidersFailedError } from "@/lib/narrative/provider";
 
@@ -714,9 +714,10 @@ async function handler(request: NextRequest) {
   } catch (error) {
     logger.error("叙事生成失败:", error);
     const diagnosis = classifyNarrativeError(error);
+    const requestId = requestIdFrom(request);
     return NextResponse.json(
-      { error: diagnosis.message, code: diagnosis.code },
-      { status: 500 }
+      { error: diagnosis.message, code: diagnosis.code, requestId },
+      { status: 500, headers: { "x-request-id": requestId } }
     );
   }
 }

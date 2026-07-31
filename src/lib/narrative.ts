@@ -5,7 +5,12 @@
 import { SpiritualRoot, formatRealmLevel, LOCATIONS, getNPCsAtLocation } from "./cultivation-data";
 import type { NarrativeEffect } from "./narrative-effects";
 
-import { syncProviderConfig, callAI, warmupAI } from "./narrative/provider";
+import {
+  syncProviderConfig,
+  callAI,
+  warmupAI,
+  AllProvidersFailedError,
+} from "./narrative/provider";
 export { syncProviderConfig, callAI, warmupAI };
 import { safeJsonParse } from "./json-helper";
 import { logger } from "./logger";
@@ -1159,7 +1164,9 @@ ${ageHint}
     return result;
   } catch (e) {
     logger.error("出生叙事AI生成失败:", e);
-    const detail = (e as Error).message || String(e);
+    // 保留 provider 的结构化错误，让 API 层继续分类为可展示的脱敏错误。
+    if (e instanceof AllProvidersFailedError) throw e;
+    const detail = e instanceof Error ? e.message : String(e);
     throw new Error(`出生叙事AI生成失败: ${detail}`);
   }
 }

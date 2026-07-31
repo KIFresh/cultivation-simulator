@@ -151,6 +151,39 @@ export async function fetchStreamNarrative(
           }
         }
       }
+      // 兼容代理在 EOF 时不补换行的 SSE 事件。
+      const tail = buffer.trim();
+      if (tail.startsWith("data:")) {
+        const payload = tail.slice(5).trim();
+        if (payload && payload !== "[DONE]") {
+          try {
+            const chunk = JSON.parse(payload) as StreamChunk;
+            if (chunk.text != null) opts?.onChunk?.(cleanNarrativeStream(chunk.text));
+            if (chunk.characterName) result.characterName = chunk.characterName;
+            if (chunk.committed?.characterName) result.characterName = chunk.committed.characterName;
+            if (chunk.narrative) result.narrative = { ...(result.narrative ?? {}), ...chunk.narrative };
+            if (chunk.narrativeError) result.narrativeError = chunk.narrativeError;
+            if (chunk.done && chunk.result) result.narrative = { ...(result.narrative ?? {}), ...(chunk.result as Record<string, unknown>) };
+            if (chunk.error && !result.narrativeError) {
+              const errorObject = typeof chunk.error === "object" && chunk.error
+                ? chunk.error as Record<string, unknown>
+                : null;
+              const nestedError = errorObject?.narrativeError;
+              result.narrativeError = nestedError && typeof nestedError === "object"
+                ? nestedError as NarrativeErrorPayload
+                : {
+                    type: "STREAM",
+                    code: "STREAM_ERROR",
+                    message: typeof chunk.error === "string" ? chunk.error : "叙事流异常",
+                    gameEventId: null,
+                    params: body,
+                  };
+            }
+          } catch {
+            // 忽略不完整的尾部事件。
+          }
+        }
+      }
     } finally {
       reader.releaseLock();
     }
@@ -168,13 +201,15 @@ export async function fetchStreamNarrative(
   } catch (err) {
     const ne = extractNarrativeError(err);
     if (ne) {
-      return { narrativeError: ne, characterName: result.characterName };
+      return { narrativeError: { ...ne, requestId: ne.requestId || requestId }, characterName: result.characterName };
     }
+    const isTimeout = err instanceof Error &&
+      (err.name === "TimeoutError" || /signal timed out|timeout/i.test(err.message));
     return {
       narrativeError: {
         type: "STREAM",
-        code: "STREAM_ERROR",
-        message: err instanceof Error ? err.message : String(err),
+        code: isTimeout ? "PROVIDER_TIMEOUT" : "STREAM_ERROR",
+        message: isTimeout ? "AI 叙事服务响应超时，请稍后重试" : "叙事流连接失败，请稍后重试",
         gameEventId: null,
         params: body,
         requestId,

@@ -38,8 +38,8 @@ function classifyProviderError(error: unknown): ProviderFailureCode {
   const errorCode = String((error as { code?: unknown })?.code || "");
   if (
     message.includes(" timed out after ") ||
-    error instanceof Error &&
-      (error.name === "APIConnectionTimeoutError" || /request timed out|timeout/i.test(message))
+    /signal timed out|request timed out|timeout/i.test(message) ||
+    error instanceof Error && error.name === "APIConnectionTimeoutError"
   )
     return "TIMEOUT";
   if (message === "EMPTY_RESPONSE") return "EMPTY_RESPONSE";
@@ -114,11 +114,22 @@ function loadProviders(): ProviderConfig[] {
 const PROVIDER_TIMEOUT_MS = 28_000;
 
 
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  const timer = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
-  );
-  return Promise.race([promise, timer]);
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+  controller?: AbortController
+): Promise<T> {
+  let timerId: ReturnType<typeof setTimeout> | undefined;
+  const timer = new Promise<never>((_, reject) => {
+    timerId = setTimeout(() => {
+      controller?.abort();
+      reject(new Error(`${label} timed out after ${ms}ms`));
+    }, ms);
+  });
+  return Promise.race([promise, timer]).finally(() => {
+    if (timerId) clearTimeout(timerId);
+  });
 }
 
 export async function callAI(params: {
@@ -144,6 +155,7 @@ export async function callAI(params: {
         case "anthropic": {
           const Anthropic = (await import("@anthropic-ai/sdk")).default;
           const client = new Anthropic({ apiKey: provider.apiKey });
+          const controller = new AbortController();
           const resp = await withTimeout(
             client.messages.create({
               model,
@@ -151,9 +163,10 @@ export async function callAI(params: {
               system: params.systemPrompt,
               messages: [{ role: "user", content: params.userPrompt }],
               temperature,
-            }),
+            }, { signal: controller.signal }),
             PROVIDER_TIMEOUT_MS,
-            `Provider anthropic (${model})`
+            `Provider anthropic (${model})`,
+            controller
           );
           const content = (resp.content as Array<{ type: string; text?: string }>)
             .filter((c) => c.type === "text")
@@ -168,6 +181,7 @@ export async function callAI(params: {
             apiKey: provider.apiKey,
             ...(provider.baseUrl ? { baseURL: provider.baseUrl } : {}),
           });
+          const controller = new AbortController();
           const resp = await withTimeout(
             client.chat.completions.create({
               model,
@@ -177,9 +191,10 @@ export async function callAI(params: {
                 { role: "system", content: params.systemPrompt },
                 { role: "user", content: params.userPrompt },
               ],
-            }),
+            }, { signal: controller.signal }),
             PROVIDER_TIMEOUT_MS,
-            `Provider openai (${model})`
+            `Provider openai (${model})`,
+            controller
           );
           const content = resp.choices[0]?.message?.content;
           if (!isNonEmptyString(content)) throw new Error("EMPTY_RESPONSE");
@@ -187,10 +202,12 @@ export async function callAI(params: {
         }
         case "ollama": {
           const baseUrl = (provider.baseUrl || "http://localhost:11434").replace(/\/$/, "");
+          const controller = new AbortController();
           const resp = await withTimeout(
             fetch(`${baseUrl}/api/chat`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
+              signal: controller.signal,
               body: JSON.stringify({
                 model,
                 stream: false,
@@ -202,7 +219,8 @@ export async function callAI(params: {
               }),
             }),
             PROVIDER_TIMEOUT_MS,
-            `Provider ollama (${model})`
+            `Provider ollama (${model})`,
+            controller
           );
           if (!resp.ok) {
             const error = new Error(`Ollama error: ${resp.status}`) as Error & { status?: number };

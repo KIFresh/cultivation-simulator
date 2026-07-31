@@ -90,15 +90,18 @@ describe("provider.loadProviders", () => {
     const result = await callAI({ systemPrompt: "", userPrompt: "" });
     expect(result).toBe("openai-ok");
     expect(mockPrismaFindMany).toHaveBeenCalledTimes(1);
-    expect(mockOpenAIChatCompletionsCreate).toHaveBeenCalledWith({
-      model: "runtime-model",
-      max_tokens: 500,
-      temperature: 0.8,
-      messages: [
-        { role: "system", content: "" },
-        { role: "user", content: "" },
-      ],
-    });
+    expect(mockOpenAIChatCompletionsCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "runtime-model",
+        max_tokens: 500,
+        temperature: 0.8,
+        messages: [
+          { role: "system", content: "" },
+          { role: "user", content: "" },
+        ],
+      }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
   });
 
   it("SQLite 配置优先于同名环境变量", async () => {
@@ -115,7 +118,10 @@ describe("provider.loadProviders", () => {
 
     const { callAI } = await import("@/lib/narrative/provider");
     await expect(callAI({ systemPrompt: "", userPrompt: "" })).resolves.toBe("openai-ok");
-    expect(mockOpenAIChatCompletionsCreate).toHaveBeenCalledWith(expect.objectContaining({ model: "db-model" }));
+    expect(mockOpenAIChatCompletionsCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ model: "db-model" }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
   });
 
   it("SQLite 中显式清空 provider 后不回退到环境变量", async () => {
@@ -143,15 +149,18 @@ describe("provider.loadProviders", () => {
     const result = await callAI({ systemPrompt: "", userPrompt: "" });
     expect(result).toBe("openai-ok");
     expect(mockPrismaFindMany).toHaveBeenCalled();
-    expect(mockOpenAIChatCompletionsCreate).toHaveBeenCalledWith({
-      model: "env-model",
-      max_tokens: 500,
-      temperature: 0.8,
-      messages: [
-        { role: "system", content: "" },
-        { role: "user", content: "" },
-      ],
-    });
+    expect(mockOpenAIChatCompletionsCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "env-model",
+        max_tokens: 500,
+        temperature: 0.8,
+        messages: [
+          { role: "system", content: "" },
+          { role: "user", content: "" },
+        ],
+      }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
   });
 
   it("anthropic/openai 缺少 apiKey 时跳过", async () => {
@@ -183,6 +192,19 @@ describe("provider.loadProviders", () => {
     const error = new Error("Request timed out.");
     error.name = "APIConnectionTimeoutError";
     mockOpenAIChatCompletionsCreate.mockRejectedValue(error);
+
+    const { callAI } = await import("@/lib/narrative/provider");
+    await expect(callAI({ systemPrompt: "", userPrompt: "" })).rejects.toMatchObject({
+      name: "AllProvidersFailedError",
+      failures: [{ code: "TIMEOUT" }],
+    });
+  });
+
+  it("原生 signal timed out 会聚合为 TIMEOUT", async () => {
+    process.env.AI_PROVIDER_1 = "openai";
+    process.env.AI_PROVIDER_1_KEY = "key-1";
+    process.env.AI_PROVIDER_1_MODEL = "model-1";
+    mockOpenAIChatCompletionsCreate.mockRejectedValue(new Error("signal timed out"));
 
     const { callAI } = await import("@/lib/narrative/provider");
     await expect(callAI({ systemPrompt: "", userPrompt: "" })).rejects.toMatchObject({
@@ -244,23 +266,31 @@ describe("provider.loadProviders", () => {
     const result = await callAI({ systemPrompt: "", userPrompt: "" });
     expect(result).toBe("fallback");
     expect(mockOpenAIChatCompletionsCreate).toHaveBeenCalledTimes(2);
-    expect(mockOpenAIChatCompletionsCreate).toHaveBeenNthCalledWith(1, {
-      model: "model-1",
-      max_tokens: 500,
-      temperature: 0.8,
-      messages: [
-        { role: "system", content: "" },
-        { role: "user", content: "" },
-      ],
-    });
-    expect(mockOpenAIChatCompletionsCreate).toHaveBeenNthCalledWith(2, {
-      model: "model-3",
-      max_tokens: 500,
-      temperature: 0.8,
-      messages: [
-        { role: "system", content: "" },
-        { role: "user", content: "" },
-      ],
-    });
+    expect(mockOpenAIChatCompletionsCreate).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        model: "model-1",
+        max_tokens: 500,
+        temperature: 0.8,
+        messages: [
+          { role: "system", content: "" },
+          { role: "user", content: "" },
+        ],
+      }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
+    expect(mockOpenAIChatCompletionsCreate).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        model: "model-3",
+        max_tokens: 500,
+        temperature: 0.8,
+        messages: [
+          { role: "system", content: "" },
+          { role: "user", content: "" },
+        ],
+      }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
   });
 });

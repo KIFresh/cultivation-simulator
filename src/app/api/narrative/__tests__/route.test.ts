@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { POST } from "../route";
+import { AllProvidersFailedError } from "@/lib/narrative/provider";
 
 const mockPrisma = vi.hoisted(() => ({
   user: { findUnique: vi.fn() },
@@ -197,6 +198,24 @@ describe("Narrative API - POST", () => {
     expect(res.status).toBe(200);
     expect(d.narrative).toBeDefined();
     expect(d.event).toBeDefined();
+  });
+
+  it("BIRTH provider 全部失败时保留脱敏错误分类", async () => {
+    const error = new AllProvidersFailedError([
+      { provider: "openai", model: "step-3.7-flash", code: "HTTP_401" },
+    ]);
+    mockNarrative.generateBirthNarrative.mockRejectedValueOnce(error);
+
+    const res = await POST(
+      makeRequest("http://localhost/api/narrative?stream=true", { type: "BIRTH" })
+    );
+    const d = await res.json();
+    expect(res.status).toBe(500);
+    expect(d.code).toBe("PROVIDER_UNAUTHORIZED");
+    expect(d.error).toContain("API Key 无效");
+    expect(d.requestId).toEqual(expect.any(String));
+    expect(res.headers.get("x-request-id")).toBe(d.requestId);
+    expect(JSON.stringify(d)).not.toContain("step-3.7-flash");
   });
 
   it("DAILY_CULTIVATION 类型成功生成叙事", async () => {
