@@ -102,9 +102,10 @@ describe("Cultivator API - POST 创建修炼者", () => {
         gender: "女",
       }),
     };
+    const userUpdate = vi.fn().mockResolvedValue(mockUser);
     mockPrisma.$transaction.mockImplementation(async (fn: any) => {
       const tx = {
-        user: { update: vi.fn().mockResolvedValue(mockUser) },
+        user: { update: userUpdate },
         cultivatorTechnique: { create: vi.fn().mockResolvedValue({}) },
       };
       return fn(tx);
@@ -123,6 +124,18 @@ describe("Cultivator API - POST 创建修炼者", () => {
     expect(d.user.cultivator.name).toBe("小明");
     expect(d.user.cultivator.attributes).toBe('{"root":3,"spirit":4}');
     expect(d.user.cultivator.gender).toBe("女");
+    expect(userUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          cultivator: expect.objectContaining({
+            create: expect.objectContaining({
+              attributes: '{"root":3,"spirit":4}',
+              stamina: 8,
+            }),
+          }),
+        }),
+      })
+    );
   });
 
   it("已有修炼者时返回 409", async () => {

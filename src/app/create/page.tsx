@@ -167,6 +167,7 @@ export default function CreatePage() {
           cultivatorName: tempName,
           spiritualRoot: rootId,
           worldId: selectedWorld?.id,
+          attributes,
         }),
       });
       const data = await res.json();

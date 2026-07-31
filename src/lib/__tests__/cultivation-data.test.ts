@@ -353,6 +353,9 @@ describe("cultivation-data", () => {
     it("should include root bonus", () => {
       expect(calculateMaxStamina(18, { root: 10 })).toBe(25);
     });
+    it("should preserve root bonus at the initial age", () => {
+      expect(calculateMaxStamina(1, { root: 2 })).toBe(7);
+    });
   });
 
   // ── 属性成长 ──
