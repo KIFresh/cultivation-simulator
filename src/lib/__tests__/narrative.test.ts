@@ -8,6 +8,7 @@ import {
   createEntry,
   fallbackBirthName,
   validateBirthConsistency,
+  generateBirthNarrative,
   generateActionNarrative,
   extractJson,
 } from "../narrative";
@@ -52,6 +53,27 @@ vi.mock("../narrative/provider", () => ({
 }));
 
 describe("narrative", () => {
+  it("为 reasoning 型 provider 为出生叙事预留足够输出预算", async () => {
+    const { callAI } = await import("../narrative/provider");
+    vi.mocked(callAI).mockResolvedValue(
+      JSON.stringify({
+        type: "BIRTH",
+        title: "出生",
+        narrative: "小明来到人世，产房里的灯光安静地落在襁褓上。",
+        suggestedName: "小明",
+        family: [],
+      })
+    );
+
+    const result = await generateBirthNarrative({ birthTier: "凡人" });
+
+    expect(result.narrative).toContain("小明");
+    expect(callAI).toHaveBeenCalledTimes(1);
+    expect(callAI).toHaveBeenCalledWith(
+      expect.objectContaining({ maxTokens: 2000 })
+    );
+  });
+
   describe("getFateFirstMeetOffset", () => {
     it("should return 0 for null/undefined", () => {
       expect(getFateFirstMeetOffset(null)).toBe(0);

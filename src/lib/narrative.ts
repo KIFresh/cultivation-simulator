@@ -1044,7 +1044,8 @@ ${ageHint}
     const text = await callAI({
       systemPrompt: SYSTEM_PROMPT_CIVILIAN,
       userPrompt: prompt,
-      maxTokens: 1000,
+      // Reasoning 型 provider 会在小预算内耗尽输出配额，导致 content 为空。
+      maxTokens: 2000,
       temperature: 0.85,
     });
     const result = extractJson(text, {
@@ -1114,7 +1115,7 @@ ${ageHint}
         const fixText = await callAI({
           systemPrompt: SYSTEM_PROMPT_CIVILIAN,
           userPrompt: fixPrompt,
-          maxTokens: 1000,
+          maxTokens: 2000,
           temperature: 0.7,
         });
         const fixResult: BirthNarrativeResult = extractJson(fixText, {
