@@ -42,17 +42,32 @@ import {
 } from "@/lib/family-career";
 import { withApiErrorHandling, badRequest, parseJsonBody } from "@/lib/api-error";
 import { logger } from "@/lib/logger";
+import { AllProvidersFailedError } from "@/lib/narrative/provider";
 
 function classifyNarrativeError(error: unknown): { code: string; message: string } {
   const detail = error instanceof Error ? error.message : String(error);
   if (detail.includes("NO_PROVIDER_CONFIGURED"))
     return { code: "NO_PROVIDER", message: "未配置可用的 AI 叙事服务，请检查供应方设置" };
-  if (detail.includes("timed out") || detail.includes("TIMEOUT"))
-    return { code: "PROVIDER_TIMEOUT", message: "AI 叙事服务响应超时，请稍后重试" };
+  if (error instanceof AllProvidersFailedError) {
+    const codes = new Set(error.failures.map((failure) => failure.code));
+    if (codes.has("TIMEOUT"))
+      return { code: "PROVIDER_TIMEOUT", message: "AI 叙事服务响应超时，请稍后重试" };
+    if (codes.has("HTTP_401"))
+      return { code: "PROVIDER_UNAUTHORIZED", message: "AI 叙事服务 API Key 无效或未授权" };
+    if (codes.has("HTTP_403"))
+      return { code: "PROVIDER_FORBIDDEN", message: "AI 叙事服务拒绝访问，请检查权限" };
+    if (codes.has("HTTP_404"))
+      return { code: "PROVIDER_NOT_FOUND", message: "AI 叙事服务接口地址或模型不存在，请检查配置" };
+    if (codes.has("MODEL_UNSUPPORTED"))
+      return { code: "MODEL_UNSUPPORTED", message: "当前模型不支持该调用，请更换模型" };
+    if (codes.has("EMPTY_RESPONSE"))
+      return { code: "EMPTY_RESPONSE", message: "AI 叙事服务返回了空内容，请重试或更换模型" };
+    if (codes.has("RESPONSE_PARSE_FAILED"))
+      return { code: "RESPONSE_PARSE_FAILED", message: "AI 叙事服务响应格式无法解析，请检查接口兼容性" };
+    return { code: "PROVIDER_UNAVAILABLE", message: "AI 叙事服务暂时不可用，请检查接口地址和 API Key" };
+  }
   if (detail.includes("返回内容为空"))
     return { code: "EMPTY_RESPONSE", message: "AI 叙事服务返回了空内容，请重试或更换模型" };
-  if (detail.includes("ALL_PROVIDERS_FAILED"))
-    return { code: "PROVIDER_UNAVAILABLE", message: "AI 叙事服务暂时不可用，请检查接口地址和 API Key" };
   return { code: "NARRATIVE_FAILED", message: "出生叙事生成失败，请稍后重试" };
 }
 // POST — 生成叙事 + 处理突破

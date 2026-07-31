@@ -143,6 +143,55 @@ describe("provider.loadProviders", () => {
     );
   });
 
+  it("SDK timeout 会聚合为 TIMEOUT", async () => {
+    process.env.AI_PROVIDER_1 = "openai";
+    process.env.AI_PROVIDER_1_KEY = "key-1";
+    process.env.AI_PROVIDER_1_MODEL = "model-1";
+    const error = new Error("Request timed out.");
+    error.name = "APIConnectionTimeoutError";
+    mockOpenAIChatCompletionsCreate.mockRejectedValue(error);
+
+    const { callAI } = await import("@/lib/narrative/provider");
+    await expect(callAI({ systemPrompt: "", userPrompt: "" })).rejects.toMatchObject({
+      name: "AllProvidersFailedError",
+      failures: [{ code: "TIMEOUT" }],
+    });
+  });
+
+  it("空响应会触发备用 provider", async () => {
+    process.env.AI_PROVIDER_1 = "openai";
+    process.env.AI_PROVIDER_1_KEY = "key-1";
+    process.env.AI_PROVIDER_1_MODEL = "model-1";
+    process.env.AI_PROVIDER_3 = "openai";
+    process.env.AI_PROVIDER_3_KEY = "key-3";
+    process.env.AI_PROVIDER_3_MODEL = "model-3";
+
+    mockOpenAIChatCompletionsCreate
+      .mockResolvedValueOnce({ choices: [{ message: { content: "" } }] })
+      .mockResolvedValueOnce({ choices: [{ message: { content: "fallback" } }] });
+
+    const { callAI } = await import("@/lib/narrative/provider");
+    await expect(callAI({ systemPrompt: "", userPrompt: "" })).resolves.toBe("fallback");
+  });
+
+  it.each([
+    [401, "HTTP_401"],
+    [403, "HTTP_403"],
+    [404, "HTTP_404"],
+  ])("聚合 HTTP %s 为稳定失败码", async (status, code) => {
+    process.env.AI_PROVIDER_1 = "openai";
+    process.env.AI_PROVIDER_1_KEY = "key-1";
+    process.env.AI_PROVIDER_1_MODEL = "model-1";
+    const error = Object.assign(new Error(`request failed: ${status}`), { status });
+    mockOpenAIChatCompletionsCreate.mockRejectedValue(error);
+
+    const { callAI } = await import("@/lib/narrative/provider");
+    await expect(callAI({ systemPrompt: "", userPrompt: "" })).rejects.toMatchObject({
+      name: "AllProvidersFailedError",
+      failures: [{ code }],
+    });
+  });
+
   it("provider 优先级排序", async () => {
     process.env.AI_PROVIDER_1 = "openai";
     process.env.AI_PROVIDER_1_KEY = "key-1";

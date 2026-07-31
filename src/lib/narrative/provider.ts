@@ -12,6 +12,61 @@ interface ProviderConfig {
   baseUrl?: string;
 }
 
+export type ProviderFailureCode =
+  | "TIMEOUT"
+  | "HTTP_401"
+  | "HTTP_403"
+  | "HTTP_404"
+  | "MODEL_UNSUPPORTED"
+  | "EMPTY_RESPONSE"
+  | "RESPONSE_PARSE_FAILED"
+  | "NETWORK_ERROR"
+  | "PROVIDER_ERROR";
+
+export class AllProvidersFailedError extends Error {
+  readonly failures: Array<{ provider: string; model: string; code: ProviderFailureCode }>;
+
+  constructor(failures: Array<{ provider: string; model: string; code: ProviderFailureCode }>) {
+    super("ALL_PROVIDERS_FAILED");
+    this.name = "AllProvidersFailedError";
+    this.failures = failures;
+  }
+}
+
+function classifyProviderError(error: unknown): ProviderFailureCode {
+  const message = error instanceof Error ? error.message : String(error);
+  const errorCode = String((error as { code?: unknown })?.code || "");
+  if (
+    message.includes(" timed out after ") ||
+    error instanceof Error &&
+      (error.name === "APIConnectionTimeoutError" || /request timed out|timeout/i.test(message))
+  )
+    return "TIMEOUT";
+  if (message === "EMPTY_RESPONSE") return "EMPTY_RESPONSE";
+  if (
+    message === "RESPONSE_PARSE_FAILED" ||
+    error instanceof SyntaxError ||
+    /unexpected token|invalid json|json parse/i.test(message)
+  )
+    return "RESPONSE_PARSE_FAILED";
+  if (
+    message === "MODEL_UNSUPPORTED" ||
+    errorCode === "model_not_found" ||
+    /model.{0,20}(not found|unsupported|does not exist)/i.test(message)
+  )
+    return "MODEL_UNSUPPORTED";
+  if (message === "NETWORK_ERROR") return "NETWORK_ERROR";
+  const status = (error as { status?: number })?.status;
+  if (status === 401) return "HTTP_401";
+  if (status === 403) return "HTTP_403";
+  if (status === 404) return "HTTP_404";
+  return "PROVIDER_ERROR";
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
 let runtimeSettings: Record<string, string> | null = null;
 
 export async function syncProviderConfig(): Promise<void> {
@@ -48,9 +103,8 @@ function loadProviders(): ProviderConfig[] {
   return providers;
 }
 
-// ============================================================
-// 超时工具：避免单个 provider 假死阻塞整个请求
-// ============================================================
+const PROVIDER_TIMEOUT_MS = 28_000;
+
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   const timer = new Promise<never>((_, reject) =>
@@ -71,6 +125,7 @@ export async function callAI(params: {
   const providers = loadProviders();
   if (providers.length === 0) throw new Error("NO_PROVIDER_CONFIGURED");
 
+  const failures: AllProvidersFailedError["failures"] = [];
   for (const provider of providers) {
     try {
       const model = provider.model;
@@ -89,13 +144,15 @@ export async function callAI(params: {
               messages: [{ role: "user", content: params.userPrompt }],
               temperature,
             }),
-            15_000,
+            PROVIDER_TIMEOUT_MS,
             `Provider anthropic (${model})`
           );
-          return (resp.content as Array<{ type: string; text?: string }>)
+          const content = (resp.content as Array<{ type: string; text?: string }>)
             .filter((c) => c.type === "text")
             .map((c) => c.text || "")
             .join("");
+          if (!isNonEmptyString(content)) throw new Error("EMPTY_RESPONSE");
+          return content;
         }
         case "openai": {
           const OpenAI = (await import("openai")).default;
@@ -113,10 +170,12 @@ export async function callAI(params: {
                 { role: "user", content: params.userPrompt },
               ],
             }),
-            15_000,
+            PROVIDER_TIMEOUT_MS,
             `Provider openai (${model})`
           );
-          return resp.choices[0]?.message?.content || "";
+          const content = resp.choices[0]?.message?.content;
+          if (!isNonEmptyString(content)) throw new Error("EMPTY_RESPONSE");
+          return content;
         }
         case "ollama": {
           const baseUrl = (provider.baseUrl || "http://localhost:11434").replace(/\/$/, "");
@@ -134,20 +193,33 @@ export async function callAI(params: {
                 ],
               }),
             }),
-            15_000,
+            PROVIDER_TIMEOUT_MS,
             `Provider ollama (${model})`
           );
-          if (!resp.ok) throw new Error(`Ollama error: ${resp.status}`);
-          const data = await resp.json();
-          return data.message?.content || "";
+          if (!resp.ok) {
+            const error = new Error(`Ollama error: ${resp.status}`) as Error & { status?: number };
+            error.status = resp.status;
+            throw error;
+          }
+          let data: { message?: { content?: unknown } };
+          try {
+            data = await resp.json();
+          } catch {
+            throw new Error("RESPONSE_PARSE_FAILED");
+          }
+          const content = data.message?.content;
+          if (!isNonEmptyString(content)) throw new Error("EMPTY_RESPONSE");
+          return content;
         }
       }
     } catch (e) {
-      console.warn(`Provider ${provider.type} failed:`, (e as Error).message);
+      const code = classifyProviderError(e);
+      failures.push({ provider: provider.type, model: provider.model || "[未配置]", code });
+      console.warn(`Provider ${provider.type} failed:`, code);
       continue;
     }
   }
-  throw new Error("ALL_PROVIDERS_FAILED");
+  throw new AllProvidersFailedError(failures);
 }
 
 export async function warmupAI(): Promise<void> {

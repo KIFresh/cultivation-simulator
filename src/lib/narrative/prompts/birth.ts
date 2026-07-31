@@ -184,10 +184,7 @@ ${params.cultivatorName ? `【备用名】${params.cultivatorName}` : ""}
       family: [],
     });
     if (!result.narrative || !result.narrative.trim()) {
-      const snippet = text.length > 400 ? text.slice(0, 400) + "..." : text;
-      throw new Error(
-        `出生叙事AI返回内容为空。AI原始响应(前400字): ${snippet.replace(/\n/g, " ")}`
-      );
+      throw new Error("出生叙事AI返回内容为空");
     }
     // ── suggestedName 验证 ──────────────────────────────
     const raw = (result.suggestedName || "").trim();
@@ -244,7 +241,12 @@ ${params.cultivatorName ? `【备用名】${params.cultivatorName}` : ""}
     }
     return result;
   } catch (e) {
-    logger.error("出生叙事AI生成失败:", e);
+    const isAggregatedFailure =
+      e instanceof Error &&
+      e.name === "AllProvidersFailedError" &&
+      Array.isArray((e as { failures?: unknown }).failures);
+    logger.error("出生叙事AI生成失败:", isAggregatedFailure ? e.message : e);
+    if (isAggregatedFailure) throw e;
     const detail = (e as Error).message || String(e);
     throw new Error(`出生叙事AI生成失败: ${detail}`);
   }
