@@ -249,7 +249,6 @@ export const NarrativePanel = React.memo(function NarrativePanel({
                       actionId={action.id}
                       onPick={(text) => {
                         setDraft(text);
-                        handleSubmitAction(action.id);
                       }}
                     />
                     {selectedNpcs.length > 0 && (
