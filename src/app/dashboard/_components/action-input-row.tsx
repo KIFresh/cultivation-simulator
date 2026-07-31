@@ -22,6 +22,7 @@ export const ActionInputRow = React.memo(function ActionInputRow({
     <div className="flex gap-1 animate-in fade-in slide-in-from-top-1 duration-150">
       <input
         value={value}
+        disabled={loading}
         onChange={(e) => {
           const next = e.target.value;
           console.log("[ActionInputRow] onChange", next);
@@ -33,13 +34,13 @@ export const ActionInputRow = React.memo(function ActionInputRow({
             onSubmit(actionId);
           }
         }}
-        className="h-7 flex-1 rounded-lg border border-[#EADCD0] bg-white px-2 text-[11px] text-[#2C1E1E] focus:outline-none focus:border-[#B83227]"
+        className="h-7 flex-1 rounded-lg border border-[#EADCD0] bg-white px-2 text-[11px] text-[#2C1E1E] focus:outline-none focus:border-[#B83227] disabled:opacity-50"
         placeholder="描述你想怎么做…"
         autoFocus
       />
       <button
         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#B83227] text-white hover:bg-[#7A1F18] disabled:opacity-50"
-        disabled={loading || !value.trim()}
+        disabled={loading}
         onClick={(e) => {
           e.preventDefault();
           onSubmit(actionId);

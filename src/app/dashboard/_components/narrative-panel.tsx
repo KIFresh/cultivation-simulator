@@ -54,9 +54,7 @@ export const NarrativePanel = React.memo(function NarrativePanel({
 
   const handleSubmitAction = useCallback(
     (actionId: string) => {
-      const text = draft.trim();
-      if (!text) return;
-      onActionSubmit(actionId, text, selectedNpcs);
+      onActionSubmit(actionId, draft, selectedNpcs);
       setDraft("");
       setSelectedNpcs([]);
     },
@@ -238,7 +236,7 @@ export const NarrativePanel = React.memo(function NarrativePanel({
                       />
                       <button
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#B83227] text-white hover:bg-[#7A1F18] disabled:opacity-50"
-                        disabled={actionLoading || !draft.trim()}
+                        disabled={actionLoading}
                         onClick={(e) => {
                           e.preventDefault();
                           handleSubmitAction(action.id);
