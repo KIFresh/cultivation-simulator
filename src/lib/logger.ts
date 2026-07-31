@@ -13,25 +13,43 @@ const LEVEL_ORDER: Record<LogLevel, number> = {
 };
 
 const SENSITIVE_KEY = /(?:authorization|cookie|set-cookie|api[-_]?key|token|secret|password|credential|request[-_]?body|body)/i;
-const SENSITIVE_VALUE = /(api[-_]?key|authorization|token|secret|password)(\s*[:=]\s*(?:bearer\s+)?)?[^\s,;]+/gi;
 const BEARER_VALUE = /(bearer\s+)[^\s,;]+/gi;
 const REDACTED = "[REDACTED]";
 
 export function redactString(value: string): string {
   return value
-    .replace(SENSITIVE_VALUE, (_match, key: string, separator = "") => `${key}${separator}${REDACTED}`)
+    .replace(
+      /(["']?(?:api[-_]?key|authorization|token|secret|password)["']?\s*[:=]\s*["']?(?:bearer\s+)?)([^"'\s,;}]+)/gi,
+      (_match, prefix: string) => `${prefix}${REDACTED}`
+    )
     .replace(BEARER_VALUE, (_match, prefix: string) => `${prefix}${REDACTED}`);
 }
 
 export function redactLogValue(value: unknown, seen = new WeakSet<object>()): unknown {
   if (typeof value === "string") return redactString(value);
   if (value instanceof Error) {
-    const safe = new Error(redactString(value.message));
-    safe.name = value.name;
+    if (seen.has(value)) return "[Circular]";
+    seen.add(value);
+    const safe: Record<string, unknown> = {
+      name: redactString(value.name),
+      message: redactString(value.message),
+    };
     if (value.stack) safe.stack = redactString(value.stack);
+    if ("cause" in value) safe.cause = redactLogValue(value.cause, seen);
+    for (const [key, entry] of Object.entries(value)) {
+      if (key === "message" || key === "stack" || key === "name" || key === "cause") continue;
+      safe[key] = SENSITIVE_KEY.test(key) ? REDACTED : redactLogValue(entry, seen);
+    }
+    seen.delete(value);
     return safe;
   }
-  if (Array.isArray(value)) return value.map((item) => redactLogValue(item, seen));
+  if (Array.isArray(value)) {
+    if (seen.has(value)) return "[Circular]";
+    seen.add(value);
+    const output = value.map((item) => redactLogValue(item, seen));
+    seen.delete(value);
+    return output;
+  }
   if (value && typeof value === "object") {
     if (seen.has(value)) return "[Circular]";
     seen.add(value);
@@ -39,6 +57,7 @@ export function redactLogValue(value: unknown, seen = new WeakSet<object>()): un
     for (const [key, entry] of Object.entries(value)) {
       output[key] = SENSITIVE_KEY.test(key) ? REDACTED : redactLogValue(entry, seen);
     }
+    seen.delete(value);
     return output;
   }
   return value;

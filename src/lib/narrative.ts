@@ -466,6 +466,7 @@ export async function generateDailyCultivationNarrative(params: {
     return result;
   } catch (e) {
     logger.error("日常叙事AI生成失败:", e);
+    if (e instanceof AllProvidersFailedError) throw e;
     throw new Error(`叙事生成失败: ${e instanceof Error ? e.message : "未知错误"}`);
   }
 }
@@ -520,6 +521,7 @@ export async function generateBreakthroughNarrative(params: {
     return result;
   } catch (e) {
     logger.error("突破叙事AI生成失败:", e);
+    if (e instanceof AllProvidersFailedError) throw e;
     throw new Error(`叙事生成失败: ${e instanceof Error ? e.message : "未知错误"}`);
   }
 }
@@ -569,6 +571,7 @@ export async function generateEncounterNarrative(params: {
     return result;
   } catch (e) {
     logger.error("奇遇AI生成失败:", e);
+    if (e instanceof AllProvidersFailedError) throw e;
     throw new Error(`叙事生成失败: ${e instanceof Error ? e.message : "未知错误"}`);
   }
 }
@@ -609,6 +612,7 @@ export async function generateNPCDialogue(params: {
     return result;
   } catch (e) {
     logger.error("NPC对话AI生成失败:", e);
+    if (e instanceof AllProvidersFailedError) throw e;
     throw new Error(`叙事生成失败: ${e instanceof Error ? e.message : "未知错误"}`);
   }
 }
@@ -783,6 +787,7 @@ ${params.extraContext ? `\n【背景】${params.extraContext}` : ""}
     return result;
   } catch (e) {
     logger.error("年度叙事AI生成失败:", e);
+    if (e instanceof AllProvidersFailedError) throw e;
     throw new Error(`叙事生成失败: ${e instanceof Error ? e.message : "未知错误"}`);
   }
 }

@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { logger } from "./logger";
 
-function requestIdFrom(request: NextRequest): string {
+export function requestIdFrom(request: NextRequest): string {
   const getHeader = request.headers && typeof request.headers.get === "function" ? request.headers.get.bind(request.headers) : undefined;
   return getHeader?.("x-request-id") || crypto.randomUUID();
 }
@@ -191,10 +191,13 @@ export function withApiErrorHandling(handler: ApiHandler): ApiHandler {
     try {
       const response = await handler(request, context);
       if (response.headers && typeof response.headers.set === "function") {
-        response.headers.set("x-request-id", requestId);
+        if (!response.headers.get("x-request-id")) {
+          response.headers.set("x-request-id", requestId);
+        }
       }
+      const responseRequestId = response.headers.get("x-request-id") || requestId;
       logger.info("[api] request completed", {
-        requestId,
+        requestId: responseRequestId,
         method: request.method,
         path: requestPath(request),
         status: response.status,

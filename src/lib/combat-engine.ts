@@ -6,6 +6,7 @@ import { getItemById } from "./cultivation-data";
 import { Enemy, getEnemiesForLocation, getRealmMultiplier, pickEnemy } from "./enemy-data";
 import { calculateTechniqueBonuses, TECHNIQUES } from "./technique-data";
 import { generateCombatNarrative } from "./narrative";
+import { AllProvidersFailedError } from "./narrative/provider";
 import { logger } from "./logger";
 
 export interface CombatResult {
@@ -252,6 +253,7 @@ export async function resolveCombat(
     if (aiText && aiText.trim()) narrative = aiText;
   } catch (e) {
     logger.error("战斗叙事AI生成失败:", e);
+    if (e instanceof AllProvidersFailedError) throw e;
     throw new Error(`战斗叙事生成失败: ${e instanceof Error ? e.message : "未知错误"}`);
   }
   if (win) {
