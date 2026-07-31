@@ -35,8 +35,8 @@ interface CultivatorData {
   realm: string;
   realmLevel: number;
   age: number;
-  cultivationExp: number;
   attributes: Record<string, number>;
+  attributeExp: Record<string, { exp: number; level: number }>;
 }
 
 const ATTR_INFO = [
@@ -72,6 +72,7 @@ export default function SkillsPage() {
       const data = await res.json();
       if (data.user?.cultivator) {
         const c = data.user.cultivator;
+        const attrExp = typeof c.attributeExp === "string" ? JSON.parse(c.attributeExp || "{}") : c.attributeExp || {};
         setCultivator({
           id: c.id,
           name: c.name,
@@ -79,8 +80,8 @@ export default function SkillsPage() {
           realm: c.realm,
           realmLevel: c.realmLevel || 0,
           age: c.age,
-          cultivationExp: c.cultivationExp || 0,
           attributes: typeof c.attributes === "string" ? JSON.parse(c.attributes || "{}") : c.attributes || {},
+          attributeExp: attrExp,
         });
       }
     } catch {
@@ -170,12 +171,6 @@ export default function SkillsPage() {
     (slot) => !filteredEquipped.some((r) => r.equipSlot === slot)
   );
 
-  // Calculate exp progress
-  const currentRealmIndex = REALM_ORDER.indexOf(cultivator?.realm || "凡人");
-  const nextRealm = currentRealmIndex < REALM_ORDER.length - 1 ? REALM_ORDER[currentRealmIndex + 1] : null;
-  const expForNext = cultivator ? (cultivator.realmLevel + 1) * 100 : 100;
-  const expProgress = cultivator ? (cultivator.cultivationExp / expForNext) * 100 : 0;
-
   return (
     <main className="min-h-screen bg-[#FAF7F3]">
       <TopNav />
@@ -197,39 +192,35 @@ export default function SkillsPage() {
                 </span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {/* 经验值进度条 */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-[#8B7355]">
-                    修为经验 {cultivator.cultivationExp}/{expForNext}
-                  </span>
-                  {nextRealm && (
-                    <span className="text-xs text-[#B83227]">下一境界：{nextRealm}</span>
-                  )}
-                </div>
-                <div className="h-2 bg-[#EADCD0] rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-[#B83227] to-[#D49B4B] rounded-full transition-all"
-                    style={{ width: `${Math.min(100, expProgress)}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* 属性网格 */}
-              <div className="grid grid-cols-3 gap-2">
-                {ATTR_INFO.map((attr) => (
-                  <div
-                    key={attr.key}
-                    className="rounded-xl border border-[#EADCD0] bg-[#FAF7F3] p-2 text-center"
-                  >
-                    <p className="text-sm">{attr.icon}</p>
-                    <p className="text-[10px] text-[#8B7355]">{attr.label}</p>
-                    <p className="font-mono font-bold text-sm text-[#2C1E1E]">
-                      {Math.round(cultivator.attributes?.[attr.key] || 0)}
-                    </p>
-                  </div>
-                ))}
+            <CardContent className="space-y-3">
+              {/* 属性经验条 */}
+              <div className="space-y-2">
+                {ATTR_INFO.map((attr) => {
+                  const exp = cultivator.attributeExp?.[attr.key] || { exp: 0, level: 0 };
+                  const progress = (exp.exp % 100);
+                  return (
+                    <div key={attr.key} className="flex items-center gap-2">
+                      <span className="text-sm w-6 text-center">{attr.icon}</span>
+                      <span className="text-xs text-[#8B7355] w-12">{attr.label}</span>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-[10px] text-[#8B7355]">
+                            Lv.{exp.level} · {progress}/100
+                          </span>
+                          <span className="text-xs font-mono text-[#2C1E1E]">
+                            {Math.round(cultivator.attributes?.[attr.key] || 0)}
+                          </span>
+                        </div>
+                        <div className="h-1.5 bg-[#EADCD0] rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-[#4A90D9] to-[#B83227] rounded-full transition-all"
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
