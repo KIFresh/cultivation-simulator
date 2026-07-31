@@ -130,67 +130,6 @@ export async function requireCultivator(
   return { cultivator: user.cultivator as CultivatorWithUser };
 }
 
-// ── SSRF 防护：禁止内网地址 ────────────────────────────────
-function isPrivateIpv4(hostname: string): boolean {
-  const parts = hostname.split(".").map(Number);
-  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255))
-    return false;
-  const [a, b] = parts;
-  return (
-    a === 0 ||
-    a === 10 ||
-    a === 127 ||
-    (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168)
-  );
-}
-
-function isPrivateIpv6(hostname: string): boolean {
-  const normalized = hostname.toLowerCase();
-  if (normalized === "::" || normalized === "::1") return true;
-  // fc00::/7 (ULA) and fe80::/10 (link-local)
-  if (/^f[cd][0-9a-f]{2}:/i.test(normalized) || /^fe[89ab][0-9a-f]:/i.test(normalized)) return true;
-  const mappedIpv4 = normalized.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
-  return mappedIpv4 ? isPrivateIpv4(mappedIpv4[1]) : false;
-}
-
-/** 拒绝本机、私网、链路本地和 IPv4-mapped IPv6 主机。 */
-export function isPrivateOrLocalHostname(rawHostname: string): boolean {
-  const hostname = rawHostname
-    .toLowerCase()
-    .replace(/^\[|\]$/g, "")
-    .replace(/\.$/, "");
-  if (hostname === "localhost" || hostname.endsWith(".localhost")) return true;
-  return isPrivateIpv4(hostname) || isPrivateIpv6(hostname);
-}
-
-/**
- * 拒绝本机、私网、链路本地和 IPv4-mapped IPv6 地址。
- * URL 会规范化 2130706433、127.1 等数字 IPv4 写法，再检查 hostname。
- */
-export function isPrivateOrLocalUrl(rawUrl: string): boolean {
-  try {
-    return isPrivateOrLocalHostname(new URL(rawUrl.trim()).hostname);
-  } catch {
-    // 无效 URL 会由调用方报告格式错误；这里不作为私网地址处理。
-    return false;
-  }
-}
-
-// ── 管理员鉴权 ────────────────────────────────────────────
-export function requireAdminKey(providedKey: unknown): boolean {
-  const adminKey = process.env.ADMIN_KEY;
-  if (!adminKey) return false; // 未配置 = 禁止
-  if (typeof providedKey !== "string") return false;
-  // 常量时间比较防时序攻击
-  if (providedKey.length !== adminKey.length) return false;
-  const a = Buffer.from(providedKey);
-  const b = Buffer.from(adminKey);
-  let result = 0;
-  for (let i = 0; i < a.length; i++) result |= a[i] ^ b[i];
-  return result === 0;
-}
-
 // ── 安全 JSON.parse ───────────────────────────────────────
 export { safeJsonParse } from "./json-helper";
+
