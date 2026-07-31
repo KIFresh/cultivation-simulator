@@ -5,6 +5,7 @@ import TopNav from "@/components/top-nav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import { getRootInfo, formatSpiritualRootLabel } from "@/lib/cultivation-data";
 
 interface TechniqueRecord {
   id: string;
@@ -27,17 +28,65 @@ interface Technique {
   category: "功法" | "技艺";
 }
 
+interface CultivatorData {
+  id: string;
+  name: string;
+  spiritualRoot: string;
+  realm: string;
+  realmLevel: number;
+  age: number;
+  cultivationExp: number;
+  attributes: Record<string, number>;
+}
+
+const ATTR_INFO = [
+  { key: "root", label: "根骨", icon: "🦴" },
+  { key: "spirit", label: "神识", icon: "👁" },
+  { key: "insight", label: "悟性", icon: "💡" },
+  { key: "luck", label: "气运", icon: "🍀" },
+  { key: "charm", label: "魅力", icon: "✨" },
+  { key: "mind", label: "道心", icon: "🧘" },
+];
+
+const REALM_ORDER = [
+  "凡人", "炼气期", "筑基期", "金丹期", "元婴期", "化神期", "炼虚期", "合体期", "大乘期", "渡劫期",
+];
+
 export default function SkillsPage() {
   const [records, setRecords] = useState<TechniqueRecord[]>([]);
   const [allTech, setAllTech] = useState<Record<string, Technique>>({});
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"功法" | "技艺">("功法");
   const [userId, setUserId] = useState<string | null>(null);
+  const [cultivator, setCultivator] = useState<CultivatorData | null>(null);
 
   useEffect(() => {
     const id = localStorage.getItem("userId");
     if (id) setUserId(id);
   }, []);
+
+  const fetchCultivator = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const res = await fetch(`/api/cultivator?userId=${userId}`);
+      const data = await res.json();
+      if (data.user?.cultivator) {
+        const c = data.user.cultivator;
+        setCultivator({
+          id: c.id,
+          name: c.name,
+          spiritualRoot: c.spiritualRoot,
+          realm: c.realm,
+          realmLevel: c.realmLevel || 0,
+          age: c.age,
+          cultivationExp: c.cultivationExp || 0,
+          attributes: typeof c.attributes === "string" ? JSON.parse(c.attributes || "{}") : c.attributes || {},
+        });
+      }
+    } catch {
+      // ignore
+    }
+  }, [userId]);
 
   const fetchTechniques = useCallback(async () => {
     if (!userId) return;
@@ -52,8 +101,9 @@ export default function SkillsPage() {
   }, [userId]);
 
   useEffect(() => {
+    fetchCultivator();
     fetchTechniques();
-  }, [fetchTechniques]);
+  }, [fetchCultivator, fetchTechniques]);
 
   const getTech = (id: string) => allTech[id];
 
@@ -120,25 +170,11 @@ export default function SkillsPage() {
     (slot) => !filteredEquipped.some((r) => r.equipSlot === slot)
   );
 
-  if (records.length === 0) {
-    return (
-      <main className="min-h-screen bg-[#FAF7F3]">
-        <TopNav />
-        <div className="max-w-2xl mx-auto px-4 py-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>📖 技能</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground text-center py-8">
-                你还没有学会任何功法或技艺
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </main>
-    );
-  }
+  // Calculate exp progress
+  const currentRealmIndex = REALM_ORDER.indexOf(cultivator?.realm || "凡人");
+  const nextRealm = currentRealmIndex < REALM_ORDER.length - 1 ? REALM_ORDER[currentRealmIndex + 1] : null;
+  const expForNext = cultivator ? (cultivator.realmLevel + 1) * 100 : 100;
+  const expProgress = cultivator ? (cultivator.cultivationExp / expForNext) * 100 : 0;
 
   return (
     <main className="min-h-screen bg-[#FAF7F3]">
@@ -148,6 +184,56 @@ export default function SkillsPage() {
           <h1 className="text-xl font-bold text-[#2C1E1E]">📖 技能</h1>
           <p className="text-xs text-[#8B7355] mt-1">功法和技艺，提升修为与生活的能力</p>
         </div>
+
+        {/* 基础属性面板 */}
+        {cultivator && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <span>🧑‍🎤</span>
+                <span>{cultivator.name}</span>
+                <span className="text-xs font-normal text-[#8B7355]">
+                  {formatSpiritualRootLabel(cultivator.spiritualRoot)} · {cultivator.realm} · {cultivator.age}岁
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* 经验值进度条 */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-[#8B7355]">
+                    修为经验 {cultivator.cultivationExp}/{expForNext}
+                  </span>
+                  {nextRealm && (
+                    <span className="text-xs text-[#B83227]">下一境界：{nextRealm}</span>
+                  )}
+                </div>
+                <div className="h-2 bg-[#EADCD0] rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-[#B83227] to-[#D49B4B] rounded-full transition-all"
+                    style={{ width: `${Math.min(100, expProgress)}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* 属性网格 */}
+              <div className="grid grid-cols-3 gap-2">
+                {ATTR_INFO.map((attr) => (
+                  <div
+                    key={attr.key}
+                    className="rounded-xl border border-[#EADCD0] bg-[#FAF7F3] p-2 text-center"
+                  >
+                    <p className="text-sm">{attr.icon}</p>
+                    <p className="text-[10px] text-[#8B7355]">{attr.label}</p>
+                    <p className="font-mono font-bold text-sm text-[#2C1E1E]">
+                      {Math.round(cultivator.attributes?.[attr.key] || 0)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* 标签切换 */}
         <div className="flex gap-2">
@@ -170,6 +256,9 @@ export default function SkillsPage() {
             已装备 ({filteredEquipped.length}/3)
           </h2>
           <div className="space-y-2">
+            {filteredEquipped.length === 0 && emptySlots.length === 3 && (
+              <p className="text-xs text-[#8B7355] text-center py-4">尚未装备任何{activeTab}</p>
+            )}
             {filteredEquipped.map((record) => {
               const tech = getTech(record.techniqueId);
               if (!tech) return null;
