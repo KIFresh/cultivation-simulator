@@ -4,11 +4,13 @@ import { AppError, withApiErrorHandling, parseJsonBody, serviceUnavailable, badR
 import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 
-async function loadApiKey(type: string, index: number): Promise<string | null> {
+async function loadApiKey(index: number): Promise<string | null> {
+  if (!Number.isInteger(index) || index < 1 || index > 3) return null;
   try {
-    const allSettings = await prisma.appSetting.findMany();
-    const match = allSettings.find(s => s.key === `AI_PROVIDER_${index}_KEY`);
-    return match?.value || null;
+    const setting = await prisma.appSetting.findUnique({
+      where: { key: `AI_PROVIDER_${index}_KEY` },
+    });
+    return setting?.value || null;
   } catch {
     return null;
   }
@@ -17,7 +19,11 @@ async function loadApiKey(type: string, index: number): Promise<string | null> {
 async function handler(request: NextRequest) {
   try {
     const body = await parseJsonBody(request);
-    let { baseUrl, apiKey, type } = body;
+    let { baseUrl, apiKey, type, providerIndex } = body;
+    providerIndex = Number(providerIndex);
+    if (!Number.isInteger(providerIndex) || providerIndex < 1 || providerIndex > 3) {
+      throw badRequest("缺少有效的供应方配置槽位");
+    }
 
     if (!type) {
       throw badRequest("缺少供应方类型");
@@ -47,13 +53,8 @@ async function handler(request: NextRequest) {
     }
     if (!apiKey) {
       // 如果前端未提供 API Key，尝试从数据库读取已保存的 Key
-      for (let i = 1; i <= 3; i++) {
-        const saved = await loadApiKey(type, i);
-        if (saved) {
-          apiKey = saved;
-          break;
-        }
-      }
+      const saved = await loadApiKey(providerIndex);
+      if (saved) apiKey = saved;
       if (!apiKey) {
         throw badRequest("请填写 API Key，或先保存配置后再试");
       }

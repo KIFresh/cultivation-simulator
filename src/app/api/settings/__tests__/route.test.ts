@@ -47,11 +47,13 @@ describe("settings route — no auth required", () => {
   });
 
   it("保存配置时写入数据库并调用 syncProviderConfig", async () => {
+    mockPrisma.appSetting.upsert.mockResolvedValue({});
+    mockPrisma.appSetting.deleteMany.mockResolvedValue({ count: 1 });
     mockPrisma.$transaction.mockImplementation(async (cb: Function) => {
       const tx = {
         appSetting: {
-          upsert: vi.fn().mockResolvedValue({}),
-          deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+          upsert: mockPrisma.appSetting.upsert,
+          deleteMany: mockPrisma.appSetting.deleteMany,
         },
       };
       return cb(tx);
@@ -67,6 +69,16 @@ describe("settings route — no auth required", () => {
       })
     );
     expect(response.status).toBe(200);
+    expect(mockPrisma.appSetting.upsert).toHaveBeenCalledWith({
+      where: { key: "AI_PROVIDER_1" },
+      update: { value: "openai" },
+      create: { key: "AI_PROVIDER_1", value: "openai" },
+    });
+    expect(mockPrisma.appSetting.upsert).toHaveBeenCalledWith({
+      where: { key: "AI_PROVIDER_1_MODEL" },
+      update: { value: "gpt-4o" },
+      create: { key: "AI_PROVIDER_1_MODEL", value: "gpt-4o" },
+    });
     expect(mockNarrative.syncProviderConfig).toHaveBeenCalled();
   });
 

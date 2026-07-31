@@ -131,10 +131,8 @@ export default function SettingsDialog({
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error ?? "保存失败");
       toast.success("配置已保存");
-      setDirty(false);
-      setProviders((previous) =>
-        previous.map((provider) => ({ ...provider, apiKey: "", clearKey: false }))
-      );
+      // 重新读取脱敏配置，确保保存/清除后的 API Key 状态与 SQLite 一致。
+      await loadSettings();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "保存失败");
     } finally {
@@ -162,6 +160,7 @@ export default function SettingsDialog({
           baseUrl: provider.baseUrl,
           apiKey: provider.apiKey || undefined,
           type: provider.type,
+          providerIndex: index + 1,
         }),
       });
       const data = await response.json().catch(() => null);

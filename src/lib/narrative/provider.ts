@@ -82,23 +82,31 @@ export async function syncProviderConfig(): Promise<void> {
   }
 }
 
+function readSetting(key: string): string | undefined {
+  if (runtimeSettings && Object.prototype.hasOwnProperty.call(runtimeSettings, key)) {
+    return runtimeSettings[key];
+  }
+  return process.env[key];
+}
+
+export function getRuntimeProviderConfig(index: number): ProviderConfig | null {
+  if (!Number.isInteger(index) || index < 1 || index > 3) return null;
+  const type = readSetting(`AI_PROVIDER_${index}`);
+  if (!type || !["anthropic", "openai", "ollama"].includes(type)) return null;
+  const apiKey = readSetting(`AI_PROVIDER_${index}_KEY`) || undefined;
+  const model = readSetting(`AI_PROVIDER_${index}_MODEL`) || "";
+  const baseUrl = readSetting(`AI_PROVIDER_${index}_BASE_URL`) || undefined;
+  return { priority: index, type: type as ProviderConfig["type"], apiKey, model, baseUrl };
+}
+
 function loadProviders(): ProviderConfig[] {
   const providers: ProviderConfig[] = [];
   for (let i = 1; i <= 3; i++) {
-    const type =
-      runtimeSettings?.[`AI_PROVIDER_${i}`] || (process.env[`AI_PROVIDER_${i}`] as string);
-    if (!type) continue;
-    const apiKey =
-      runtimeSettings?.[`AI_PROVIDER_${i}_KEY`] || process.env[`AI_PROVIDER_${i}_KEY`] || undefined;
-    const model =
-      runtimeSettings?.[`AI_PROVIDER_${i}_MODEL`] || process.env[`AI_PROVIDER_${i}_MODEL`] || "";
-    const baseUrl =
-      runtimeSettings?.[`AI_PROVIDER_${i}_BASE_URL`] ||
-      process.env[`AI_PROVIDER_${i}_BASE_URL`] ||
-      undefined;
-    if ((type === "anthropic" || type === "openai") && !apiKey) continue;
-    if (type === "ollama" && !baseUrl) continue;
-    providers.push({ priority: i, type: type as ProviderConfig["type"], apiKey, model, baseUrl });
+    const provider = getRuntimeProviderConfig(i);
+    if (!provider) continue;
+    if ((provider.type === "anthropic" || provider.type === "openai") && !provider.apiKey) continue;
+    if (provider.type === "ollama" && !provider.baseUrl) continue;
+    providers.push(provider);
   }
   return providers;
 }

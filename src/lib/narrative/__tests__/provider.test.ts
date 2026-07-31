@@ -101,6 +101,39 @@ describe("provider.loadProviders", () => {
     });
   });
 
+  it("SQLite 配置优先于同名环境变量", async () => {
+    process.env.AI_PROVIDER_1 = "anthropic";
+    process.env.AI_PROVIDER_1_KEY = "env-key";
+    process.env.AI_PROVIDER_1_MODEL = "env-model";
+    process.env.AI_PROVIDER_1_BASE_URL = "https://env.example/v1";
+    mockPrismaFindMany.mockResolvedValue([
+      { key: "AI_PROVIDER_1", value: "openai" },
+      { key: "AI_PROVIDER_1_KEY", value: "db-key" },
+      { key: "AI_PROVIDER_1_MODEL", value: "db-model" },
+      { key: "AI_PROVIDER_1_BASE_URL", value: "https://db.example/v1" },
+    ]);
+
+    const { callAI } = await import("@/lib/narrative/provider");
+    await expect(callAI({ systemPrompt: "", userPrompt: "" })).resolves.toBe("openai-ok");
+    expect(mockOpenAIChatCompletionsCreate).toHaveBeenCalledWith(expect.objectContaining({ model: "db-model" }));
+  });
+
+  it("SQLite 中显式清空 provider 后不回退到环境变量", async () => {
+    process.env.AI_PROVIDER_1 = "openai";
+    process.env.AI_PROVIDER_1_KEY = "env-key";
+    process.env.AI_PROVIDER_1_MODEL = "env-model";
+    mockPrismaFindMany.mockResolvedValue([
+      { key: "AI_PROVIDER_1", value: "" },
+      { key: "AI_PROVIDER_1_KEY", value: "" },
+    ]);
+
+    const { callAI } = await import("@/lib/narrative/provider");
+    await expect(callAI({ systemPrompt: "", userPrompt: "" })).rejects.toThrow(
+      "NO_PROVIDER_CONFIGURED"
+    );
+    expect(mockOpenAIChatCompletionsCreate).not.toHaveBeenCalled();
+  });
+
   it("环境变量作为 fallback", async () => {
     process.env.AI_PROVIDER_1 = "openai";
     process.env.AI_PROVIDER_1_KEY = "env-key";
