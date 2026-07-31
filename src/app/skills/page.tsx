@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import TopNav from "@/components/top-nav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,7 +28,6 @@ interface Technique {
 }
 
 export default function SkillsPage() {
-  const router = useRouter();
   const [records, setRecords] = useState<TechniqueRecord[]>([]);
   const [allTech, setAllTech] = useState<Record<string, Technique>>({});
   const [loading, setLoading] = useState(false);
@@ -126,10 +124,7 @@ export default function SkillsPage() {
     return (
       <main className="min-h-screen bg-[#FAF7F3]">
         <TopNav />
-        <div className="max-w-2xl mx-auto px-4 py-8 space-y-4">
-          <Button variant="outline" onClick={() => router.push("/dashboard")}>
-            ← 返回仪表盘
-          </Button>
+        <div className="max-w-2xl mx-auto px-4 py-8">
           <Card>
             <CardHeader>
               <CardTitle>📖 技能</CardTitle>
@@ -149,10 +144,6 @@ export default function SkillsPage() {
     <main className="min-h-screen bg-[#FAF7F3]">
       <TopNav />
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-        <Button variant="outline" onClick={() => router.push("/dashboard")}>
-          ← 返回仪表盘
-        </Button>
-
         <div>
           <h1 className="text-xl font-bold text-[#2C1E1E]">📖 技能</h1>
           <p className="text-xs text-[#8B7355] mt-1">功法和技艺，提升修为与生活的能力</p>
