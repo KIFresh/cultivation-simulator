@@ -361,7 +361,6 @@ export default function DashboardPage() {
             cultivatorId={cultivator.id}
             entries={memoryEntries}
             onEntriesChange={setMemoryEntries}
-            narrativeHistory={narrativeHistory}
           />
 
           {isAwake && (

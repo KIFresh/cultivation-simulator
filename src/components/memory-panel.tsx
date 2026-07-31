@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -17,19 +17,15 @@ interface MemoryPanelProps {
   cultivatorId: string;
   entries: StoryEntry[];
   onEntriesChange: (entries: StoryEntry[]) => void;
-  narrativeHistory?: Array<{ title: string; summary?: string }>;
 }
 
-export default function MemoryPanel({ cultivatorId, entries, onEntriesChange, narrativeHistory = [] }: MemoryPanelProps) {
+export default function MemoryPanel({ cultivatorId, entries, onEntriesChange }: MemoryPanelProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [fullEdit, setFullEdit] = useState("");
   const [showFullEdit, setShowFullEdit] = useState(false);
   const [compressing, setCompressing] = useState(false);
-  const [activeTab, setActiveTab] = useState<"recent" | "all">("recent");
-
-  const recentNarratives = useMemo(() => narrativeHistory.slice(0, 10), [narrativeHistory]);
 
   const summaryText = entries
     .map((e) => `${e.important ? "⭐ " : ""}【${e.title}】${e.summary}`)
@@ -119,36 +115,6 @@ export default function MemoryPanel({ cultivatorId, entries, onEntriesChange, na
     }
   };
 
-  if (!entries || entries.length === 0)
-    return (
-      <div className="border border-border bg-card rounded-lg shadow-sm">
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="w-full flex items-center justify-between p-3 text-sm font-medium text-foreground hover:bg-muted/50"
-        >
-          <span>📖 道心明镜</span>
-          <span>{collapsed ? "▶" : "▼"}</span>
-        </button>
-        {!collapsed && recentNarratives.length > 0 && (
-          <div className="px-3 pb-3 space-y-1">
-            {recentNarratives.map((n, i) => (
-              <p key={i} className="text-gray-400 text-xs border-b border-[#EADCD0] pb-1 last:border-0">
-                {n.title}
-              </p>
-            ))}
-          </div>
-        )}
-        {!collapsed && recentNarratives.length === 0 && (
-          <div className="px-3 pb-3">
-            <p className="text-xs text-muted-foreground text-center">暂无记忆</p>
-            <p className="text-[10px] text-muted-foreground text-center mt-1">
-              推进年份或执行行动后，AI 将自动记录故事
-            </p>
-          </div>
-        )}
-      </div>
-    );
-
   return (
     <div className="border border-border bg-card rounded-lg shadow-sm">
       <button
@@ -160,115 +126,38 @@ export default function MemoryPanel({ cultivatorId, entries, onEntriesChange, na
       </button>
 
       {!collapsed && (
-        <div className="px-3 pb-3">
-          <div className="flex gap-2 mb-3">
-            <button
-              onClick={() => setActiveTab("recent")}
-              className={`text-xs px-2 py-1 rounded ${
-                activeTab === "recent" ? "bg-[#B83227] text-white" : "bg-[#FAF7F3] text-[#8B7355] hover:bg-[#EADCD0]"
-              }`}
-            >
-              最近记录
-            </button>
-            <button
-              onClick={() => setActiveTab("all")}
-              className={`text-xs px-2 py-1 rounded ${
-                activeTab === "all" ? "bg-[#B83227] text-white" : "bg-[#FAF7F3] text-[#8B7355] hover:bg-[#EADCD0]"
-              }`}
-            >
-              全部记忆 ({entries.length})
-            </button>
+        <div className="px-3 pb-3 space-y-2">
+          <div className="space-y-1 max-h-[10rem] overflow-y-auto">
+            {sortedEntries.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">暂无记忆</p>
+            ) : (
+              sortedEntries.slice(0, 5).map((entry) => (
+                <div key={entry.id} className="text-xs py-1 border-b border-[#EADCD0] last:border-0">
+                  <span className="text-[#2C1E1E] font-medium">{entry.title}</span>
+                  {entry.summary && <span className="text-[#8B7355] ml-2 truncate">{entry.summary}</span>}
+                </div>
+              ))
+            )}
           </div>
 
-          {activeTab === "recent" ? (
-            <div className="space-y-1 max-h-48 overflow-y-auto">
-              {recentNarratives.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-4">暂无最近记录</p>
-              ) : (
-                recentNarratives.map((n, i) => (
-                  <div key={i} className="text-xs py-1.5 border-b border-[#EADCD0] last:border-0">
-                    <p className="text-[#2C1E1E] font-medium">{n.title}</p>
-                    {n.summary && <p className="text-[#8B7355] truncate mt-0.5">{n.summary}</p>}
-                  </div>
-                ))
-              )}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {sortedEntries.map((entry) => (
-                <div key={entry.id} className="flex items-center gap-2 text-sm py-1 border-b border-muted last:border-0">
-                  <button
-                    onClick={() => toggleImportant(entry.id)}
-                    className="text-base shrink-0"
-                    title={entry.important ? "取消重要标记" : "标记为重要"}
-                  >
-                    {entry.important ? "⭐" : "☆"}
-                  </button>
-                  <span className="text-foreground font-medium shrink-0">{entry.title}</span>
-                  {editingId === entry.id ? (
-                    <Input
-                      value={editText}
-                      onChange={(e) => setEditText(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && saveEdit(entry.id)}
-                      className="flex-1 h-7 text-xs"
-                      autoFocus
-                    />
-                  ) : (
-                    <span className="text-muted-foreground flex-1 truncate text-xs">{entry.summary}</span>
-                  )}
-                  <div className="flex gap-1 shrink-0">
-                    {editingId === entry.id ? (
-                      <button onClick={() => saveEdit(entry.id)} className="text-xs text-primary hover:underline">保存</button>
-                    ) : (
-                      <button onClick={() => startEdit(entry)} className="text-xs text-muted-foreground hover:text-foreground" title="编辑">✏️</button>
-                    )}
-                    <button onClick={() => deleteEntry(entry.id)} className="text-xs text-muted-foreground hover:text-red-500" title="删除">🗑️</button>
-                  </div>
-                </div>
-              ))}
+          {sortedEntries.length > 5 && (
+            <p className="text-[10px] text-[#8B7355] text-center">
+              共 {sortedEntries.length} 条记忆，向上滚动查看更多
+            </p>
+          )}
 
-              {showFullEdit ? (
-                <div className="space-y-1 pt-2">
-                  <textarea
-                    value={fullEdit}
-                    onChange={(e) => setFullEdit(e.target.value)}
-                    className="w-full h-24 text-xs p-2 border border-border rounded bg-white text-foreground resize-none"
-                    placeholder="编辑完整的记忆文本…"
-                  />
-                  <div className="flex gap-2">
-                    <Button size="sm" className="flex-1 h-7 text-xs" onClick={saveFullEdit}>保存</Button>
-                    <Button size="sm" variant="outline" className="flex-1 h-7 text-xs" onClick={() => setShowFullEdit(false)}>取消</Button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={() => { setFullEdit(summaryText); setShowFullEdit(true); }}
-                  className="text-xs text-muted-foreground hover:text-primary pt-1"
-                >
-                  📝 编辑全文概要
-                </button>
-              )}
-
-              <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground">
-                <span>共 {entries.length} 条 · {summaryText.length} 字</span>
-                <div className="relative group">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs"
-                    onClick={handleCompress}
-                    disabled={compressing || entries.filter((e) => !e.important).length === 0}
-                  >
-                    {compressing ? "压缩中..." : "🔄 压缩记忆"}
-                  </Button>
-                  {entries.filter((e) => !e.important).length === 0 && !compressing && (
-                    <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-800 text-white text-[10px] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                      无可压缩记忆
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
-                    </div>
-                  )}
-                </div>
-              </div>
+          {sortedEntries.length > 0 && (
+            <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground border-t border-[#EADCD0]">
+              <span>共 {sortedEntries.length} 条</span>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={handleCompress}
+                disabled={compressing || entries.filter((e) => !e.important).length === 0}
+              >
+                {compressing ? "压缩中..." : "🔄 压缩"}
+              </Button>
             </div>
           )}
         </div>
