@@ -705,12 +705,20 @@ ${params.giftDecision ? `【服务端结算】本次行动馈赠：获得金币 
   if (params.actionName === "自由探索") postHint = "随心行动";
 
   try {
-    const text = await callAI({
+    let text = await callAI({
       systemPrompt: buildSystemPrompt(params.worldId),
       userPrompt: prompt,
-      maxTokens: 800,
+      maxTokens: 2000,
       temperature: 0.85,
     });
+    if (!text || !text.trim()) {
+      text = await callAI({
+        systemPrompt: buildSystemPrompt(params.worldId),
+        userPrompt: prompt,
+        maxTokens: 2000,
+        temperature: 0.85,
+      });
+    }
     const result = extractJson(text, {
       type: "ACTION" as const,
       title: params.actionName,

@@ -130,7 +130,7 @@ export function unprocessable(message = "请求无法处理", cause?: unknown): 
 }
 
 export function serviceUnavailable(message = "服务暂时不可用", cause?: unknown): AppError {
-  return new AppError({ code: ErrorCode.SERVICE_UNAVAILABLE, message, status: 502, cause });
+  return new AppError({ code: ErrorCode.SERVICE_UNAVAILABLE, message, status: 503, cause });
 }
 
 // ── 安全 JSON 解析 ──────────────────────────────────────────
