@@ -30,6 +30,7 @@ import {
   calcTravelCostByMode,
   calculateMaxStamina,
   calculateYearlyAttributeGrowth,
+  formatSpiritualRootLabel,
   parseOccupationFromNarrative,
   getAvailableActivities,
   applyActivityEffects,
@@ -77,6 +78,33 @@ describe("cultivation-data", () => {
     it("should return fallback for unknown root", () => {
       const info = getRootInfo("unknown");
       expect(info.speedBonus).toBe(1.0);
+    });
+  });
+
+  describe("formatSpiritualRootLabel", () => {
+    it("应该将 木_中品 转换为 木灵根 · 中品（不传 realm）", () => {
+      expect(formatSpiritualRootLabel("木_中品")).toBe("木灵根 · 中品");
+    });
+
+    it("应该处理 chaos 灵根（不传 realm）", () => {
+      expect(formatSpiritualRootLabel("chaos")).toBe("杂灵根");
+    });
+
+    it("凡人未觉醒时应追加 · 未觉醒", () => {
+      expect(formatSpiritualRootLabel("木_中品", undefined, "凡人")).toBe("木灵根 · 中品 · 未觉醒");
+      expect(formatSpiritualRootLabel("天灵根", undefined, "凡人")).toBe("天灵根 · 未觉醒");
+      expect(formatSpiritualRootLabel("chaos", undefined, "凡人")).toBe("杂灵根 · 未觉醒");
+    });
+
+    it("已觉醒（非凡人）时不应追加 · 未觉醒", () => {
+      expect(formatSpiritualRootLabel("木_中品", undefined, "炼气期")).toBe("木灵根 · 中品");
+      expect(formatSpiritualRootLabel("天灵根", undefined, "筑基期")).toBe("天灵根");
+      expect(formatSpiritualRootLabel("chaos", undefined, "金丹期")).toBe("杂灵根");
+    });
+
+    it("未传入 realm 时不应追加 · 未觉醒（安全降级）", () => {
+      expect(formatSpiritualRootLabel("木_中品")).toBe("木灵根 · 中品");
+      expect(formatSpiritualRootLabel("天灵根")).toBe("天灵根");
     });
   });
 

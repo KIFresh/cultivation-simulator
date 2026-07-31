@@ -188,7 +188,7 @@ export default function SkillsPage() {
                 <span>🧑‍🎤</span>
                 <span>{cultivator.name}</span>
                 <span className="text-xs font-normal text-[#8B7355]">
-                  {formatSpiritualRootLabel(cultivator.spiritualRoot)} · {cultivator.realm} · {cultivator.age}岁
+                  {formatSpiritualRootLabel(cultivator.spiritualRoot, undefined, cultivator.realm)} · {cultivator.realm} · {cultivator.age}岁
                 </span>
               </CardTitle>
             </CardHeader>

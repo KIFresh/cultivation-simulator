@@ -163,7 +163,8 @@ export default function DashboardPage() {
                 <span className="text-[#D49B4B] font-bold">
                   {formatSpiritualRootLabel(
                     cultivator.spiritualRoot,
-                    getRootInfo(cultivator.spiritualRoot)
+                    getRootInfo(cultivator.spiritualRoot),
+                    cultivator.realm
                   )}
                 </span>
                 <span className="text-gray-300">|</span>

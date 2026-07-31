@@ -140,17 +140,18 @@ export function getRootInfo(
   return info;
 }
 
-export function formatSpiritualRootLabel(rootKey: string, info?: SpiritualRootInfo): string {
+export function formatSpiritualRootLabel(rootKey: string, info?: SpiritualRootInfo, realm?: string): string {
   const rootInfo = info ?? getRootInfo(rootKey);
   if (rootKey === "chaos") {
-    return "杂灵根";
+    return realm === MORTAL_REALM ? "杂灵根 · 未觉醒" : "杂灵根";
   }
   // 新格式: 木_中品 → 木灵根 · 中品
   const match = rootKey.match(/^(金|木|水|火|土)_(上品|中品|下品)$/);
   if (match) {
-    return `${match[1]}灵根 · ${match[2]}`;
+    const base = `${match[1]}灵根 · ${match[2]}`;
+    return realm === MORTAL_REALM ? `${base} · 未觉醒` : base;
   }
-  return rootInfo.name;
+  return realm === MORTAL_REALM ? `${rootInfo.name} · 未觉醒` : rootInfo.name;
 }
 
 // ============================================================
