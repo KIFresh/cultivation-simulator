@@ -10,6 +10,7 @@ export type NarrativeErrorPayload = {
   message: string;
   gameEventId: string | null;
   params?: unknown;
+  requestId?: string;
 };
 
 export interface NarrativeData {
@@ -30,7 +31,8 @@ interface StreamChunk {
   narrative?: NarrativeData;
   narrativeError?: NarrativeErrorPayload;
   committed?: { gameEventId?: string; characterName?: string };
-  done?: { result: unknown };
+  done?: boolean;
+  result?: unknown;
   fullText?: string;
   error?: unknown;
 }
@@ -51,6 +53,7 @@ export async function fetchStreamNarrative(
   }
 ): Promise<NarrativeResult> {
   const result: NarrativeResult = {};
+  let requestId: string | undefined;
   try {
     const res = await fetch(url, {
       method: "POST",
@@ -59,6 +62,8 @@ export async function fetchStreamNarrative(
       signal: opts?.signal,
     });
 
+    requestId =
+      typeof res.headers?.get === "function" ? res.headers.get("x-request-id") || undefined : undefined;
     if (!res.ok || !res.body) {
       const payload = await res.json().catch(() => null) as {
         error?: string;
@@ -71,6 +76,7 @@ export async function fetchStreamNarrative(
           message: payload?.error || "叙事服务响应异常",
           gameEventId: null,
           params: body,
+          requestId,
         },
       };
     }
@@ -114,9 +120,9 @@ export async function fetchStreamNarrative(
           if (chunk.narrativeError) {
             result.narrativeError = chunk.narrativeError;
           }
-          if (chunk.done && chunk.done.result) {
+          if (chunk.done && chunk.result) {
             // done 事件携带完整业务载荷，合并到 result.narrative
-            const doneResult = chunk.done.result as Record<string, unknown>;
+            const doneResult = chunk.result as Record<string, unknown>;
             result.narrative = { ...(result.narrative ?? {}), ...doneResult };
             if (doneResult.characterName) {
               result.characterName = doneResult.characterName as string;
@@ -124,11 +130,16 @@ export async function fetchStreamNarrative(
             continue;
           }
           if (chunk.error) {
-            const errMsg =
-              typeof chunk.error === "string"
+            const errorObject = typeof chunk.error === "object" && chunk.error
+              ? chunk.error as Record<string, unknown>
+              : null;
+            const nestedError = errorObject?.narrativeError;
+            if (nestedError && typeof nestedError === "object") {
+              result.narrativeError = nestedError as NarrativeErrorPayload;
+            } else if (!result.narrativeError) {
+              const errMsg = typeof chunk.error === "string"
                 ? chunk.error
-                : (chunk.error as Record<string, unknown>)?.message;
-            if (!result.narrativeError) {
+                : errorObject?.message;
               result.narrativeError = {
                 type: "STREAM",
                 code: "STREAM_ERROR",
@@ -146,7 +157,7 @@ export async function fetchStreamNarrative(
 
     if (result.narrativeError) {
       return {
-        narrativeError: result.narrativeError,
+        narrativeError: { ...result.narrativeError, requestId },
         characterName: result.characterName,
       };
     }
@@ -166,6 +177,7 @@ export async function fetchStreamNarrative(
         message: err instanceof Error ? err.message : String(err),
         gameEventId: null,
         params: body,
+        requestId,
       },
       characterName: result.characterName,
     };

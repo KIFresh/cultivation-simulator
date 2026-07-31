@@ -11,6 +11,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { logger } from "./logger";
 
+function requestIdFrom(request: NextRequest): string {
+  const getHeader = request.headers && typeof request.headers.get === "function" ? request.headers.get.bind(request.headers) : undefined;
+  return getHeader?.("x-request-id") || crypto.randomUUID();
+}
+
+function requestPath(request: NextRequest): string {
+  try {
+    return new URL(request.url).pathname;
+  } catch {
+    return request.url || "unknown";
+  }
+}
+
 // ── 错误码常量 ──────────────────────────────────────────────
 export const ErrorCode = {
   INVALID_JSON: "INVALID_JSON",
@@ -145,14 +158,17 @@ export async function parseJsonBody(request: Request): Promise<any> {
 }
 
 // ── 安全响应生成 ────────────────────────────────────────────
-export function toApiErrorResponse(error: unknown): NextResponse {
+export function toApiErrorResponse(error: unknown, requestId?: string): NextResponse {
+  const headers = requestId ? { "x-request-id": requestId } : undefined;
   if (error instanceof AppError) {
-    return NextResponse.json(error.toJSON(), { status: error.status });
+    return NextResponse.json(error.toJSON(), { status: error.status, headers });
   }
 
-  // 未知异常：脱敏后返回通用 500
-  logger.error("[api-error] 未捕获的异常，已脱敏", error);
-  return NextResponse.json({ error: "服务器内部错误", code: ErrorCode.INTERNAL }, { status: 500 });
+  logger.error("[api-error] 未捕获的异常", { requestId, error });
+  return NextResponse.json(
+    { error: "服务器内部错误，请稍后重试", code: ErrorCode.INTERNAL, requestId },
+    { status: 500, headers }
+  );
 }
 
 // ── Handler 包装器 ──────────────────────────────────────────
@@ -170,10 +186,32 @@ type ApiHandler = (
  */
 export function withApiErrorHandling(handler: ApiHandler): ApiHandler {
   return async (request: NextRequest, context: NextContext) => {
+    const requestId = requestIdFrom(request);
+    const startedAt = Date.now();
     try {
-      return await handler(request, context);
+      const response = await handler(request, context);
+      if (response.headers && typeof response.headers.set === "function") {
+        response.headers.set("x-request-id", requestId);
+      }
+      logger.info("[api] request completed", {
+        requestId,
+        method: request.method,
+        path: requestPath(request),
+        status: response.status,
+        durationMs: Date.now() - startedAt,
+      });
+      return response;
     } catch (error) {
-      return toApiErrorResponse(error);
+      const response = toApiErrorResponse(error, requestId);
+      logger.error("[api] request failed", {
+        requestId,
+        method: request.method,
+        path: requestPath(request),
+        status: response.status,
+        durationMs: Date.now() - startedAt,
+        error,
+      });
+      return response;
     }
   };
 }

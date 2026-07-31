@@ -1,10 +1,6 @@
 /**
  * 结构化日志工具。
- *
- * - 按级别分别输出到 console.debug / info / warn / error。
- * - 保留对象结构和 Error.stack，不将对象压缩为 [object Object]。
- * - 支持结构化上下文：route、operation、requestId。
- * - 默认 minLevel=info，debug 在生产环境被抑制。
+ * 日志只保留可排查的上下文，并在输出前递归脱敏。
  */
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
@@ -16,8 +12,37 @@ const LEVEL_ORDER: Record<LogLevel, number> = {
   error: 3,
 };
 
-// 防止重复注册格式化
-let FORMATTER_REGISTERED = false;
+const SENSITIVE_KEY = /(?:authorization|cookie|set-cookie|api[-_]?key|token|secret|password|credential|request[-_]?body|body)/i;
+const SENSITIVE_VALUE = /(api[-_]?key|authorization|token|secret|password)(\s*[:=]\s*(?:bearer\s+)?)?[^\s,;]+/gi;
+const BEARER_VALUE = /(bearer\s+)[^\s,;]+/gi;
+const REDACTED = "[REDACTED]";
+
+export function redactString(value: string): string {
+  return value
+    .replace(SENSITIVE_VALUE, (_match, key: string, separator = "") => `${key}${separator}${REDACTED}`)
+    .replace(BEARER_VALUE, (_match, prefix: string) => `${prefix}${REDACTED}`);
+}
+
+export function redactLogValue(value: unknown, seen = new WeakSet<object>()): unknown {
+  if (typeof value === "string") return redactString(value);
+  if (value instanceof Error) {
+    const safe = new Error(redactString(value.message));
+    safe.name = value.name;
+    if (value.stack) safe.stack = redactString(value.stack);
+    return safe;
+  }
+  if (Array.isArray(value)) return value.map((item) => redactLogValue(item, seen));
+  if (value && typeof value === "object") {
+    if (seen.has(value)) return "[Circular]";
+    seen.add(value);
+    const output: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value)) {
+      output[key] = SENSITIVE_KEY.test(key) ? REDACTED : redactLogValue(entry, seen);
+    }
+    return output;
+  }
+  return value;
+}
 
 class Logger {
   private minLevel: LogLevel;
@@ -33,49 +58,36 @@ class Logger {
   private formatArgs(args: unknown[], prefix?: string): unknown[] {
     const result: unknown[] = [];
     if (prefix) result.push(`[${prefix.toUpperCase()}]`);
-    // 将非 Error 字符串拼接到一起，其他类型保留原样
     let textParts: string[] = [];
-    for (const a of args) {
-      if (typeof a === "string") {
-        textParts.push(a);
-      } else if (a instanceof Error) {
-        if (textParts.length > 0) {
-          result.push(textParts.join(" "));
-          textParts = [];
-        }
-        result.push(a);
+    for (const arg of args) {
+      if (typeof arg === "string") {
+        textParts.push(redactString(arg));
       } else {
         if (textParts.length > 0) {
           result.push(textParts.join(" "));
           textParts = [];
         }
-        result.push(a);
+        result.push(redactLogValue(arg));
       }
     }
-    if (textParts.length > 0) {
-      result.push(textParts.join(" "));
-    }
+    if (textParts.length > 0) result.push(textParts.join(" "));
     return result;
   }
 
   debug(...args: unknown[]): void {
-    if (!this.shouldLog("debug")) return;
-    console.debug(...this.formatArgs(args, "debug"));
+    if (this.shouldLog("debug")) console.debug(...this.formatArgs(args, "debug"));
   }
 
   info(...args: unknown[]): void {
-    if (!this.shouldLog("info")) return;
-    console.info(...this.formatArgs(args, "info"));
+    if (this.shouldLog("info")) console.info(...this.formatArgs(args, "info"));
   }
 
   warn(...args: unknown[]): void {
-    if (!this.shouldLog("warn")) return;
-    console.warn(...this.formatArgs(args, "warn"));
+    if (this.shouldLog("warn")) console.warn(...this.formatArgs(args, "warn"));
   }
 
   error(...args: unknown[]): void {
-    if (!this.shouldLog("error")) return;
-    console.error(...this.formatArgs(args, "error"));
+    if (this.shouldLog("error")) console.error(...this.formatArgs(args, "error"));
   }
 
   setMinLevel(level: LogLevel): void {
@@ -84,5 +96,4 @@ class Logger {
 }
 
 export const logger = new Logger();
-
 export { Logger };

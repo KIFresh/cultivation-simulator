@@ -65,7 +65,9 @@ describe("streamNarrativeResult", () => {
     const errorObj = result.onError(new Error("出错了"));
     expect(errorObj).toEqual({
       gameEventId: "e1",
-      message: "出错了",
+      type: "NARRATIVE",
+      code: "NARRATIVE_FAILED",
+      message: "出生叙事生成失败，请稍后重试",
     });
   });
 
@@ -74,7 +76,9 @@ describe("streamNarrativeResult", () => {
     const errorObj = result.onError("字符串错误");
     expect(errorObj).toEqual({
       gameEventId: "e1",
-      message: "字符串错误",
+      type: "NARRATIVE",
+      code: "NARRATIVE_FAILED",
+      message: "出生叙事生成失败，请稍后重试",
     });
   });
 });

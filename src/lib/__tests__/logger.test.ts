@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { Logger, logger } from "@/lib/logger";
+import { Logger, logger, redactLogValue, redactString } from "@/lib/logger";
 
 describe("Logger", () => {
   const log = new Logger("debug");
@@ -27,6 +27,26 @@ describe("Logger", () => {
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
     logger.setMinLevel("info");
+  });
+
+  it("脱敏敏感字段和 Authorization 字符串", () => {
+    const safeText = redactString("Authorization: Bearer secret-token token=abc secret=def password=pw");
+    expect(safeText).toContain("[REDACTED]");
+    expect(safeText).not.toContain("secret-token");
+    expect(safeText).not.toContain("abc");
+    expect(safeText).not.toContain("def");
+    expect(safeText).not.toContain("pw");
+    expect(redactLogValue({ apiKey: "secret", nested: { password: "pw" } })).toEqual({
+      apiKey: "[REDACTED]",
+      nested: { password: "[REDACTED]" },
+    });
+  });
+
+  it("脱敏 Error 的 message 和 stack", () => {
+    const error = new Error("apiKey=secret");
+    const safe = redactLogValue(error) as Error;
+    expect(safe.message).toBe("apiKey=[REDACTED]");
+    expect(safe.stack).not.toContain("apiKey=secret");
   });
 
   it("warn 使用 console.warn", () => {

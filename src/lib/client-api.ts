@@ -12,7 +12,7 @@ export interface ApiClientError {
   status: number;
   code: string;
   message: string;
-  raw?: unknown;
+  requestId?: string;
 }
 
 export interface ApiClientSuccess<T> {
@@ -25,6 +25,7 @@ export type ApiClientResult<T> = ApiClientSuccess<T> | ApiClientError;
 
 /** 安全的默认用户提示映射 */
 function defaultMessage(status: number, code?: string): string {
+  if (code === "EXTERNAL_FAILED" || code === "SERVICE_UNAVAILABLE") return "外部服务暂时不可用，请稍后重试";
   if (status === 401) return "未登录或会话已过期，请重新登录";
   if (status === 403) return "无权限执行此操作";
   if (status === 404) return "请求的资源不存在";
@@ -34,6 +35,12 @@ function defaultMessage(status: number, code?: string): string {
   if (status >= 500) return "服务器内部错误，请稍后重试";
   return "请求失败，请检查网络连接";
 }
+
+const SAFE_ERROR_CODES = new Set([
+  "INVALID_JSON", "MISSING_FIELD", "INVALID_PARAM", "AUTH_REQUIRED", "FORBIDDEN",
+  "NOT_FOUND", "CONFLICT", "UNPROCESSABLE", "RATE_LIMITED", "EXTERNAL_FAILED",
+  "SERVICE_UNAVAILABLE",
+]);
 
 // ── 安全 fetch ──────────────────────────────────────────────
 /**
@@ -56,13 +63,15 @@ export async function safeFetch<T = unknown>(
     if (!res.ok) {
       const body = (data as Record<string, unknown>) ?? {};
       const code = (body.code as string) || "";
-      const message = (body.error as string) || defaultMessage(res.status, code);
+      const safeCode = SAFE_ERROR_CODES.has(code) ? code : "";
+      const requestId = res.headers.get("x-request-id") || (body.requestId as string | undefined);
+      const message = safeCode ? defaultMessage(res.status, safeCode) : defaultMessage(res.status);
       return {
         ok: false,
         status: res.status,
-        code: code || `HTTP_${res.status}`,
+        code: safeCode || `HTTP_${res.status}`,
         message,
-        raw: data,
+        requestId,
       };
     }
 
@@ -78,7 +87,7 @@ export async function safeFetch<T = unknown>(
       status: 0,
       code: "NETWORK_ERROR",
       message,
-      raw: error,
+      requestId: undefined,
     };
   }
 }

@@ -50,6 +50,21 @@ describe("stream-client", () => {
       expect(result.narrativeError!.code).toBe("EMPTY_RESPONSE");
       expect(result.narrativeError!.message).toContain("空内容");
     });
+
+    it("should preserve nested narrativeError in SSE", async () => {
+      const body = new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode(
+            'data: {"error":{"narrativeError":{"type":"NARRATIVE","code":"PROVIDER_TIMEOUT","message":"AI 叙事服务响应超时，请稍后重试","gameEventId":"evt-1"}}}\n\n'
+          ));
+          controller.close();
+        },
+      });
+      global.fetch = vi.fn().mockResolvedValue({ ok: true, body });
+      const result = await fetchStreamNarrative("/api/narrative?stream=true", {});
+      expect(result.narrativeError?.code).toBe("PROVIDER_TIMEOUT");
+      expect(result.narrativeError?.gameEventId).toBe("evt-1");
+    });
   });
 
   describe("createStreamState", () => {

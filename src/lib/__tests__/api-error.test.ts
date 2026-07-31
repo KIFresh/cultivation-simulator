@@ -9,8 +9,9 @@ import {
   serviceUnavailable,
   parseJsonBody,
   toApiErrorResponse,
+  withApiErrorHandling,
 } from "@/lib/api-error";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 describe("AppError", () => {
   it("创建基本错误", () => {
@@ -140,11 +141,12 @@ describe("toApiErrorResponse", () => {
     expect(body).toEqual({ error: "请先登录", code: "AUTH_REQUIRED" });
   });
 
-  it("未知异常脱敏为通用 500", async () => {
-    const res = toApiErrorResponse(new Error("数据库连接失败"));
+  it("未知异常脱敏为通用 500 并返回 requestId", async () => {
+    const res = toApiErrorResponse(new Error("数据库连接失败"), "req-123");
     expect(res.status).toBe(500);
+    expect(res.headers.get("x-request-id")).toBe("req-123");
     const body = await res.json();
-    expect(body).toEqual({ error: "服务器内部错误", code: "INTERNAL" });
+    expect(body).toEqual({ error: "服务器内部错误，请稍后重试", code: "INTERNAL", requestId: "req-123" });
   });
 
   it("字符串异常处理", async () => {
@@ -152,5 +154,12 @@ describe("toApiErrorResponse", () => {
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.code).toBe("INTERNAL");
+  });
+
+  it("包装器注入 requestId 并记录完成响应", async () => {
+    const handler = async () => NextResponse.json({ ok: true });
+    const wrapped = withApiErrorHandling(handler);
+    const res = await wrapped(new NextRequest("http://localhost/api/test"), { params: Promise.resolve({}) });
+    expect(res.headers.get("x-request-id")).toBeTruthy();
   });
 });
