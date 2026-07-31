@@ -2,25 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiError, isPrivateOrLocalUrl } from "@/lib/auth-helpers";
 import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
 import { logger } from "@/lib/logger";
+import { prisma } from "@/lib/prisma";
+
+async function loadApiKey(type: string, index: number): Promise<string | null> {
+  const key = await prisma.appSetting.findUnique({
+    where: { key: `AI_PROVIDER_${index}_KEY` },
+  });
+  return key?.value || null;
+}
 
 async function handler(request: NextRequest) {
   const body = await parseJsonBody(request);
-  const { baseUrl, apiKey, type } = body;
+  let { baseUrl, apiKey, type } = body;
 
   if (!type) {
     return apiError("缺少供应方类型");
-  }
-
-  // 取消管理员鉴权后启用 SSRF 防护，拒绝本机/内网地址
-  if (isPrivateOrLocalUrl(baseUrl)) {
-    return apiError("接口地址不能指向本机或内网地址");
-  }
-  try {
-    const protocol = new URL(baseUrl).protocol;
-    if (protocol !== "https:" && protocol !== "http:")
-      return apiError("接口地址必须使用 HTTP 或 HTTPS");
-  } catch {
-    return apiError("接口地址格式不正确");
   }
 
   if (type === "ollama") {
@@ -46,7 +42,29 @@ async function handler(request: NextRequest) {
     return apiError("请填写接口地址");
   }
   if (!apiKey) {
-    return apiError("请填写 API Key");
+    // 如果前端未提供 API Key，尝试从数据库读取已保存的 Key
+    for (let i = 1; i <= 3; i++) {
+      const saved = await loadApiKey(type, i);
+      if (saved) {
+        apiKey = saved;
+        break;
+      }
+    }
+    if (!apiKey) {
+      return apiError("请填写 API Key，或先保存配置后再试");
+    }
+  }
+
+  // 取消管理员鉴权后启用 SSRF 防护，拒绝本机/内网地址
+  if (isPrivateOrLocalUrl(baseUrl)) {
+    return apiError("接口地址不能指向本机或内网地址");
+  }
+  try {
+    const protocol = new URL(baseUrl).protocol;
+    if (protocol !== "https:" && protocol !== "http:")
+      return apiError("接口地址必须使用 HTTP 或 HTTPS");
+  } catch {
+    return apiError("接口地址格式不正确");
   }
 
   // 检查是否是 Anthropic 原生 API
