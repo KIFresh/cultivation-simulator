@@ -147,6 +147,34 @@ describe("generateBirthNarrative", () => {
     expect(callAI).toHaveBeenCalledTimes(1);
   });
 
+  it("将出身线索作为隐性创作参考，不要求直接复述家境", async () => {
+    const { callAI } = await import("@/lib/narrative/provider");
+    const { extractJson } = await import("@/lib/narrative");
+    const mockData = {
+      type: "BIRTH",
+      title: "新生命降临",
+      narrative: "父亲抱着小明，母亲在一旁微笑。",
+      mood: "奇",
+      hint: "健康成长",
+      summary: "窗边旧书和暖灯映出家的安静",
+      suggestedName: "小明",
+      family: [
+        { relation: "父亲", name: "父亲", age: 35, alive: true },
+        { relation: "母亲", name: "母亲", age: 30, alive: true },
+      ],
+      effects: [],
+    };
+    vi.mocked(callAI).mockResolvedValue(JSON.stringify(mockData));
+    vi.mocked(extractJson).mockReturnValue(mockData);
+
+    await generateBirthNarrative({ ...mockParams, identityName: "书香门第" });
+
+    const prompt = vi.mocked(callAI).mock.calls[0]?.[0]?.userPrompt;
+    expect(prompt).toContain("仅供构思，禁止在成文中直接复述");
+    expect(prompt).toContain("正文、标题、summary、hint 中都不得直接复述");
+    expect(prompt).toContain("父母职业及工作物件、产房或住宅环境");
+    expect(prompt).toContain("书香门第");
+  });
   it("AI 返回空内容时抛出错误", async () => {
     const { callAI } = await import("@/lib/narrative/provider");
     const { extractJson } = await import("@/lib/narrative");

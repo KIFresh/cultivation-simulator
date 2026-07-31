@@ -142,7 +142,8 @@ export async function generateBirthNarrative(params: {
 
   let prompt = `你是一个写实风格的生活叙事引擎。请生成一段【出生当天】的叙事。
 
-【背景】${params.worldName}，${params.identityName}
+【创作参考：世界】${params.worldName}
+【创作参考：家庭线索（仅供构思，禁止在成文中直接复述）】${params.identityName}
 【天赋描述】${traitDesc}
 【当前家庭成员】${familyDesc}
 ${params.cultivatorName ? `【备用名】${params.cultivatorName}` : ""}
@@ -156,8 +157,11 @@ ${params.cultivatorName ? `【备用名】${params.cultivatorName}` : ""}
 6. 正文与 suggestedName 一致，正文中应自然出现该姓名（如"给孩子取名叫…"或"以后就叫你…了"）
 7. 注意：正文中不要出现"爸爸""妈妈""爷爷""奶奶"等作为自称，正文应使用"丈夫""妻子"等叙事视角
 8. summary 聚焦一个与正文不同的侧面（如家庭氛围、某个家庭成员的趣闻、孩子的性格特征），不要复述正文已经写过的年龄段、场景或事件，不要与正文重复
+9. 出身选择中的家庭背景/身份标签只能作为幕后创作线索，正文、标题、summary、hint 中都不得直接复述或解释该标签
+10. 不得直接写出或概括家境结论，例如“书香门第”“商贾之家”“将门之后”“山野遗孤”“散修传人”“家境殷实”“贫寒人家”“富裕家庭”等；也不要用同义的阶层标签替代
+11. 必须通过可感知的具体细节自然侧写家庭状态，例如父母职业及工作物件、产房或住宅环境、所在街区、衣着器物、生活习惯、邻里互动和亲友反应；用场景和行动呈现，不要给家庭贴结论性标签
 
-输出前请自检：检查正文、suggestedName、family 三者是否一致
+输出前请自检：检查正文、suggestedName、family 三者是否一致；确认正文、标题、summary、hint 没有直接出现家庭背景标签，而是通过职业、环境、物件和日常细节呈现
 
 输出JSON：
 {"type":"BIRTH","title":"标题(10字内)","narrative":"叙事正文(200-350字，纯散文，不要出现任何JSON或括号结构)","mood":"悟/奇/静/燃","hint":"寄语(10-20字)","summary":"20-30字概述。聚焦一个与正文不同的侧面","suggestedName":"孩子的姓名","family":[{"relation":"父亲","name":"姓名","age":38,"alive":true,"occupation":"职业","livingTogether":true},{"relation":"母亲","name":"姓名","age":36,"alive":true,"occupation":"职业","livingTogether":true}],"effects":[]}`;
