@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import TopNav from "@/components/top-nav";
 import { useGameStore } from "@/store";
 import { getItemById } from "@/lib/cultivation-data";
 import type { InventoryItem } from "@/lib/cultivation-data";
@@ -33,6 +34,7 @@ export default function ItemsPage() {
   const useItem = useGameStore((s) => s.useItem);
   const actionLoading = useGameStore((s) => s.actionLoading);
   const [usingId, setUsingId] = useState<string | null>(null);
+  const [openItemId, setOpenItemId] = useState<string | null>(null);
 
   const { equipped, usable, other } = useMemo(() => categorizeItems(inventory), [inventory]);
 
@@ -111,11 +113,10 @@ export default function ItemsPage() {
     );
   };
 
-  const [openItemId, setOpenItemId] = useState<string | null>(null);
-
   if (inventory.length === 0) {
     return (
       <main className="min-h-screen bg-[#FAF7F3]">
+        <TopNav />
         <div className="max-w-2xl mx-auto px-4 py-8">
           <Card>
             <CardHeader>
@@ -132,6 +133,7 @@ export default function ItemsPage() {
 
   return (
     <main className="min-h-screen bg-[#FAF7F3]">
+      <TopNav />
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
         {/* 返回按钮 */}
         <button

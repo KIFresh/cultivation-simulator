@@ -29,6 +29,9 @@ export interface TechniqueEffect {
   description: string; // 显示文本，如 "修炼速度 +{value}%"
 }
 
+/** 功法分类 */
+export type TechniqueCategory = "功法" | "技艺";
+
 /** 功法定义 */
 export interface Technique {
   id: string;
@@ -37,6 +40,7 @@ export interface Technique {
   description: string;
   grade: TechniqueGrade;
   realm: TechniqueRealm;
+  category: TechniqueCategory;
   maxLevel: number;
   upgradeProficiency: number[]; // [100, 300] 表示2级需100熟练度，3级需300
   effects: TechniqueEffect[];
@@ -54,6 +58,7 @@ export const TECHNIQUES: Record<string, Technique> = {
     description: "最基础的呼吸吐纳之法，引灵气入体",
     grade: "凡",
     realm: "凡人",
+    category: "功法",
     maxLevel: 3,
     upgradeProficiency: [100, 300],
     effects: [
@@ -67,6 +72,7 @@ export const TECHNIQUES: Record<string, Technique> = {
     description: "剑修入门功法，奠定剑道根基",
     grade: "黄",
     realm: "炼气期",
+    category: "功法",
     maxLevel: 3,
     upgradeProficiency: [150, 400],
     effects: [
@@ -81,6 +87,7 @@ export const TECHNIQUES: Record<string, Technique> = {
     description: "以灵力护持心脉，增强体魄",
     grade: "黄",
     realm: "炼气期",
+    category: "功法",
     maxLevel: 3,
     upgradeProficiency: [120, 350],
     effects: [
@@ -95,6 +102,7 @@ export const TECHNIQUES: Record<string, Technique> = {
     description: "加快灵气汇聚速度",
     grade: "玄",
     realm: "筑基期",
+    category: "功法",
     maxLevel: 3,
     upgradeProficiency: [200, 500],
     effects: [
@@ -109,6 +117,7 @@ export const TECHNIQUES: Record<string, Technique> = {
     description: "引北斗七星之力，剑势凌厉",
     grade: "地",
     realm: "结丹期",
+    category: "功法",
     maxLevel: 3,
     upgradeProficiency: [400, 1000],
     effects: [
@@ -123,12 +132,56 @@ export const TECHNIQUES: Record<string, Technique> = {
     description: "传说中直指大道的无上功法",
     grade: "天",
     realm: "化神期",
+    category: "功法",
     maxLevel: 3,
     upgradeProficiency: [1000, 3000],
     effects: [
       { type: "cultivationSpeed", value: 50, perLevel: 25, description: "修炼速度 +{value}%" },
       { type: "breakthroughRate", value: 10, perLevel: 5, description: "突破概率 +{value}%" },
       { type: "combat", value: 30, perLevel: 15, description: "全属性 +{value}" },
+    ],
+  },
+  // 技艺类
+  herbalism: {
+    id: "herbalism",
+    name: "采药术",
+    icon: "🌿",
+    description: "辨识灵草，采集药材的基础技艺",
+    grade: "凡",
+    realm: "凡人",
+    category: "技艺",
+    maxLevel: 3,
+    upgradeProficiency: [80, 200],
+    effects: [
+      { type: "daily", value: 5, perLevel: 3, description: "采集效率 +{value}%" },
+    ],
+  },
+  alchemy_basic: {
+    id: "alchemy_basic",
+    name: "炼丹术",
+    icon: "⚗️",
+    description: "以丹炉炼制丹药，辅助修炼",
+    grade: "黄",
+    realm: "炼气期",
+    category: "技艺",
+    maxLevel: 3,
+    upgradeProficiency: [150, 400],
+    effects: [
+      { type: "daily", value: 10, perLevel: 5, description: "炼丹成功率 +{value}%" },
+    ],
+  },
+  smithing: {
+    id: "smithing",
+    name: "锻造术",
+    icon: "🔨",
+    description: "以灵火锻造法器，打造趁手兵刃",
+    grade: "玄",
+    realm: "筑基期",
+    category: "技艺",
+    maxLevel: 3,
+    upgradeProficiency: [200, 500],
+    effects: [
+      { type: "combat", value: 8, perLevel: 4, description: "装备属性 +{value}%" },
     ],
   },
 };

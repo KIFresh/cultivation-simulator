@@ -1,128 +1,143 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useGameStore } from "@/store";
-import { getItemById } from "@/lib/cultivation-data";
-import type { InventoryItem } from "@/lib/cultivation-data";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import TopNav from "@/components/top-nav";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 
-function categorizeItems(inventory: InventoryItem[]) {
-  const equipped: { inv: InventoryItem; def: ReturnType<typeof getItemById> }[] = [];
-  const usable: { inv: InventoryItem; def: ReturnType<typeof getItemById> }[] = [];
-  const other: { inv: InventoryItem; def: ReturnType<typeof getItemById> }[] = [];
-
-  for (const inv of inventory) {
-    const def = getItemById(inv.itemId);
-    if (inv.equipped) {
-      equipped.push({ inv, def });
-    } else if (def?.useEffect) {
-      usable.push({ inv, def });
-    } else {
-      other.push({ inv, def });
-    }
-  }
-  return { equipped, usable, other };
+interface TechniqueRecord {
+  id: string;
+  techniqueId: string;
+  equipSlot: number | null;
+  level: number;
+  proficiency: number;
 }
 
-export default function ItemsPage() {
+interface Technique {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  grade: string;
+  realm: string;
+  maxLevel: number;
+  upgradeProficiency: number[];
+  effects: { type: string; value: number; perLevel: number; description: string }[];
+  category: "功法" | "技艺";
+}
+
+export default function SkillsPage() {
   const router = useRouter();
-  const inventory = useGameStore((s) => s.inventory);
-  const useItem = useGameStore((s) => s.useItem);
-  const actionLoading = useGameStore((s) => s.actionLoading);
-  const [usingId, setUsingId] = useState<string | null>(null);
+  const [records, setRecords] = useState<TechniqueRecord[]>([]);
+  const [allTech, setAllTech] = useState<Record<string, Technique>>({});
+  const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"功法" | "技艺">("功法");
+  const [userId, setUserId] = useState<string | null>(null);
 
-  const { equipped, usable, other } = useMemo(() => categorizeItems(inventory), [inventory]);
+  useEffect(() => {
+    const id = localStorage.getItem("userId");
+    if (id) setUserId(id);
+  }, []);
 
-  const handleUse = async (itemId: string) => {
-    setUsingId(itemId);
+  const fetchTechniques = useCallback(async () => {
+    if (!userId) return;
     try {
-      await useItem(itemId);
-      toast.success("使用成功");
+      const res = await fetch(`/api/cultivator/techniques?userId=${userId}`);
+      const data = await res.json();
+      setRecords(data.techniques || []);
+      setAllTech(data.allTechniques || {});
     } catch {
-      toast.error("使用失败");
+      // ignore
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    fetchTechniques();
+  }, [fetchTechniques]);
+
+  const getTech = (id: string) => allTech[id];
+
+  const equipped = records
+    .filter((r) => r.equipSlot !== null)
+    .sort((a, b) => (a.equipSlot || 0) - (b.equipSlot || 0));
+
+  const unequipped = records.filter((r) => r.equipSlot === null);
+
+  const getEffectText = (e: Technique["effects"][0], level: number) => {
+    const val = e.value + e.perLevel * (level - 1);
+    return e.description.replace("{value}", String(val));
+  };
+
+  const handleEquip = async (techniqueId: string, slot: number) => {
+    if (!userId) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/cultivator/techniques", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "equip", userId, techniqueId, slot }),
+      });
+      const data = await res.json();
+      if (data.techniques) setRecords(data.techniques);
+      toast.success("装备成功");
+    } catch {
+      toast.error("装备失败");
     } finally {
-      setUsingId(null);
+      setLoading(false);
     }
   };
 
-  const renderItem = (
-    item: { inv: InventoryItem; def: ReturnType<typeof getItemById> },
-    showUseButton: boolean
-  ) => {
-    const def = item.def;
-    const name = def?.name || item.inv.itemId;
-    const icon = def?.icon || "📦";
-    const desc = def?.description || "";
-    const effect = def?.effect || "";
-    const useLabel = def?.useLabel || "使用";
-
-    return (
-      <div
-        key={item.inv.itemId}
-        className="flex items-start gap-3 border border-[#EADCD0] bg-white rounded-lg p-3"
-      >
-        <span className="text-2xl shrink-0 mt-0.5">{icon}</span>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-[#2C1E1E]">
-            {name}
-            <span className="text-xs text-[#8B7355] ml-2">×{item.inv.quantity}</span>
-          </p>
-          {desc && <p className="text-xs text-[#8B7355] mt-0.5">{desc}</p>}
-          {effect && <p className="text-xs text-[#D49B4B] mt-0.5">✨ {effect}</p>}
-        </div>
-        {showUseButton && def?.useEffect ? (
-          <div className="flex gap-1 shrink-0">
-            <Button
-              size="sm"
-              variant="default"
-              disabled={actionLoading || usingId === item.inv.itemId}
-              onClick={() => handleUse(item.inv.itemId)}
-              className="h-7 text-xs"
-            >
-              {usingId === item.inv.itemId ? "使用中..." : useLabel}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 w-7 text-xs p-0"
-              onClick={() => setOpenItemId(item.inv.itemId)}
-              title="详情"
-            >
-              ℹ
-            </Button>
-          </div>
-        ) : (
-          <div className="shrink-0">
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 w-7 text-xs p-0"
-              onClick={() => setOpenItemId(item.inv.itemId)}
-              title="详情"
-            >
-              ℹ
-            </Button>
-          </div>
-        )}
-      </div>
-    );
+  const handleUnequip = async (slot?: number, techniqueId?: string) => {
+    if (!userId) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/cultivator/techniques", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "unequip", userId, slot, techniqueId }),
+      });
+      const data = await res.json();
+      if (data.techniques) setRecords(data.techniques);
+      toast.success("已卸下");
+    } catch {
+      toast.error("卸下失败");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const [openItemId, setOpenItemId] = useState<string | null>(null);
+  const filteredEquipped = equipped.filter((r) => {
+    const tech = getTech(r.techniqueId);
+    return tech?.category === activeTab;
+  });
 
-  if (inventory.length === 0) {
+  const filteredUnequipped = unequipped.filter((r) => {
+    const tech = getTech(r.techniqueId);
+    return tech?.category === activeTab;
+  });
+
+  const emptySlots = [1, 2, 3].filter(
+    (slot) => !filteredEquipped.some((r) => r.equipSlot === slot)
+  );
+
+  if (records.length === 0) {
     return (
       <main className="min-h-screen bg-[#FAF7F3]">
-        <div className="max-w-2xl mx-auto px-4 py-8">
+        <TopNav />
+        <div className="max-w-2xl mx-auto px-4 py-8 space-y-4">
+          <Button variant="outline" onClick={() => router.push("/dashboard")}>
+            ← 返回仪表盘
+          </Button>
           <Card>
             <CardHeader>
-              <CardTitle>🎒 背包物品</CardTitle>
+              <CardTitle>📖 技能</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground text-center py-8">尚无随身物品</p>
+              <p className="text-sm text-muted-foreground text-center py-8">
+                你还没有学会任何功法或技艺
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -132,77 +147,145 @@ export default function ItemsPage() {
 
   return (
     <main className="min-h-screen bg-[#FAF7F3]">
+      <TopNav />
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-        {/* 页面标题 */}
+        <Button variant="outline" onClick={() => router.push("/dashboard")}>
+          ← 返回仪表盘
+        </Button>
+
         <div>
-          <h1 className="text-xl font-bold text-[#2C1E1E]">🎒 背包物品</h1>
-          <p className="text-xs text-[#8B7355] mt-1">随身携带的各类物品，可在修炼中发挥作用</p>
+          <h1 className="text-xl font-bold text-[#2C1E1E]">📖 技能</h1>
+          <p className="text-xs text-[#8B7355] mt-1">功法和技艺，提升修为与生活的能力</p>
         </div>
 
-        {/* 装备中 */}
-        {equipped.length > 0 && (
-          <section>
-            <h2 className="text-sm font-semibold text-[#5A5040] mb-2 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#B83227]" />
-              装备中
-            </h2>
-            <div className="space-y-2">{equipped.map((item) => renderItem(item, false))}</div>
-          </section>
-        )}
+        {/* 标签切换 */}
+        <div className="flex gap-2">
+          {(["功法", "技艺"] as const).map((tab) => (
+            <Button
+              key={tab}
+              variant={activeTab === tab ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveTab(tab)}
+            >
+              {tab}
+            </Button>
+          ))}
+        </div>
 
-        {/* 可使用 */}
-        {usable.length > 0 && (
-          <section>
-            <h2 className="text-sm font-semibold text-[#5A5040] mb-2 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#4A90D9]" />
-              可使用
-            </h2>
-            <div className="space-y-2">{usable.map((item) => renderItem(item, true))}</div>
-          </section>
-        )}
-
-        {/* 材料/其他 */}
-        {other.length > 0 && (
-          <section>
-            <h2 className="text-sm font-semibold text-[#5A5040] mb-2 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#8B7355]" />
-              材料/其他
-            </h2>
-            <div className="space-y-2">{other.map((item) => renderItem(item, false))}</div>
-          </section>
-        )}
-
-        {openItemId &&
-          (() => {
-            const def = getItemById(openItemId);
-            const inv = inventory.find((i) => i.itemId === openItemId);
-            if (!def) return null;
-            return (
-              <div className="border border-[#EADCD0] bg-white rounded-lg p-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-[#2C1E1E]">{def.name}</p>
-                    <p className="text-xs text-[#8B7355]">×{inv?.quantity ?? 0}</p>
+        {/* 已装备 */}
+        <section>
+          <h2 className="text-sm font-semibold text-[#5A5040] mb-2 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#B83227]" />
+            已装备 ({filteredEquipped.length}/3)
+          </h2>
+          <div className="space-y-2">
+            {filteredEquipped.map((record) => {
+              const tech = getTech(record.techniqueId);
+              if (!tech) return null;
+              return (
+                <div
+                  key={record.id}
+                  className="border border-[#EADCD0] bg-white rounded-lg p-3 flex items-center gap-3"
+                >
+                  <span className="text-2xl">{tech.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-[#2C1E1E]">
+                      {tech.name}{" "}
+                      <span className="text-xs text-[#8B7355]">Lv.{record.level}</span>
+                    </p>
+                    <p className="text-xs text-[#8B7355]">{tech.description}</p>
+                    {tech.effects.map((e, i) => (
+                      <p key={i} className="text-xs text-[#D49B4B]">
+                        ✨ {getEffectText(e, record.level)}
+                      </p>
+                    ))}
+                    <div className="flex items-center gap-1 mt-1">
+                      <div className="flex-1 h-1 bg-[#EADCD0] rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-[#B83227] rounded-full"
+                          style={{
+                            width: `${(record.proficiency / (tech.upgradeProficiency[record.level - 1] || 1)) * 100}%`,
+                          }}
+                        />
+                      </div>
+                      <span className="text-[10px] text-[#8B7355]">
+                        {record.proficiency}/
+                        {tech.upgradeProficiency[record.level - 1] || "MAX"}
+                      </span>
+                    </div>
                   </div>
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 text-xs"
-                    onClick={() => setOpenItemId(null)}
+                    className="h-7 text-xs shrink-0"
+                    onClick={() => handleUnequip(record.equipSlot ?? undefined)}
+                    disabled={loading}
                   >
-                    关闭
+                    卸下
                   </Button>
                 </div>
-                {def.description && (
-                  <p className="text-xs text-[#8B7355] mt-2">{def.description}</p>
-                )}
-                {def.effect && <p className="text-xs text-[#D49B4B] mt-1">✨ {def.effect}</p>}
-                {def.useLabel && (
-                  <p className="text-xs text-[#8B7355] mt-2">使用方式：{def.useLabel}</p>
-                )}
+              );
+            })}
+            {emptySlots.map((slot) => (
+              <div
+                key={`empty-${slot}`}
+                className="border border-dashed border-[#D2C6B2] bg-[#FAF7F3] rounded-lg p-3 flex items-center gap-3"
+              >
+                <div className="w-10 h-10 rounded-lg bg-[#EADCD0] flex items-center justify-center text-[#8B7355]">
+                  □
+                </div>
+                <span className="text-sm text-[#8B7355] flex-1">空槽位 {slot}</span>
               </div>
-            );
-          })()}
+            ))}
+          </div>
+        </section>
+
+        {/* 未装备 */}
+        {filteredUnequipped.length > 0 && (
+          <section>
+            <h2 className="text-sm font-semibold text-[#5A5040] mb-2 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#4A90D9]" />
+              未装备
+            </h2>
+            <div className="space-y-2">
+              {filteredUnequipped.map((record) => {
+                const tech = getTech(record.techniqueId);
+                if (!tech) return null;
+                return (
+                  <div
+                    key={record.id}
+                    className="border border-[#EADCD0] bg-white rounded-lg p-3 flex items-center gap-3"
+                  >
+                    <span className="text-2xl">{tech.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-[#2C1E1E]">
+                        {tech.name}{" "}
+                        <span className="text-xs text-[#8B7355]">Lv.{record.level}</span>
+                      </p>
+                      <p className="text-xs text-[#8B7355]">{tech.description}</p>
+                      {tech.effects.map((e, i) => (
+                        <p key={i} className="text-xs text-[#D49B4B]">
+                          ✨ {getEffectText(e, record.level)}
+                        </p>
+                      ))}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="default"
+                      className="h-7 text-xs shrink-0"
+                      onClick={() =>
+                        handleEquip(record.techniqueId, emptySlots[0] || 1)
+                      }
+                      disabled={loading || emptySlots.length === 0}
+                    >
+                      装备
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
       </div>
     </main>
   );
