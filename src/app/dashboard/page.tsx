@@ -357,28 +357,11 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          {narrativeHistory.length > 1 && (
-            <div className="silk-card rounded-3xl p-6">
-              <p className="text-gray-400 text-xs font-bold flex items-center gap-1 mb-3">
-                最近记录
-              </p>
-              <div className="space-y-1 max-h-32 overflow-y-auto">
-                {narrativeHistory.slice(0, 5).map((n, i) => (
-                  <p
-                    key={i}
-                    className="text-gray-400 text-xs border-b border-[#EADCD0] pb-1 last:border-0"
-                  >
-                    {n.title}
-                  </p>
-                ))}
-              </div>
-            </div>
-          )}
-
           <MemoryPanel
             cultivatorId={cultivator.id}
             entries={memoryEntries}
             onEntriesChange={setMemoryEntries}
+            narrativeHistory={narrativeHistory}
           />
 
           {isAwake && (
