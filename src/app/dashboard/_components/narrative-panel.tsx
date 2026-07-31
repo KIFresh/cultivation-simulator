@@ -229,14 +229,14 @@ export const NarrativePanel = React.memo(function NarrativePanel({
                             handleSubmitAction(action.id);
                           }
                         }}
-                        className="h-7 flex-1 rounded-lg border border-[#EADCD0] bg-white px-2 text-[11px] text-[#2C1E1E] focus:outline-none focus:border-[#B83227]"
+                        className="h-7 flex-1 rounded-lg border border-[#EADCD0] bg-white px-2 text-[11px] text-[#2C1E1E] focus:outline-none focus:border-[#B83227] disabled:opacity-50"
                         placeholder={actionPlaceholder}
                         autoFocus
-                        disabled={actionLoading}
+                        disabled={actionLoading || streamingText !== null}
                       />
                       <button
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#B83227] text-white hover:bg-[#7A1F18] disabled:opacity-50"
-                        disabled={actionLoading}
+                        disabled={actionLoading || streamingText !== null}
                         onClick={(e) => {
                           e.preventDefault();
                           handleSubmitAction(action.id);
@@ -250,6 +250,7 @@ export const NarrativePanel = React.memo(function NarrativePanel({
                       onPick={(text) => {
                         setDraft(text);
                       }}
+                      disabled={actionLoading || streamingText !== null}
                     />
                     {selectedNpcs.length > 0 && (
                       <div className="flex items-center justify-between text-[10px] text-gray-400">
@@ -278,20 +279,22 @@ export const NarrativePanel = React.memo(function NarrativePanel({
 });
 
 const ACTION_CHIPS: Record<string, string[]> = {
-  TALK: ["闲聊", "问候", "陪陪", "请教"],
+  TALK: ["闲聊", "问候", "搭话", "打听"],
   TRAIN: ["切磋", "请教", "对练", "陪练"],
-  EXPLORE: ["仔细查看", "打听", "搜寻", "逛逛"],
+  EXPLORE: ["仔细观察", "四处搜寻", "翻找", "探索"],
   WORK: ["帮忙", "接活", "打听机会", "讨教经验"],
   STUDY: ["请教问题", "复习", "借笔记", "讨论"],
-  DEFAULT: ["闲聊", "切磋", "请教", "陪陪", "帮忙", "逛逛"],
+  DEFAULT: ["闲聊", "切磋", "请教", "陪陪", "帮忙", "探索"],
 };
 
 const Chips = React.memo(function Chips({
   actionId,
   onPick,
+  disabled = false,
 }: {
   actionId: string;
   onPick: (text: string) => void;
+  disabled?: boolean;
 }) {
   const items = ACTION_CHIPS[actionId] ?? ACTION_CHIPS.DEFAULT;
   return (
@@ -300,8 +303,9 @@ const Chips = React.memo(function Chips({
         <button
           key={text}
           type="button"
+          disabled={disabled}
           onClick={() => onPick(text)}
-          className="rounded-full border border-[#EADCD0] bg-white px-2 py-1 text-[10px] text-[#2C1E1E] hover:border-[#B83227]/60"
+          className="rounded-full border border-[#EADCD0] bg-white px-2 py-1 text-[10px] text-[#2C1E1E] hover:border-[#B83227]/60 disabled:opacity-50"
         >
           {text}
         </button>
