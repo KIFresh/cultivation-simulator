@@ -151,7 +151,6 @@ export const NarrativePanel = React.memo(function NarrativePanel({
                   onClick={() => {
                     if (disabled) return;
                     onActionClick(action.id, selectedNpcs);
-                    handleSubmitAction(action.id);
                   }}
                   className={`group flex items-center justify-between rounded-2xl border px-4 py-4 text-left shadow-sm transition-all hover:border-[#B83227] hover:bg-[#FDF2F0] ${
                     cant
