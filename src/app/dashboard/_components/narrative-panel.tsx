@@ -284,7 +284,7 @@ const ACTION_CHIPS: Record<string, string[]> = {
   EXPLORE: ["仔细观察", "四处搜寻", "翻找", "探索"],
   WORK: ["帮忙", "接活", "打听机会", "讨教经验"],
   STUDY: ["请教问题", "复习", "借笔记", "讨论"],
-  DEFAULT: ["陪陪", "看看", "休息", "发呆"],
+  DEFAULT: ["闲聊", "切磋", "请教", "陪陪", "帮忙", "探索"],
 };
 
 const Chips = React.memo(function Chips({
