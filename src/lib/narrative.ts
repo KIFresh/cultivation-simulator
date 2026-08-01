@@ -638,6 +638,8 @@ export async function generateActionNarrative(params: {
   storySummary?: string;
   state?: CultivatorState;
   giftDecision?: { givesGold: number; reason: string };
+  /** 当前可用的行动列表，用于生成各行动类型的候选词 */
+  availableActions?: { id: string; name: string }[];
 }): Promise<NarrativeResult> {
   const realmStr =
     params.realm === "凡人"
@@ -690,8 +692,9 @@ ${params.giftDecision ? `【服务端结算】本次行动馈赠：获得金币 
 - 未觉醒角色不能出现超凡元素；已觉醒角色按其境界自然写即可，不要刻意宏大
 
 要求：120-220字，符合年龄认知，有烟火气，不要宏大叙事
-根据当前情境，为TALK/与人交谈、WANDER/四处闲逛、FREE/自由探索、EXPLORE/外出历练这四种行动各生成3-5个候选短语（动词开头，6-15字/个），每个行动的候选短语必须严格围绕该行动类型来生成，不能写成其他行动类型的候选词。
-返回JSON：{"type":"ACTION","title":"标题(10字内)","narrative":"正文(120-220字)","mood":"静/悟/燃/险/奇","hint":"一句接地气的下一步建议(10-20字)","summary":"20-30字概述，聚焦这次行动本身，不要拔高","actionOptions":{"TALK":["选项1","选项2"],"WANDER":["选项1","选项2"],"FREE":["选项1","选项2"],"EXPLORE":["选项1","选项2"]}}`;
+根据当前情境，为以下各行动类型各生成3-5个候选短语（动词开头，6-15字/个），每个行动的候选短语必须严格围绕该行动类型来生成，不能写成其他行动类型的候选词。
+${params.availableActions?.length ? params.availableActions.map(a => `- ${a.id}/${a.name}`).join('\n') : `- ${params.actionName}`}
+返回JSON：{"type":"ACTION","title":"标题(10字内)","narrative":"正文(120-220字)","mood":"静/悟/燃/险/奇","hint":"一句接地气的下一步建议(10-20字)","summary":"20-30字概述，聚焦这次行动本身，不要拔高","actionOptions":{"TALK":["选项1","选项2"],"WANDER":["选项1","选项2"]}}`;
 
   const stateCtx = buildStateContext(params.state);
   if (stateCtx) prompt += `\n\n${stateCtx}`;

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import {
   getActionById,
+  getActionsWithLockInfo,
   calculateActionExp,
   canBreakthrough,
   MORTAL_REALM,
@@ -258,6 +259,10 @@ export async function executeAction(input: ActionInput, cultivator: any): Promis
     isAwakened: isAwakened(newRealm),
     awakenEvent: !!awakenEvent,
     storySummary: summaryText,
+
+    availableActions: getActionsWithLockInfo(cultivator.age, cultivator.realm, cultivator.location)
+      .filter((a: any) => a.id !== "FREE")
+      .map((a: any) => ({ id: a.id, name: a.name })),
 
     giftDecision: { givesGold: giftDecision.givesGold, reason: giftDecision.reason },
     state: {
