@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { ScrollText } from "lucide-react";
 import type { NarrativeDisplay } from "@/app/dashboard/types";
 import { mergeNpcs } from "@/lib/npc-utils";
