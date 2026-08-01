@@ -496,15 +496,8 @@ export function useDashboardState() {
         toast.error(`体力不足（需要 ${cost}，当前 ${cultivator.stamina}）`, { duration: 2000 });
         return;
       }
-      if (activeActionId === actionId) {
-        useGameStore
-          .getState()
-          .performAction(actionId, undefined, selectedNpcIds)
-          .catch(() => {});
-      } else {
-        setActiveActionId(actionId);
-        setActionInput("");
-      }
+      setActiveActionId(actionId);
+      setActionInput("");
     },
     [cultivator, activeActionId]
   );
