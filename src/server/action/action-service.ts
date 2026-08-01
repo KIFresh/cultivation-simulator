@@ -257,6 +257,7 @@ export async function executeAction(input: ActionInput, cultivator: any): Promis
     expGained: 0,
     isAwakened: isAwakened(newRealm),
     awakenEvent: !!awakenEvent,
+    storySummary: summaryText,
 
     giftDecision: { givesGold: giftDecision.givesGold, reason: giftDecision.reason },
     state: {
