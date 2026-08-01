@@ -44,19 +44,13 @@ export const NarrativePanel = React.memo(function NarrativePanel({
 
   // 当叙事返回时，提取 AI 生成的候选词，按行动类型存储
   useEffect(() => {
-    console.log("[narrativeActionOptions] narrative changed:", {
-      hasActionOptions: !!narrative?.actionOptions,
-      actionOptions: narrative?.actionOptions,
-      activeActionId,
-      narrativeActionOptions,
-    });
     if (narrative?.actionOptions && narrative.actionOptions.length > 0 && activeActionId) {
       setNarrativeActionOptions((prev) => ({
         ...prev,
         [activeActionId]: narrative.actionOptions!,
       }));
     }
-  }, [narrative, activeActionId]);
+  }, [narrative]);
 
   useEffect(() => {
     setDraft("");
@@ -324,7 +318,6 @@ const Chips = React.memo(function Chips({
   disabled?: boolean;
 }) {
   const items = chips && chips.length > 0 ? chips : (ACTION_CHIPS[actionId] ?? ACTION_CHIPS.DEFAULT);
-  console.log("[chips] rendering:", { actionId, chipsFromState: chips, items });
   return (
     <div className="flex flex-wrap gap-1 pt-1">
       {items.map((text) => (
