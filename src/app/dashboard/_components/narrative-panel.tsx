@@ -222,6 +222,51 @@ export const NarrativePanel = React.memo(function NarrativePanel({
                         );
                       })}
                     </div>
+                    <div className="flex gap-1">
+                      <input
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleSubmitAction(action.id);
+                          }
+                        }}
+                        className="h-7 flex-1 rounded-lg border border-[#EADCD0] bg-white px-2 text-[11px] text-[#2C1E1E] focus:outline-none focus:border-[#B83227] disabled:opacity-50"
+                        placeholder={actionPlaceholder}
+                        autoFocus
+                        disabled={actionLoading || streamingText !== null}
+                      />
+                      <button
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#B83227] text-white hover:bg-[#7A1F18] disabled:opacity-50"
+                        disabled={actionLoading || streamingText !== null}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleSubmitAction(action.id);
+                        }}
+                      >
+                        <span className="text-xs">➤</span>
+                      </button>
+                    </div>
+                    <Chips
+                      actionId={action.id}
+                      onPick={(text) => {
+                        setDraft(text);
+                      }}
+                      disabled={actionLoading || streamingText !== null}
+                    />
+                    {selectedNpcs.length > 0 && (
+                      <div className="flex items-center justify-between text-[10px] text-gray-400">
+                        <span>已选：{selectedNpcNames.map((n: any) => n.name).join("、")}</span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedNpcs([])}
+                          className="text-[#B83227] hover:underline"
+                        >
+                          取消选择
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
