@@ -51,6 +51,7 @@ export interface NarrativeDisplay {
   narrative: string;
   mood: string;
   hint?: string;
+  actionOptions?: string[];
 }
 
 export interface Attributes {

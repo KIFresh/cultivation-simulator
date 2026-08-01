@@ -355,6 +355,8 @@ export interface NarrativeBase {
   goldChange?: number;
   /** AI 直接输出的效果数组（替代 goldChange/intimacyDelta 等旧字段） */
   effects?: NarrativeEffect[];
+  /** AI 为当前行动类型生成的下一轮候选词 */
+  actionOptions?: string[];
 }
 
 /** 奇遇选项 */

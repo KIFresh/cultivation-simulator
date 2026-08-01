@@ -238,7 +238,8 @@ ${params.freeInput ? `玩家描述：${params.freeInput}` : ""}
 【修为增长】${params.expGained > 0 ? `+${params.expGained}` : "无变化"}
 
 要求：200-350字，注意角色年龄与境界相符
-返回JSON：{"type":"ACTION","title":"标题","narrative":"正文","mood":"静/悟/燃","hint":"提示","goldChange":0,"effects":[]}`;
+根据当前情境，为【${params.actionName}】行动生成3-5个候选短语（动词开头，6-15字/个），用于玩家下一步选择。
+返回JSON：{"type":"ACTION","title":"标题","narrative":"正文","mood":"静/悟/燃","hint":"提示","goldChange":0,"effects":[],"actionOptions":["选项1","选项2","选项3"]}`;
 
   const stateCtx = buildStateContext(params.state);
   if (stateCtx) prompt += `\n\n${stateCtx}`;

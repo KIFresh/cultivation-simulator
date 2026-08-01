@@ -40,6 +40,17 @@ export const NarrativePanel = React.memo(function NarrativePanel({
 }: NarrativePanelProps) {
   const [draft, setDraft] = useState("");
   const [selectedNpcs, setSelectedNpcs] = useState<string[]>([]);
+  const [narrativeActionOptions, setNarrativeActionOptions] = useState<Record<string, string[]>>({});
+
+  // 当叙事返回时，提取 AI 生成的候选词，按行动类型存储
+  useEffect(() => {
+    if (narrative?.actionOptions && activeActionId) {
+      setNarrativeActionOptions((prev) => ({
+        ...prev,
+        [activeActionId]: narrative.actionOptions!,
+      }));
+    }
+  }, [narrative, activeActionId]);
 
   useEffect(() => {
     setDraft("");
@@ -250,6 +261,7 @@ export const NarrativePanel = React.memo(function NarrativePanel({
                     </div>
                     <Chips
                       actionId={action.id}
+                      chips={narrativeActionOptions[action.id]}
                       onPick={(text) => {
                         setDraft(text);
                       }}
@@ -296,14 +308,16 @@ const ACTION_CHIPS: Record<string, string[]> = {
 
 const Chips = React.memo(function Chips({
   actionId,
+  chips,
   onPick,
   disabled = false,
 }: {
   actionId: string;
+  chips?: string[];
   onPick: (text: string) => void;
   disabled?: boolean;
 }) {
-  const items = ACTION_CHIPS[actionId] ?? ACTION_CHIPS.DEFAULT;
+  const items = chips ?? ACTION_CHIPS[actionId] ?? ACTION_CHIPS.DEFAULT;
   return (
     <div className="flex flex-wrap gap-1 pt-1">
       {items.map((text) => (
