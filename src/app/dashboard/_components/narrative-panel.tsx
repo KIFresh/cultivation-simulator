@@ -41,16 +41,20 @@ export const NarrativePanel = React.memo(function NarrativePanel({
   const [draft, setDraft] = useState("");
   const [selectedNpcs, setSelectedNpcs] = useState<string[]>([]);
   const [narrativeActionOptions, setNarrativeActionOptions] = useState<Record<string, string[]>>({});
+  const prevNarrativeRef = useRef(narrative);
 
   // 当叙事返回时，提取 AI 生成的候选词，按行动类型存储
   useEffect(() => {
-    if (narrative?.actionOptions && narrative.actionOptions.length > 0 && activeActionId) {
-      setNarrativeActionOptions((prev) => ({
-        ...prev,
-        [activeActionId]: narrative.actionOptions!,
-      }));
+    if (narrative !== prevNarrativeRef.current) {
+      prevNarrativeRef.current = narrative;
+      if (narrative?.actionOptions && Object.keys(narrative.actionOptions).length > 0) {
+        setNarrativeActionOptions((prev) => ({
+          ...prev,
+          ...narrative.actionOptions!,
+        }));
+      }
     }
-  }, [narrative]);
+  }, [narrative, activeActionId]);
 
   useEffect(() => {
     setDraft("");

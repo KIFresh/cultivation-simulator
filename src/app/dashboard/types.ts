@@ -51,7 +51,8 @@ export interface NarrativeDisplay {
   narrative: string;
   mood: string;
   hint?: string;
-  actionOptions?: string[];
+  /** AI 为各行动类型生成的候选词，key=行动ID */
+  actionOptions?: Record<string, string[]>;
 }
 
 export interface Attributes {
