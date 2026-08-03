@@ -52,6 +52,8 @@ export function streamAIJob(opts: {
   })();
 
   const encoder = new TextEncoder();
+  // 供前端 onError 自动附加 requestId（consumeNarrativeStream 从响应头读取）
+  const requestId = crypto.randomUUID();
   return new Response(
     new ReadableStream({
       async start(controller) {
@@ -88,6 +90,7 @@ export function streamAIJob(opts: {
         "Cache-Control": "no-cache",
         Connection: "keep-alive",
         "X-Accel-Buffering": "no",
+        "x-request-id": requestId,
       },
     }
   );
