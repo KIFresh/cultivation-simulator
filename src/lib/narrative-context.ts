@@ -272,7 +272,7 @@ export async function retrieveRelevantMemories(
   const importantEntries = allEntries.filter((e) => e.important).slice(0, 2);
   const hotSet = new Map<string, typeof allEntries[number]>();
   for (const e of [...importantEntries, ...hotEntries]) hotSet.set(e.id, e);
-  const hot = [...hotSet.values()]
+  const hot = [...hotSet.values()].slice(0, 5)
     .map((e) => (e.important ? "⭐ " : "") + `【${e.title}】${e.summary}`)
     .join("\n");
 
