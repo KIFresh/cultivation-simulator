@@ -44,6 +44,8 @@ export function streamAIJob(opts: {
       doneResult = result;
     } catch (e) {
       aiError = e;
+      // 服务端日志保留真实错误，响应端只发脱敏 message
+      console.error("[streamAIJob] failed:", e instanceof Error ? e.stack : e);
     }
     finished = true;
     notify();

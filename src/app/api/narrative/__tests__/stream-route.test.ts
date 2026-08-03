@@ -221,10 +221,12 @@ describe("Narrative API 流式契约（提交优先 + 可重试）", () => {
     expect(captured.committed.cultivator).toBeDefined();
   });
 
-  it("ENCOUNTER：committed 含 gameEventId", async () => {
+  it("ENCOUNTER：走 AI 真流式（streamAIJob，无 committed）", async () => {
     const res = await POST(makeStreamRequest({ userId: "user1", type: "ENCOUNTER" }));
     expect(res.headers.get("Content-Type")).toContain("event-stream");
-    expect(captured.committed.gameEventId).toBeDefined();
+    expect(captured.source).toBe("streamAIJob");
+    const { result } = await captured.run(() => {});
+    expect(result.narrative).toBeDefined();
   });
 
   it("BIRTH：committed 含 gameEventId", async () => {

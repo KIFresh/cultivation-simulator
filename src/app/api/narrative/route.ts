@@ -16,6 +16,7 @@ import {
   type StoryEntry,
   type BirthFamilyMember,
   type NarrativeResult,
+  type EncounterNarrative,
   createEntry,
   buildSummaryFromEntries,
   compressStorySummary,
@@ -566,7 +567,7 @@ async function handler(request: NextRequest) {
       }
 
       case "ENCOUNTER": {
-        const narrative = await generateEncounterNarrative({
+        const encounterParams = {
           cultivatorName: cultivator.name,
           spiritualRoot: cultivator.spiritualRoot as import("@/lib").SpiritualRoot,
           realm: cultivator.realm,
@@ -582,8 +583,10 @@ async function handler(request: NextRequest) {
             locationId: cultivator.location || "home",
             attributes: cultivator.attributes,
           },
-        });
+        };
 
+        // 有选择分支：AI 生成后的处理（效果/事务/记忆）
+        const buildWithChoice = async (narrative: EncounterNarrative) => {
         // 追加概要，超长则压缩
         const newEntry = createEntry(narrative.title, narrative.narrative, true, narrative.summary);
 
@@ -681,13 +684,15 @@ async function handler(request: NextRequest) {
             expBonus,
             goldChange: actualGoldDelta,
           };
-          if (isStream) {
-            return streamNarrativeResult(event.id, narrative, encounterResult, cultivator);
-          }
-          return NextResponse.json(encounterResult);
+          return encounterResult;
         }
+        // 防御：有选择分支被调用但无匹配选项（正常不会走到）
+        return { event: null, narrative, chosenOption: choiceIndex, expBonus: 0, goldChange: 0 };
+        }; // buildWithChoice 结束
 
         // 无选择分支：直接应用效果
+        const buildNoChoice = async (narrative: EncounterNarrative) => {
+        const newEntry = createEntry(narrative.title, narrative.narrative, true, narrative.summary);
         const effects: NarrativeEffect[] = [];
         if (narrative.effects && narrative.effects.length > 0) {
           effects.push(...narrative.effects);
@@ -765,10 +770,25 @@ async function handler(request: NextRequest) {
         }
 
         const encounterResult = { event, narrative, goldChange: actualGoldDelta };
+        return encounterResult;
+        }; // buildNoChoice 结束
+
+        const build = choiceIndex !== undefined ? buildWithChoice : buildNoChoice;
+
         if (isStream) {
-          return streamNarrativeResult(event.id, narrative, encounterResult, cultivator);
+          // 真流式：AI 边生成边推 narrative 正文，完成后执行事务
+          return streamAIJob({
+            run: async (onDelta) => {
+              const n = await generateEncounterNarrative({ ...encounterParams, onDelta });
+              const result = await build(n);
+              return { result };
+            },
+            errorMessage: "奇遇叙事生成失败，请稍后重试",
+          });
         }
-        return NextResponse.json(encounterResult);
+        const narrative = await generateEncounterNarrative(encounterParams);
+        const result = await build(narrative);
+        return NextResponse.json(result);
       }
 
       default:

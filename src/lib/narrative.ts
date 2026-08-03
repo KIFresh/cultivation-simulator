@@ -618,6 +618,8 @@ export async function generateEncounterNarrative(params: {
   realmLevel: number;
   storySummary?: string;
   state?: CultivatorState;
+  /** 可选：流式回调，边生成边收到 AI 增量文本（透传给 callAI） */
+  onDelta?: (delta: string) => void;
 }): Promise<EncounterNarrative> {
   let prompt = `生成一段奇遇事件（现代背景）。
 
@@ -638,6 +640,7 @@ export async function generateEncounterNarrative(params: {
       userPrompt: prompt,
       maxTokens: 800,
       temperature: 0.9,
+      ...(params.onDelta ? { onDelta: params.onDelta } : {}),
     });
     const result = extractJson(text, {
       type: "ENCOUNTER" as const,
