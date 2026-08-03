@@ -138,7 +138,11 @@ export function initActions(set: (partial: any) => void, get: () => any) {
       const { userId, actionLoading } = get();
       if (!userId) throw new Error("未找到用户，请先创建修炼者");
       if (actionLoading) return;
-      set({ actionLoading: true, narrativeError: null, streamingText: "" });
+      // 乐观叙事：突破等待较长，先显示占位，首段流式到达后替换
+      const optimistic = protector
+        ? `你闭目凝神，在${protector}的护法下冲击瓶颈……`
+        : "你闭目凝神，调动全身灵力冲击瓶颈……";
+      set({ actionLoading: true, narrativeError: null, streamingText: optimistic });
       const body = { userId, protector };
       lastRequest = { endpoint: "/api/breakthrough?stream=true", body };
       try {
@@ -150,8 +154,16 @@ export function initActions(set: (partial: any) => void, get: () => any) {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const ct = res.headers.get("content-type") || "";
         if (ct.includes("text/event-stream")) {
+          let replaced = false;
           await consumeNarrativeStream(res, {
-            onChunk: (c: string) => set((s: any) => ({ streamingText: (s.streamingText || "") + c })),
+            onChunk: (c: string) =>
+              set((s: any) => {
+                if (!replaced) {
+                  replaced = true;
+                  return { streamingText: c };
+                }
+                return { streamingText: (s.streamingText || "") + c };
+              }),
             onDone: (data: Record<string, unknown>) => applyNarrativeResult(set, data),
             onError: (e: Error | { message?: string }) =>
               set({
