@@ -106,6 +106,12 @@ vi.mock("@/lib/narrative-stream", () => ({
       headers: { "Content-Type": "text/event-stream" },
     });
   }),
+  streamAIJob: vi.fn((opts: { run: (onDelta: (t: string) => void) => Promise<{ result: unknown }> }) => {
+    captured = { source: "streamAIJob", run: opts.run };
+    return new Response("event: done\ndata: {}\n\n", {
+      headers: { "Content-Type": "text/event-stream" },
+    });
+  }),
 }));
 
 vi.mock("@/lib/narrative", () => ({
@@ -199,14 +205,13 @@ describe("Narrative API 流式契约（提交优先 + 可重试）", () => {
     mockRequire.mockResolvedValue({ cultivator: baseCultivator });
   });
 
-  it("DAILY_CULTIVATION：committed 含 gameEventId，且 onError 复用同一锚点", async () => {
+  it("DAILY_CULTIVATION：走 AI 真流式（streamAIJob，无 committed）", async () => {
     const res = await POST(makeStreamRequest({ userId: "user1", type: "DAILY_CULTIVATION" }));
     expect(res.headers.get("Content-Type")).toContain("event-stream");
-    expect(captured.committed).toBeDefined();
-    expect(typeof captured.committed.gameEventId).toBe("string");
-
-    const ne = captured.onError?.(new Error("x"));
-    expect(ne?.gameEventId).toBe(captured.committed.gameEventId);
+    expect(captured.source).toBe("streamAIJob");
+    // run 执行 AI（mock 返回 narrative），done 载荷含叙事结果
+    const { result } = await captured.run(() => {});
+    expect(result.narrative.narrative).toBe("今日修炼");
   });
 
   it("BREAKTHROUGH：committed 含 gameEventId 与乐观 cultivator", async () => {
@@ -236,10 +241,10 @@ describe("Narrative API 流式契约（提交优先 + 可重试）", () => {
     expect(captured.committed.gameEventId).toBeDefined();
   });
 
-  it("done 回调返回叙事结果（用于回填 gameEvent 与条目）", async () => {
+  it("done 载荷来自 AI 生成结果（streamAIJob.run 返回叙事）", async () => {
     await POST(makeStreamRequest({ userId: "user1", type: "DAILY_CULTIVATION" }));
-    // streamNarrativeResult mock 暴露 onComplete 与 committed
-    const result = captured.onComplete();
+    expect(captured.source).toBe("streamAIJob");
+    const { result } = await captured.run(() => {});
     expect(result.narrative).toBeDefined();
   });
 });

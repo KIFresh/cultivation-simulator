@@ -10,6 +10,88 @@
 import { createSSEResponse, chunkNarrative } from "./stream-helper";
 
 /**
+ * AI 流式叙事 SSE：AI 边生成边把 narrative 正文推给前端（真流式）。
+ * - run 回调内调用 AI（传 onDelta），onDelta 喂 extractor 提取 narrative 增量
+ * - AI 完成后 run 返回 { result }（事务结果），作为 done 事件载荷
+ * - 无 committed 事件（AI 完成前没有 gameEventId；前端不消费 committed）
+ */
+export function streamAIJob(opts: {
+  run: (onDelta: (t: string) => void) => Promise<{ result: unknown }>;
+  errorMessage?: string;
+}): Response {
+  const extractor = createNarrativeExtractor();
+  const queue: string[] = [];
+  let waiter: (() => void) | null = null;
+  let finished = false;
+  let aiError: unknown = null;
+  let doneResult: unknown = null;
+
+  const notify = () => {
+    const w = waiter;
+    waiter = null;
+    w?.();
+  };
+
+  const job = (async () => {
+    try {
+      const { result } = await opts.run((d) => {
+        const inc = extractor.push(d);
+        if (inc) {
+          queue.push(inc);
+          notify();
+        }
+      });
+      doneResult = result;
+    } catch (e) {
+      aiError = e;
+    }
+    finished = true;
+    notify();
+  })();
+
+  const encoder = new TextEncoder();
+  return new Response(
+    new ReadableStream({
+      async start(controller) {
+        const send = (obj: unknown) =>
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
+        try {
+          while (true) {
+            while (queue.length) send({ chunk: queue.shift() });
+            if (finished) break;
+            await new Promise<void>((r) => {
+              waiter = r;
+            });
+          }
+          await job;
+          if (aiError) throw aiError;
+          send({ done: true, result: doneResult });
+        } catch {
+          send({
+            error: {
+              narrativeError: {
+                message: opts.errorMessage || "叙事生成失败，请稍后重试",
+                code: "NARRATIVE_FAILED",
+              },
+            },
+          });
+        } finally {
+          controller.close();
+        }
+      },
+    }),
+    {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      },
+    }
+  );
+}
+
+/**
  * 从 AI 流式增量中提取 narrative 字段的增量文本。
  * 维护 buffer，每次调用返回"自上次以来 narrative 值新增的部分"。
  * 尽力提取：narrative 值未闭合也返回当前累积部分（AI 按序生成，narrative 值

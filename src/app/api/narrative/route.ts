@@ -15,6 +15,7 @@ import {
   generateBirthNarrative,
   type StoryEntry,
   type BirthFamilyMember,
+  type NarrativeResult,
   createEntry,
   buildSummaryFromEntries,
   compressStorySummary,
@@ -24,7 +25,7 @@ import { prisma } from "@/lib/prisma";
 import { getGoldMaxGainByRealm } from "@/lib/gold";
 import { canBreakthrough, performBreakthrough } from "@/lib";
 import { TECHNIQUES, addProficiency, calculateTechniqueBonuses } from "@/lib/technique-data";
-import { streamNarrativeResult } from "@/lib/narrative-stream";
+import { streamNarrativeResult, streamAIJob } from "@/lib/narrative-stream";
 import {
   applyEffects,
   clampEffectsArray,
@@ -307,7 +308,7 @@ async function handler(request: NextRequest) {
       }
 
       case "DAILY_CULTIVATION": {
-        const narrative = await generateDailyCultivationNarrative({
+        const dailyParams = {
           cultivatorName: cultivator.name,
           spiritualRoot: cultivator.spiritualRoot as import("@/lib").SpiritualRoot,
           realm: cultivator.realm,
@@ -315,10 +316,10 @@ async function handler(request: NextRequest) {
           taskType: taskType || "CUSTOM",
           taskDescription,
           cultivationExp: cultivator.cultivationExp,
-
           state: stateFromCultivator(cultivator),
-        });
-
+        };
+        // AI 生成后的公共处理（effects/事务/记忆）→ 流式与非流式共用
+        const buildDailyResult = async (narrative: NarrativeResult) => {
         // 1) 优先使用 AI 直接输出的 effects，否则从 goldChange 转换
         const effects: NarrativeEffect[] = [];
         if (narrative.effects && narrative.effects.length > 0) {
@@ -454,10 +455,23 @@ async function handler(request: NextRequest) {
           narrative: { ...narrative, hint: narrativeHint, goldChange: actualGoldDelta },
           canBreakthrough: canBreak,
         };
+        return dailyResult;
+        }; // buildDailyResult 结束
+
         if (isStream) {
-          return streamNarrativeResult(event.id, narrative, dailyResult, cultivator);
+          // 真流式试点：AI 边生成边推 narrative 正文，完成后执行事务
+          return streamAIJob({
+            run: async (onDelta) => {
+              const n = await generateDailyCultivationNarrative({ ...dailyParams, onDelta });
+              const result = await buildDailyResult(n);
+              return { result };
+            },
+            errorMessage: "日常修炼叙事生成失败，请稍后重试",
+          });
         }
-        return NextResponse.json(dailyResult);
+        const narrative = await generateDailyCultivationNarrative(dailyParams);
+        const result = await buildDailyResult(narrative);
+        return NextResponse.json(result);
       }
 
       case "BREAKTHROUGH": {

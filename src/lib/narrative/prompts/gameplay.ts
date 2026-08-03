@@ -26,6 +26,8 @@ export async function generateDailyCultivationNarrative(params: {
   cultivationExp: number;
   storySummary?: string;
   state?: CultivatorState;
+  /** 可选：流式回调，边生成边收到 AI 增量文本（透传给 callAI） */
+  onDelta?: (delta: string) => void;
 }): Promise<NarrativeResult> {
   const taskNames: Record<string, string> = {
     STUDY: "悟道",
@@ -55,6 +57,7 @@ export async function generateDailyCultivationNarrative(params: {
       userPrompt: prompt,
       maxTokens: 800,
       temperature: 0.8,
+      ...(params.onDelta ? { onDelta: params.onDelta } : {}),
     });
     return extractJson(text, {
       type: "DAILY_CULTIVATION",
