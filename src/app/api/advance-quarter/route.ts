@@ -40,6 +40,7 @@ import {
 } from "@/lib/family-career";
 import { getWorldEra } from "@/lib/world-era";
 import { decayToxicity } from "@/lib/quarter-effects";
+import { rollEvents } from "@/lib/world-events";
 
 import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
 import { logger } from "@/lib/logger";
@@ -408,6 +409,40 @@ async function handler(request: NextRequest) {
   if (!yearWrapped && newRealm !== cultivator.realm) {
     updateData.realm = newRealm;
     updateData.realmLevel = newRealmLevel;
+  }
+
+  // ── 世界事件检测（每季度触发） ─────────────────────
+  const stage = cultivator.realm === "凡人" && cultivator.realmLevel === 0 ? "凡人" as const : "觉醒" as const;
+  const activeWorldEvents = await prisma.worldEvent.findMany({
+    where: { cultivatorId: cultivator.id, resolved: false },
+    select: { eventId: true },
+  });
+  const activeEventIds = activeWorldEvents.map((e) => e.eventId);
+  const newEvents = rollEvents(stage, activeEventIds, currentWorldYear);
+  for (const evt of newEvents) {
+    await prisma.worldEvent.create({
+      data: {
+        cultivatorId: cultivator.id,
+        eventId: evt.id,
+        title: evt.title,
+        description: evt.description,
+        stage: evt.stage,
+        duration: evt.duration,
+        effect: evt.effect ? JSON.stringify(evt.effect) : null,
+      },
+    });
+  }
+
+  // 推进活跃事件：elapsed +1，到期则 resolved
+  const expiredEvents = await prisma.worldEvent.findMany({
+    where: { cultivatorId: cultivator.id, resolved: false },
+  });
+  for (const evt of expiredEvents) {
+    const newElapsed = (evt.elapsed ?? 0) + 1;
+    await prisma.worldEvent.update({
+      where: { id: evt.id },
+      data: { elapsed: newElapsed, resolved: newElapsed >= evt.duration },
+    });
   }
 
   // ── 乐观锁与跨年职业持久化：在同一事务中执行 ────────

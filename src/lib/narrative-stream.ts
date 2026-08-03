@@ -9,6 +9,29 @@
 
 import { createSSEResponse, chunkNarrative } from "./stream-helper";
 
+/**
+ * 从 AI 流式增量中提取 narrative 字段的增量文本。
+ * 维护 buffer，每次调用返回"自上次以来 narrative 值新增的部分"。
+ * 尽力提取：narrative 值未闭合也返回当前累积部分（AI 按序生成，narrative 值
+ * 闭合前不会出现后续字段；转义 `\"` 已处理）。配合前端逐字流式显示。
+ */
+export function createNarrativeExtractor() {
+  let buffer = "";
+  let lastLen = 0;
+  return {
+    push(delta: string): string {
+      buffer += delta;
+      const m = buffer.match(/"narrative"\s*:\s*"((?:[^"\\]|\\.)*)/);
+      if (!m) return "";
+      const narr = m[1];
+      if (narr.length <= lastLen) return "";
+      const inc = narr.slice(lastLen);
+      lastLen = narr.length;
+      return inc;
+    },
+  };
+}
+
 export function streamNarrativeResult(
   eventId: string,
   narrative: { narrative?: string } | null,

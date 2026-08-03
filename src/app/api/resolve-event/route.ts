@@ -72,6 +72,7 @@ async function postHandler(request: NextRequest) {
       currentGold: cultivator.gold ?? 0,
       currentStamina: cultivator.stamina,
       maxStamina: 100,
+      cultivatorAge: cultivator.age,
     });
 
     // 2. 父母亲密度（不在效果契约中，单独处理）

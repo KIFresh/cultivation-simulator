@@ -6,6 +6,7 @@
 import { prisma } from "@/lib/prisma";
 import { buildSummaryFromEntries } from "@/lib/narrative";
 import { safeJsonParse } from "./json-helper";
+import { embedText, cosineSimilarity, topK } from "./embedding";
 
 // ============================================================
 // 类型定义
@@ -41,6 +42,8 @@ export interface NarrativeStateSnapshot {
   schoolRank: number;
   family: FamilyMemberSnapshot[];
   recentSummary?: string;
+  /** 3 层记忆检索结果（hot + 相关回忆 + 早年经历） */
+  memoryContext?: string;
 }
 
 // ============================================================
@@ -116,6 +119,14 @@ export async function buildNarrativeSnapshot(cultivator: {
     }
   }
 
+  // 3 层记忆检索（非阻塞，失败不影响主流程）
+  let memoryContext: string | undefined;
+  try {
+    memoryContext = await formatMemoryForPrompt(cultivator.id, cultivator.name);
+  } catch {
+    // 记忆检索失败不阻塞叙事
+  }
+
   return {
     cultivatorId: cultivator.id,
     userId: cultivator.userId,
@@ -137,6 +148,7 @@ export async function buildNarrativeSnapshot(cultivator: {
     schoolRank: cultivator.schoolRank ?? 0,
     family,
     recentSummary,
+    memoryContext,
   };
 }
 
@@ -200,6 +212,11 @@ export function formatSnapshotForPrompt(s: NarrativeStateSnapshot): string {
     lines.push(`\n近期经历：${s.recentSummary}`);
   }
 
+  // 3 层记忆上下文
+  if (s.memoryContext) {
+    lines.push(`\n\n${s.memoryContext}`);
+  }
+
   // 地点约束说明
   lines.push(
     `\n【约束】当前所在地点是"${s.location}"，所有事件、环境和活动必须严格发生在此地，不得无故切换。`
@@ -226,4 +243,94 @@ export async function buildFormattedState(
 ): Promise<string> {
   const snapshot = await buildNarrativeSnapshot(cultivator);
   return formatSnapshotForPrompt(snapshot);
+}
+
+// ============================================================
+// 3 层记忆检索
+// ============================================================
+
+/**
+ * 检索修炼者相关记忆：hot（最近5条）+ vector（语义top-3）+ tag（关键词回退）
+ */
+export async function retrieveRelevantMemories(
+  cultivatorId: string,
+  contextText: string,
+  limit = 3
+): Promise<{ hot: string; relevant: string; early: string }> {
+  const allEntries = await prisma.memoryEntry.findMany({
+    where: { cultivatorId },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+  });
+
+  if (allEntries.length === 0) {
+    return { hot: "", relevant: "", early: "" };
+  }
+
+  // Layer 1: Hot (最近5条)
+  const hotEntries = allEntries.slice(0, 5);
+  const hot = hotEntries
+    .map((e) => (e.important ? "⭐ " : "") + `【${e.title}】${e.summary}`)
+    .join("\n");
+
+  // Layer 2: Vector top-3
+  let relevant = "";
+  const entriesWithEmbedding = allEntries.filter((e) => e.embedding);
+  if (entriesWithEmbedding.length > 0 && contextText) {
+    const queryVec = await embedText(contextText);
+    if (queryVec.length > 0) {
+      const scores = entriesWithEmbedding.map((e) => {
+        const vec = safeJsonParse<number[]>(e.embedding, []);
+        return cosineSimilarity(queryVec, vec);
+      });
+      const indices = topK(scores, limit);
+      relevant = indices
+        .map((i) => {
+          const e = entriesWithEmbedding[i];
+          return `【${e.title}】${e.summary}`;
+        })
+        .join("\n");
+    }
+  }
+
+  // Layer 3: Tag fallback（vector 返回不足时补关键词匹配）
+  const vectorCount = relevant ? relevant.split("\n").filter(Boolean).length : 0;
+  if (vectorCount < limit && contextText) {
+    const keywords = contextText.split(/[\s,，。、/]+/).filter(Boolean);
+    const tagResults = allEntries
+      .filter((e) => {
+        if (!e.tags) return false;
+        const tags: string[] = safeJsonParse(e.tags, []);
+        return tags.some((t) => keywords.some((kw) => t.includes(kw) || kw.includes(t)));
+      })
+      .slice(0, limit - vectorCount);
+    if (tagResults.length > 0) {
+      const tagText = tagResults
+        .map((e) => `【${e.title}】${e.summary}`)
+        .join("\n");
+      relevant = relevant ? relevant + "\n" + tagText : tagText;
+    }
+  }
+
+  // Early years（早年概要）
+  const early = allEntries.length > 10
+    ? `早年经历了 ${allEntries.length} 件事件，包括：${allEntries.slice(-5).map((e) => e.title).join("、")} 等。`
+    : "";
+
+  return { hot, relevant, early };
+}
+
+/**
+ * 将 3 层记忆格式化为 Prompt 字符串
+ */
+export async function formatMemoryForPrompt(
+  cultivatorId: string,
+  contextText: string
+): Promise<string> {
+  const { hot, relevant, early } = await retrieveRelevantMemories(cultivatorId, contextText);
+  const parts: string[] = [];
+  if (hot) parts.push(`【最近】\n${hot}`);
+  if (relevant) parts.push(`\n【相关回忆】\n${relevant}`);
+  if (early) parts.push(`\n${early}`);
+  return parts.join("\n");
 }

@@ -21,9 +21,11 @@ import { logger } from "@/lib/logger";
 import {
   applyEffects,
   clampEffectsArray,
+  persistNarrativeMemory,
   type NarrativeEffect,
   type ApplyContext,
 } from "@/lib/narrative-effects";
+import { embedMemoryEntries } from "@/lib/embedding";
 import { NARRATIVE_EFFECT_WHITELISTS, checkEffectWhitelist } from "@/lib/narrative-schema";
 import { getGoldMaxGainByRealm } from "@/lib/gold";
 import { sanitizeAttributes } from "@/lib/utils";
@@ -169,8 +171,16 @@ async function postHandler(request: NextRequest) {
       familyMembers: [
         { relation: familyMember.relation, id: familyMember.id, intimacy: familyMember.intimacy },
       ],
+      cultivatorAge: freshC.age,
     };
     await applyEffects(clamped, tx, ctx);
+
+    // 对话叙事写入记忆面板（带年龄/境界，事务提交后异步补 embedding）
+    const memId = await persistNarrativeMemory(tx, freshC, {
+      title: result.title || `与${familyMember.relation}交谈`,
+      summary: (result.narrative || "").slice(0, 60),
+      narrative: result.narrative,
+    });
 
     // 从事务获取钳制后的实际金币变动
     const goldEffect = clamped.find((e) => e.kind === "gold") as
@@ -193,10 +203,14 @@ async function postHandler(request: NextRequest) {
     return {
       updatedCultivator: await tx.cultivator.findUnique({ where: { id: c.id } }),
       clampedGoldChange,
+      memoryId: memId,
     };
   });
 
-  const { updatedCultivator, clampedGoldChange } = transactionResult;
+  const { updatedCultivator, clampedGoldChange, memoryId } = transactionResult;
+  if (memoryId) {
+    embedMemoryEntries([memoryId]).catch(() => {});
+  }
   const familyResult = { ...result, goldChange: clampedGoldChange, cultivator: updatedCultivator };
   if (isStream) {
     return streamNarrativeResult(familyMember.id, result, familyResult, updatedCultivator);

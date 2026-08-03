@@ -35,6 +35,7 @@ export const EFFECT_KINDS = [
   "rename",
   "mood",
   "npcMeet",
+  "npcRelation",
 ] as const;
 
 export type EffectKind = (typeof EFFECT_KINDS)[number];
@@ -156,6 +157,16 @@ export const NpcMeetEffectSchema = z
   })
   .strict();
 
+export const NpcRelationEffectSchema = z
+  .object({
+    kind: z.literal("npcRelation"),
+    npcId: z.string().min(1),
+    npcName: z.string().min(1),
+    relationType: z.string().optional(),
+    intimacyDelta: z.number().int().min(-30).max(30).optional(),
+  })
+  .strict();
+
 // ── 3. 联合体 Schema & 类型 ──────────────────────────────────────────────
 
 /** NarrativeEffect 联合 Schema（按 kind 区分） */
@@ -171,6 +182,7 @@ export const NarrativeEffectSchema = z.discriminatedUnion("kind", [
   RenameEffectSchema,
   MoodEffectSchema,
   NpcMeetEffectSchema,
+  NpcRelationEffectSchema,
 ]);
 
 /** 叙事效果 TypeScript 类型（由 Schema 推断） */
@@ -446,6 +458,8 @@ export interface ApplyContext {
   currentGold: number;
   currentStamina: number;
   maxStamina: number;
+  /** 修炼者当前年龄，用于记忆条目 */
+  cultivatorAge?: number;
   /** 可选：当前 cultivator 的 familyMembers 快照，用于 intimacy 查找 */
   familyMembers?: Array<{ relation: string; id: string; intimacy: number }>;
 }
@@ -551,7 +565,7 @@ export async function applyEffects(
       }
 
       case "storyEntry": {
-        // 追加到 storyEntries JSON 数组
+        // 追加到 storyEntries JSON 数组（热数据，上限 50 条）
         const current = await tx.cultivator.findUnique({
           where: { id: ctx.cultivatorId },
           select: { storyEntries: true },
@@ -581,6 +595,7 @@ export async function applyEffects(
           where: { id: ctx.cultivatorId },
           data: { storyEntries: JSON.stringify(entries), storyEntriesUpdatedAt: new Date() },
         });
+        // MemoryEntry 沉淀由 action-service 主路径负责（含 tags + embedding），此处不再重复写
         break;
       }
 
@@ -616,11 +631,95 @@ export async function applyEffects(
       case "npcMeet":
         // 这些效果仅用于前端展示，不产生持久化副作用
         break;
+
+      case "npcRelation": {
+        // 关系网络落库：upsert 关系 + 追加历史事件
+        try {
+          const current = await tx.npcRelation.findUnique({
+            where: {
+              cultivatorId_npcId: { cultivatorId: ctx.cultivatorId, npcId: effect.npcId },
+            },
+            select: { history: true, intimacy: true },
+          });
+          const prevHistory: Array<{ ts: string; text: string }> = current?.history
+            ? safeJsonParse(current.history, [])
+            : [];
+          const parts: string[] = [];
+          if (effect.relationType) parts.push(`关系变为「${effect.relationType}」`);
+          if (effect.intimacyDelta) {
+            parts.push(`好感${effect.intimacyDelta > 0 ? "+" : ""}${effect.intimacyDelta}`);
+          }
+          if (parts.length > 0) {
+            const nextHistory = [...prevHistory, { ts: new Date().toISOString(), text: parts.join("，") }];
+            const nextIntimacy = Math.max(
+              0,
+              Math.min(100, (current?.intimacy ?? 50) + (effect.intimacyDelta ?? 0))
+            );
+            await tx.npcRelation.upsert({
+              where: {
+                cultivatorId_npcId: { cultivatorId: ctx.cultivatorId, npcId: effect.npcId },
+              },
+              create: {
+                cultivatorId: ctx.cultivatorId,
+                npcId: effect.npcId,
+                npcName: effect.npcName,
+                relationType: effect.relationType || "认识",
+                intimacy: Math.max(0, Math.min(100, 50 + (effect.intimacyDelta ?? 0))),
+                history: JSON.stringify(nextHistory.slice(-20)),
+              },
+              update: {
+                npcName: effect.npcName,
+                ...(effect.relationType && { relationType: effect.relationType }),
+                ...(effect.intimacyDelta && { intimacy: nextIntimacy }),
+                history: JSON.stringify(nextHistory.slice(-20)),
+              },
+            });
+          }
+        } catch {
+          // 关系持久化失败不阻塞主流程
+        }
+        break;
+      }
     }
   }
 }
 
 // ── 8. 便捷工具函数 ──────────────────────────────────────────────────────
+
+/**
+ * 在事务内写入一条 MemoryEntry（供非 action 路径复用：narrative/family-dialogue）。
+ * 失败不抛错，返回 null。embedding 由调用方在事务提交后异步补齐。
+ */
+export async function persistNarrativeMemory(
+  tx: any,
+  c: { id: string; age: number; realm: string },
+  args: {
+    title: string;
+    summary: string;
+    narrative?: string | null;
+    important?: boolean;
+    tags?: string[];
+  }
+): Promise<string | null> {
+  try {
+    const mem = await tx.memoryEntry.create({
+      data: {
+        cultivatorId: c.id,
+        title: args.title || "",
+        summary: args.summary || args.title || "",
+        narrative: args.narrative ?? null,
+        important: args.important ?? true,
+        tags: JSON.stringify(args.tags ?? []),
+        cultivatorAge: c.age,
+        cultivatorRealm: c.realm,
+      },
+    });
+    return mem.id;
+  } catch (err) {
+    console.error("[MemoryEntry] write failed:", err);
+    return null;
+  }
+}
 
 /**
  * 从 AI 叙事响应（原始 JSON）中安全提取 effects[]。

@@ -43,8 +43,6 @@ export default function DashboardPage() {
     setNpcMessage,
     npcChatHistory,
     devMode,
-    memoryEntries,
-    setMemoryEntries,
     techniquePanelOpen,
     daoXiao,
     warnEarly,
@@ -357,11 +355,7 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          <MemoryPanel
-            cultivatorId={cultivator.id}
-            entries={memoryEntries}
-            onEntriesChange={setMemoryEntries}
-          />
+          <MemoryPanel cultivatorId={cultivator.id} />
 
           {isAwake && (
             <button

@@ -28,9 +28,11 @@ import { streamNarrativeResult } from "@/lib/narrative-stream";
 import {
   applyEffects,
   clampEffectsArray,
+  persistNarrativeMemory,
   type NarrativeEffect,
   type ApplyContext,
 } from "@/lib/narrative-effects";
+import { embedMemoryEntries } from "@/lib/embedding";
 import { NARRATIVE_EFFECT_WHITELISTS, checkEffectWhitelist } from "@/lib/narrative-schema";
 import { sanitizeAttributes } from "@/lib/utils";
 import { calculateMaxStamina } from "@/lib/cultivation-data";
@@ -229,6 +231,14 @@ async function handler(request: NextRequest) {
               },
             });
 
+            // 3.5) 出生叙事写入记忆面板（重要标记，AI 检索优先召回）
+            const memId = await persistNarrativeMemory(tx, cultivator, {
+              title: narrative.title,
+              summary: narrative.summary || "",
+              narrative: narrative.narrative,
+              important: true,
+            });
+
             // 4) 替换家庭成员：先删旧成员，再写入叙事中的新成员
             await tx.familyMember.deleteMany({ where: { cultivatorId: cultivator.id } });
             const members = (narrative.family || [])
@@ -265,12 +275,15 @@ async function handler(request: NextRequest) {
               await tx.familyMember.createMany({ data: members });
             }
 
-            return { event: evt, updated, family: members };
+            return { event: evt, updated, family: members, memoryId: memId };
           });
 
           event = result.event;
           updatedCultivator = result.updated;
           savedFamily = result.family || [];
+          if (result.memoryId) {
+            embedMemoryEntries([result.memoryId]).catch(() => {});
+          }
         } catch (e) {
           logger.error("BIRTH: 事务写入失败", e);
           return NextResponse.json(
@@ -343,6 +356,7 @@ async function handler(request: NextRequest) {
             cultivator.age,
             sanitizeAttributes(cultivator.attributes) ?? undefined
           ),
+          cultivatorAge: cultivator.age,
         };
         const goldEffect = clamped.find((e) => e.kind === "gold") as
           { kind: "gold"; delta: number } | undefined;
@@ -383,6 +397,7 @@ async function handler(request: NextRequest) {
         }
 
         // 事务化：游戏事件 + 效果契约 + 记忆 + 功法熟练度
+        const memIds: string[] = [];
         const event = await prisma.$transaction(async (tx) => {
           const evt = await tx.gameEvent.create({
             data: {
@@ -400,6 +415,13 @@ async function handler(request: NextRequest) {
           if (clamped.length > 0) {
             await applyEffects(clamped, tx, ctx);
           }
+          // 叙事写入记忆面板（带年龄/境界，事务提交后异步补 embedding）
+          const memId = await persistNarrativeMemory(tx, cultivator, {
+            title: narrative.title || "",
+            summary: (narrative.narrative || "").slice(0, 60),
+            narrative: narrative.narrative,
+          });
+          if (memId) memIds.push(memId);
           // 记忆持久化
           await tx.cultivator.update({
             where: { id: cultivator.id },
@@ -411,6 +433,9 @@ async function handler(request: NextRequest) {
           }
           return evt;
         });
+        if (memIds.length > 0) {
+          embedMemoryEntries(memIds).catch(() => {});
+        }
         const finalHint = narrative.hint || "";
         const narrativeHint =
           levelUpMessages.length > 0
@@ -587,6 +612,7 @@ async function handler(request: NextRequest) {
               cultivator.age,
               sanitizeAttributes(cultivator.attributes) ?? undefined
             ),
+            cultivatorAge: cultivator.age,
           };
           const goldEffect = clamped.find((e) => e.kind === "gold") as
             { kind: "gold"; delta: number } | undefined;
@@ -596,6 +622,7 @@ async function handler(request: NextRequest) {
             [...currentEntries, newEntry],
             cultivator.name
           );
+          const memIds: string[] = [];
 
           const event = await prisma.$transaction(async (tx) => {
             const evt = await tx.gameEvent.create({
@@ -612,6 +639,13 @@ async function handler(request: NextRequest) {
             if (clamped.length > 0) {
               await applyEffects(clamped, tx, ctx);
             }
+            // 叙事写入记忆面板（带年龄/境界，事务提交后异步补 embedding）
+            const memId = await persistNarrativeMemory(tx, cultivator, {
+              title: narrative.title || "",
+              summary: (narrative.narrative || "").slice(0, 60),
+              narrative: narrative.narrative,
+            });
+            if (memId) memIds.push(memId);
             // 记忆持久化
             await tx.cultivator.update({
               where: { id: cultivator.id },
@@ -622,6 +656,9 @@ async function handler(request: NextRequest) {
             });
             return evt;
           });
+          if (memIds.length > 0) {
+            embedMemoryEntries(memIds).catch(() => {});
+          }
 
           const encounterResult = {
             event,
@@ -669,6 +706,7 @@ async function handler(request: NextRequest) {
             cultivator.age,
             sanitizeAttributes(cultivator.attributes) ?? undefined
           ),
+          cultivatorAge: cultivator.age,
         };
         const goldEffect = clamped.find((e) => e.kind === "gold") as
           { kind: "gold"; delta: number } | undefined;
@@ -678,6 +716,7 @@ async function handler(request: NextRequest) {
           [...currentEntries, newEntry],
           cultivator.name
         );
+        const memIds: string[] = [];
 
         // 事务化：事件 + 效果契约 + 记忆
         const event = await prisma.$transaction(async (tx) => {
@@ -693,6 +732,13 @@ async function handler(request: NextRequest) {
           if (clamped.length > 0) {
             await applyEffects(clamped, tx, ctx);
           }
+          // 叙事写入记忆面板（带年龄/境界，事务提交后异步补 embedding）
+          const memId = await persistNarrativeMemory(tx, cultivator, {
+            title: narrative.title || "",
+            summary: (narrative.narrative || "").slice(0, 60),
+            narrative: narrative.narrative,
+          });
+          if (memId) memIds.push(memId);
           // 记忆持久化
           await tx.cultivator.update({
             where: { id: cultivator.id },
@@ -700,6 +746,9 @@ async function handler(request: NextRequest) {
           });
           return evt;
         });
+        if (memIds.length > 0) {
+          embedMemoryEntries(memIds).catch(() => {});
+        }
 
         const encounterResult = { event, narrative, goldChange: actualGoldDelta };
         if (isStream) {

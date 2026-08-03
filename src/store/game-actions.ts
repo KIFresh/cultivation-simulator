@@ -2,6 +2,7 @@ import { safeJsonParse } from "@/lib/json-helper";
 import { consumeNarrativeStream } from "@/lib/sse-client";
 import { parseAttrs, deriveStoreFields } from "./game-helpers";
 import { applyNarrativeResult } from "./game-narrative";
+import { getActionById } from "@/lib/cultivation-data";
 import type { CultivatorData } from "@/app/dashboard/types";
 
 let lastRequest: { endpoint: string; body: Record<string, unknown> } | null = null;
@@ -33,6 +34,19 @@ export function initActions(set: (partial: any) => void, get: () => any) {
     loadCultivator: async (userId: string) => {
       if (!userId) return;
       set({ userId });
+
+      // Try cache first
+      try {
+        const { getCachedCultivator } = await import("@/lib/cache");
+        const cached = await getCachedCultivator(userId);
+        if (cached) {
+          set((state: any) => ({ ...state, ...deriveStoreFields(cached), userId }));
+        }
+      } catch {
+        // Cache miss is fine
+      }
+
+      // Then fetch fresh data
       try {
         const res = await fetch(`/api/cultivator?userId=${encodeURIComponent(userId)}`);
         if (!res.ok) return;
@@ -41,7 +55,7 @@ export function initActions(set: (partial: any) => void, get: () => any) {
         if (!raw) return;
         set((state: any) => ({ ...state, ...deriveStoreFields(raw), userId }));
       } catch {
-        // 静默失败：保留现有状态
+        // Silent fail: keep cached data
       }
     },
 
@@ -57,7 +71,13 @@ export function initActions(set: (partial: any) => void, get: () => any) {
       const { userId, cultivator, actionLoading } = get();
       if (!userId) throw new Error("未找到用户，请先创建修炼者");
       if (actionLoading) return;
-      set({ actionLoading: true, narrativeError: null, streamingText: "" });
+      // 乐观叙事：AI 返回前先显示占位文本，首段流式内容到达时替换
+      const actionName = getActionById(actionId)?.name || "行动";
+      const optimistic =
+        input && input.trim()
+          ? `你决定${actionName}，${input.trim()}……`
+          : `你开始了「${actionName}」，静下心来感受此刻……`;
+      set({ actionLoading: true, narrativeError: null, streamingText: optimistic });
       let familyData: Record<string, unknown> | null = null;
       try {
         const raw = typeof window !== "undefined" ? window.localStorage.getItem("family") : null;
@@ -84,8 +104,16 @@ export function initActions(set: (partial: any) => void, get: () => any) {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const ct = res.headers.get("content-type") || "";
         if (ct.includes("text/event-stream")) {
+          let replaced = false;
           await consumeNarrativeStream(res, {
-            onChunk: (c: string) => set((s: any) => ({ streamingText: (s.streamingText || "") + c })),
+            onChunk: (c: string) =>
+              set((s: any) => {
+                if (!replaced) {
+                  replaced = true;
+                  return { streamingText: c };
+                }
+                return { streamingText: (s.streamingText || "") + c };
+              }),
             onDone: (data: Record<string, unknown>) => applyNarrativeResult(set, data),
             onError: (e: Error | { message?: string }) =>
               set({

@@ -19,6 +19,15 @@ interface FamilyMember {
   dialogueHistory: { role: "player" | "npc"; content: string; timestamp: number }[];
 }
 
+interface NpcRelation {
+  id: string;
+  npcId: string;
+  npcName: string;
+  relationType: string;
+  intimacy: number;
+  history?: string | null;
+}
+
 const relationIcons: Record<string, string> = {
   父亲: "👨",
   母亲: "👩",
@@ -40,6 +49,7 @@ const relationOrder: Record<string, number> = {
 export default function RelationshipsPage() {
   const router = useRouter();
   const [family, setFamily] = useState<FamilyMember[]>([]);
+  const [npcRelations, setNpcRelations] = useState<NpcRelation[]>([]);
   const [userId, setUserId] = useState("");
   const [cultivatorName, setCultivatorName] = useState("");
   const [cultivatorRealm, setCultivatorRealm] = useState("");
@@ -67,6 +77,20 @@ export default function RelationshipsPage() {
     }
   }, []);
 
+  const loadNpcRelations = useCallback(async () => {
+    const id = localStorage.getItem("userId");
+    if (!id) return;
+    try {
+      const res = await fetch(`/api/npc-relations`, { headers: { "x-user-id": id } });
+      if (res.ok) {
+        const data = await res.json();
+        setNpcRelations(data.relations || []);
+      }
+    } catch (err) {
+      console.warn("加载NPC关系失败:", err);
+    }
+  }, []);
+
   useEffect(() => {
     const id = localStorage.getItem("userId");
     if (!id) {
@@ -75,6 +99,7 @@ export default function RelationshipsPage() {
     }
     setUserId(id);
     loadFamily();
+    loadNpcRelations();
     // 从 API 加载修炼者信息（名字、年龄、境界）
     fetch(`/api/cultivator?userId=${id}`)
       .then((r) => r.json())
@@ -238,6 +263,62 @@ export default function RelationshipsPage() {
                   <MessageCircle className="w-4 h-4 text-gray-400 shrink-0" />
                 </button>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* NPC 关系 */}
+        {!talkingTo && npcRelations.length > 0 && (
+          <div className="silk-card rounded-3xl p-6">
+            <h3 className="text-sm font-bold text-[#2C1E1E] flex items-center gap-2 pb-3 mb-3 border-b border-[#EADCD0]">
+              <span>🌟</span> 江湖故人
+            </h3>
+            <div className="space-y-2">
+              {npcRelations.map((npc) => {
+                const typeColors: Record<string, string> = {
+                  朋友: "text-emerald-600",
+                  仇人: "text-red-600",
+                  恋人: "text-pink-600",
+                  师徒: "text-blue-600",
+                  同门: "text-purple-600",
+                };
+                return (
+                  <div
+                    key={npc.npcId}
+                    className="w-full flex items-center gap-3 p-3 rounded-2xl border border-[#EADCD0] bg-white"
+                  >
+                    <span className="text-2xl">👤</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[#2C1E1E] font-medium">{npc.npcName}</span>
+                        <span className={`text-xs ${typeColors[npc.relationType] || "text-gray-400"}`}>
+                          {npc.relationType}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <Heart className={`w-3 h-3 ${npc.intimacy >= 50 ? "text-emerald-500" : "text-red-400"}`} />
+                        <span className={`text-xs ${npc.intimacy >= 50 ? "text-emerald-600" : "text-red-500"}`}>
+                          好感 {npc.intimacy}
+                        </span>
+                      </div>
+                      {(() => {
+                        let hist: { ts: string; text: string }[] = [];
+                        try { hist = npc.history ? JSON.parse(npc.history) : []; } catch {}
+                        if (hist.length === 0) return null;
+                        return (
+                          <div className="mt-1 space-y-0.5">
+                            {hist.slice(-2).map((h, i) => (
+                              <p key={i} className="text-[11px] text-[#8a7a72] truncate">
+                                {h.text}
+                              </p>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

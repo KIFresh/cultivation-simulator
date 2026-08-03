@@ -70,6 +70,7 @@ async function postHandler(request: NextRequest) {
       currentGold: c.gold ?? 0,
       currentStamina: c.stamina,
       maxStamina: 100,
+      cultivatorAge: c.age,
     });
 
     // 2. 更新位置

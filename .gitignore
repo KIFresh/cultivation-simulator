@@ -69,3 +69,5 @@ prisma/manual-add-indexes.sql
 # reasonix local state
 /.reasonix/
 docs/reasonix/
+/.playwright-cli/
+/prisma/backups/

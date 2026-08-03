@@ -12,6 +12,7 @@ const NAV_TABS: { label: string; href: string }[] = [
   { label: "物品", href: "/items" },
   { label: "技能", href: "/skills" },
   { label: "资产", href: "/assets" },
+  { label: "记忆", href: "/memory" },
   { label: "记录", href: "/history" },
   { label: "生活", href: "/life" },
 ];

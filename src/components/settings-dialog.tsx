@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Eye, EyeOff, RefreshCw, Save, Settings } from "lucide-react";
+import { Download, Eye, EyeOff, RefreshCw, Save, Settings, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 interface ProviderConfig {
@@ -183,6 +183,51 @@ export default function SettingsDialog({
     onDevModeChange?.(next);
   };
 
+  const handleBackupExport = async () => {
+    const uid = localStorage.getItem("userId");
+    if (!uid) { toast.error("请先登录"); return; }
+    try {
+      const res = await fetch("/api/backup/export", { headers: { "x-user-id": uid } });
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `cultivation-backup-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("存档已导出");
+    } catch {
+      toast.error("导出失败");
+    }
+  };
+
+  const handleBackupImport = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = async (e: Event) => {
+      const file = (e.target as HTMLInputElement)?.files?.[0];
+      if (!file) return;
+      const uid = localStorage.getItem("userId");
+      if (!uid) { toast.error("请先登录"); return; }
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        const res = await fetch("/api/backup/import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-user-id": uid },
+          body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error();
+        toast.success("存档已恢复，请刷新页面");
+      } catch {
+        toast.error("导入失败，请检查文件格式");
+      }
+    };
+    input.click();
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
@@ -339,6 +384,18 @@ export default function SettingsDialog({
                 />
               </div>
               <div className="flex gap-2">
+                <button
+                  onClick={handleBackupExport}
+                  className="px-2 py-1 text-xs border border-[#D0C8C0] rounded flex items-center gap-1 hover:bg-[#F0EBE3] transition-colors"
+                >
+                  <Download className="w-3 h-3" /> 导出存档
+                </button>
+                <button
+                  onClick={handleBackupImport}
+                  className="px-2 py-1 text-xs border border-[#D0C8C0] rounded flex items-center gap-1 hover:bg-[#F0EBE3] transition-colors"
+                >
+                  <Upload className="w-3 h-3" /> 导入存档
+                </button>
                 <Button variant="outline" onClick={() => onOpenChange(false)}>
                   取消
                 </Button>

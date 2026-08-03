@@ -81,9 +81,81 @@ export function extractJson(text: string, fallback: any): any {
       }
     } catch {}
 
+  // 4. 容错修复：部分模型（如 Agnes）会在字符串值内输出未转义的 ASCII 引号，
+  //    导致整个 JSON 无法解析。将值内的裸引号替换为中文引号「」再重试。
+  if (!parsed) {
+    const repaired = repairLooseJson(text);
+    if (repaired) {
+      try {
+        parsed = JSON.parse(repaired);
+      } catch {}
+    }
+  }
+
   if (!parsed || typeof parsed !== "object") return fallback;
   normalizeNarrativeKeys(parsed);
   return parsed;
+}
+
+/**
+ * 修复 LLM 输出中的"字符串值内裸引号"：扫描 JSON，字符串值内部未转义的 ASCII
+ * 双引号会被交替替换为中文引号「」——仅影响解析，不改变语义。
+ * 返回修复后的文本；无法定位到合法 JSON 对象时返回 null。
+ *
+ * 关键：字符串结束的判定用前瞻（后跟 `:` 是 key 结束，后跟 `,` `}` `]` 是 value 结束），
+ * 因此值内的裸引号不会破坏状态机。
+ */
+function repairLooseJson(text: string): string | null {
+  let depth = 0;
+  let start = -1;
+  let end = -1;
+  let inString = false;
+  let openQuote = true;
+  let out = "";
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+
+    if (ch === '"' && (i === 0 || text[i - 1] !== "\\")) {
+      if (!inString) {
+        inString = true;
+        out += ch;
+        continue;
+      }
+      // 字符串内遇到 "：前瞻判定是结束引号还是值内裸引号
+      let k = i + 1;
+      while (k < text.length && /\s/.test(text[k])) k++;
+      const next = k < text.length ? text[k] : "";
+      if (next === ":" || next === "," || next === "}" || next === "]" || next === "") {
+        inString = false;
+        out += ch;
+        continue;
+      }
+      // 值内裸引号 → 交替替换为中文引号
+      out += openQuote ? "「" : "」";
+      openQuote = !openQuote;
+      continue;
+    }
+
+    if (!inString) {
+      if (ch === "{") {
+        if (depth === 0) start = i;
+        depth++;
+      } else if (ch === "}") {
+        depth--;
+        if (depth === 0 && start >= 0) {
+          end = i;
+          out += ch;
+          break;
+        }
+      }
+    }
+    // 只在找到最外层 { 之后累积，避免把 ```json 前缀带进修复结果
+    if (start >= 0) out += ch;
+  }
+
+  if (start < 0 || end < 0) return null;
+  return out;
 }
 
 /**
@@ -145,6 +217,8 @@ export interface CultivatorState {
     alive?: boolean;
     occupation?: string | null;
   }>;
+  /** 3 层记忆检索结果（hot + 向量 + tag），由调用方异步构建后传入 */
+  memoryContext?: string;
 }
 
 const ATTR_LABELS: Record<string, string> = {
@@ -235,6 +309,11 @@ export function buildStateContext(s?: CultivatorState): string {
       })
       .join("、");
     parts.push(`家人：${familyStr}`);
+  }
+
+  // 3 层记忆检索上下文（调用方异步构建，缺失时跳过）
+  if (s.memoryContext) {
+    parts.push(`\n\n${s.memoryContext}`);
   }
 
   return `【玩家当前状态】${parts.join("，")}。\n注意：当前所在地点是叙事发生的场景。所有事件的环境描写、附近出现的角色、玩家可以进行的活动都必须符合当前所在地点的设定，不得无故切换地点。例如若身处"家"中则写家庭日常，在"学校"则写校园生活，在"坊市"则是交易与修仙者集会，在"野外"则有荒野探索与奇遇。`;
@@ -692,7 +771,7 @@ ${params.giftDecision ? `【服务端结算】本次行动馈赠：获得金币 
 - 未觉醒角色不能出现超凡元素；已觉醒角色按其境界自然写即可，不要刻意宏大
 
 要求：120-220字，符合年龄认知，有烟火气，不要宏大叙事
-根据当前情境，为以下各行动类型各生成3-5个候选短语（动词开头，6-15字/个），每个行动的候选短语必须严格围绕该行动类型来生成，不能写成其他行动类型的候选词。
+根据当前情境，为以下各行动类型各生成2-3个候选短语（动词开头，6-15字/个），每个行动的候选短语必须严格围绕该行动类型来生成，不能写成其他行动类型的候选词。
 ${params.availableActions?.length ? params.availableActions.map(a => `- ${a.id}/${a.name}`).join('\n') : `- ${params.actionName}`}
 返回JSON：{"type":"ACTION","title":"标题(10字内)","narrative":"正文(120-220字)","mood":"静/悟/燃/险/奇","hint":"一句接地气的下一步建议(10-20字)","summary":"20-30字概述，聚焦这次行动本身，不要拔高","actionOptions":{"TALK":["选项1","选项2"],"WANDER":["选项1","选项2"]}}`;
 

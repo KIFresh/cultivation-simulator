@@ -109,6 +109,7 @@ async function handler(request: NextRequest) {
           currentGold: cultivator.gold ?? 0,
           currentStamina: cultivator.stamina,
           maxStamina: 100,
+          cultivatorAge: cultivator.age,
         });
       }
 

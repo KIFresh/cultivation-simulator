@@ -82,6 +82,13 @@ export function deriveStoreFields(raw: any) {
   );
   const actions = getAvailableActions(worldId, age, cultivator.realm, location || undefined);
 
+  // Sync to IndexedDB cache (fire-and-forget)
+  if (typeof window !== "undefined" && raw?.id) {
+    import("@/lib/cache").then(({ setCachedCultivator }) => {
+      setCachedCultivator(raw.userId || raw.id, { ...raw, userId: raw.userId || raw.id });
+    }).catch(() => {});
+  }
+
   return {
     cultivator,
     gold: cultivator.gold,

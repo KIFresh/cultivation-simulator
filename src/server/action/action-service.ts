@@ -38,6 +38,8 @@ import {
 import { NARRATIVE_EFFECT_WHITELISTS, checkEffectWhitelist } from "@/lib/narrative-schema";
 import { getGoldMaxGainByRealm } from "@/lib/gold";
 import { evaluateActionGift } from "@/lib/action-gifts";
+import { autoBackup } from "@/lib/auto-backup";
+import { embedMemoryEntries } from "@/lib/embedding";
 import { calculateAnnualFamilyAllowance, type AllowanceParent } from "@/lib/family-allowance";
 import {
   calculateHouseholdIncome,
@@ -243,6 +245,18 @@ export async function executeAction(input: ActionInput, cultivator: any): Promis
     allowanceRemaining: currentAllowance,
   });
 
+  // 3 层记忆检索：用本次行动文本做语义 query，结果注入叙事 prompt
+  let memoryContext: string | undefined;
+  try {
+    const { formatMemoryForPrompt } = await import("@/lib/narrative-context");
+    const queryText = [action.name, freeInput, ...(input.npcNames ?? [])]
+      .filter((t): t is string => typeof t === "string" && t.trim().length > 0)
+      .join(" ");
+    memoryContext = await formatMemoryForPrompt(cultivator.id, queryText || action.name);
+  } catch {
+    // 记忆检索失败不阻塞叙事
+  }
+
   const narrativeResult = await generateActionNarrative({
     cultivatorName: cultivator.name,
     spiritualRoot: cultivator.spiritualRoot,
@@ -269,6 +283,7 @@ export async function executeAction(input: ActionInput, cultivator: any): Promis
       ...stateFromCultivator(cultivator),
       realm: newRealm,
       realmLevel: newRealmLevel,
+      memoryContext,
     },
   });
 
@@ -295,6 +310,35 @@ export async function executeAction(input: ActionInput, cultivator: any): Promis
     storyEntriesUpdatedAt: new Date(),
     stamina: Math.max(0, (cultivator.stamina ?? 0) - action.actionPointCost),
   };
+
+  // Derive MemoryEntry records from the narrative itself (regardless of AI effects)
+  const memTags = [action.name, locationId, ...(input.npcNames ?? [])].filter(
+    (t): t is string => typeof t === "string" && t.trim().length > 0
+  );
+  const memoryEntriesToCreate = [
+    {
+      cultivatorId: cultivator.id,
+      title: narrativeResult.title || "",
+      summary: narrativeResult.summary || "",
+      narrative: narrativeResult.narrative || null,
+      important: true,
+      tags: JSON.stringify(memTags),
+      cultivatorAge: cultivator.age,
+      cultivatorRealm: newRealm,
+    },
+  ];
+  if (awakenEvent) {
+    memoryEntriesToCreate.push({
+      cultivatorId: cultivator.id,
+      title: awakenEvent.title,
+      summary: awakenEvent.narrative,
+      narrative: awakenEvent.narrative,
+      important: true,
+      tags: JSON.stringify(["觉醒"]),
+      cultivatorAge: cultivator.age,
+      cultivatorRealm: newRealm,
+    });
+  }
   const allowanceDeduction =
     giftDecision.givesGold > 0
       ? {
@@ -443,6 +487,7 @@ export async function executeAction(input: ActionInput, cultivator: any): Promis
     currentGold: cultivator.gold ?? 0,
     currentStamina: cultivator.stamina,
     maxStamina: calculateMaxStamina(cultivator.age, safeAttrs),
+    cultivatorAge: cultivator.age,
   };
 
   const techniqueUpdateOps: TechniqueUpdate[] = [];
@@ -484,6 +529,7 @@ export async function executeAction(input: ActionInput, cultivator: any): Promis
     }
   }
 
+  const createdMemoryIds: string[] = [];
   const updated = await prisma
     .$transaction(async (tx) => {
       // 以读取时的完整年度额度作为条件写入，避免并发行动用同一旧余额重复发放。
@@ -511,6 +557,16 @@ export async function executeAction(input: ActionInput, cultivator: any): Promis
       }
       if (clamped.length > 0) {
         await applyEffects(clamped, tx, ctx);
+      }
+
+      // Write MemoryEntry records from this action's narrative
+      for (const mem of memoryEntriesToCreate) {
+        try {
+          const created = await tx.memoryEntry.create({ data: mem });
+          createdMemoryIds.push(created.id);
+        } catch (err) {
+          console.error("[MemoryEntry] write failed:", err);
+        }
       }
       const cultivatorUpdate = await tx.cultivator.update({
         where: { id: cultivator.id },
@@ -582,6 +638,14 @@ export async function executeAction(input: ActionInput, cultivator: any): Promis
 
   if (!updated) {
     return { status: "error", message: "本年度可支配的零花钱已被其他行动使用，请重试", code: 409 };
+  }
+
+  // Auto-backup after successful action (fire-and-forget, non-critical)
+  autoBackup(cultivator.id).catch(() => {});
+
+  // Generate embeddings for the new memory entries (fire-and-forget, non-blocking)
+  if (createdMemoryIds.length > 0) {
+    embedMemoryEntries(createdMemoryIds).catch(() => {});
   }
 
   return {

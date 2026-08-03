@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Globe, ArrowLeft, MapPin, Compass } from "lucide-react";
+import { Globe, ArrowLeft, MapPin, Compass, Bell } from "lucide-react";
 import TopNav from "@/components/top-nav";
 import { VermilionShell } from "@/components/vermilion";
 import {
@@ -33,6 +33,8 @@ export default function WorldPage() {
   const [cultivator, setCultivator] = useState<Cultivator | null>(null);
   const [traveling, setTraveling] = useState(false);
   const [selectedMode, setSelectedMode] = useState<TravelModeId>("walk");
+  const [worldEvents, setWorldEvents] = useState<any[]>([]);
+  const [joining, setJoining] = useState<string | null>(null);
 
   useEffect(() => {
     const id = localStorage.getItem("userId");
@@ -47,7 +49,11 @@ export default function WorldPage() {
         if (d.user?.cultivator) setCultivator(d.user.cultivator);
       })
       .catch(() => {});
-  }, [router]);
+          fetch(`/api/world-events`, { headers: { "x-user-id": id } })
+            .then((r) => r.json())
+            .then((d) => setWorldEvents(d.events || []))
+            .catch(() => {});
+        }, [router]);
 
   const awake = cultivator ? isAwakened(cultivator.realm) : false;
 
@@ -74,6 +80,29 @@ export default function WorldPage() {
     }
   };
 
+  const handleJoinEvent = async (evt: any) => {
+    if (!userId || joining) return;
+    setJoining(evt.id);
+    try {
+      const res = await fetch("/api/world-events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-user-id": userId },
+        body: JSON.stringify({ eventId: evt.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "参与失败");
+        return;
+      }
+      setWorldEvents((prev) => prev.filter((e) => e.id !== evt.id));
+      alert(data.effectApplied ? `已参与「${evt.title}」，获得属性加成：${data.effectApplied}` : `已参与「${evt.title}」`);
+    } catch {
+      alert("参与失败");
+    } finally {
+      setJoining(null);
+    }
+  };
+
   return (
     <VermilionShell>
       <TopNav />
@@ -85,8 +114,45 @@ export default function WorldPage() {
           <ArrowLeft className="w-4 h-4" /> 返回修行
         </button>
 
-        <div className="silk-card rounded-3xl p-6">
-          <div className="flex items-center justify-between pb-4 border-b border-[#EADCD0]">
+                {/* 世界事件 */}
+                {worldEvents.length > 0 && (
+                  <div className="silk-card rounded-3xl p-6">
+                    <h3 className="text-sm font-bold text-[#2C1E1E] flex items-center gap-2 pb-3 mb-3 border-b border-[#EADCD0]">
+                      <Bell className="w-4 h-4 text-[#D49B4B]" /> 当前世界事件
+                    </h3>
+                    <div className="space-y-3">
+                      {worldEvents.map((evt) => (
+                        <div
+                          key={evt.id}
+                          className="p-4 rounded-2xl bg-[#FFF8F0] border border-[#D49B4B]/30"
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-bold text-[#2C1E1E]">{evt.title}</span>
+                            <span>
+                              {evt.eventId === "spiritual_tide" ? "🌊" :
+                               evt.eventId === "beast_disturbance" ? "🐾" :
+                               evt.eventId === "secret_realm" ? "🏯" :
+                               evt.eventId === "auction" ? "🏷️" : "🌠"}
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#5C5C5C] leading-relaxed">{evt.description}</p>
+                          <div className="flex items-center justify-end mt-2">
+                            <button
+                              onClick={() => handleJoinEvent(evt)}
+                              disabled={joining === evt.id}
+                              className="px-3 py-1 bg-[#B83227] text-white text-xs rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                            >
+                              {joining === evt.id ? "参与中…" : "参与事件"}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="silk-card rounded-3xl p-6">
+                  <div className="flex items-center justify-between pb-4 border-b border-[#EADCD0]">
             <h3 className="font-calligraphy text-2xl font-bold tracking-widest text-[#7A1F18] flex items-center">
               <Globe className="mr-2.5 text-[#D49B4B]" /> 世界
             </h3>

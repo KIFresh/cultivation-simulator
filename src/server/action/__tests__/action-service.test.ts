@@ -43,6 +43,11 @@ vi.mock("@/lib/prisma", () => ({
     familyMember: { findMany: vi.fn(() => []) },
     gameEvent: { count: vi.fn(() => 0) },
     $transaction: vi.fn(),
+    worldEvent: {
+      findMany: vi.fn().mockResolvedValue([]),
+      create: vi.fn(),
+      update: vi.fn(),
+    },
   },
 }));
 
@@ -50,6 +55,7 @@ vi.mock("@/lib", () => ({
   getActionById: mockGetActionById,
   calculateActionExp: mockCalculateActionExp,
   canBreakthrough: mockCanBreakthrough,
+  getActionsWithLockInfo: vi.fn().mockReturnValue([]),
   MORTAL_REALM: "凡人",
   isAwakened: mockIsAwakened,
   calculateMaxStamina: mockCalculateMaxStamina,

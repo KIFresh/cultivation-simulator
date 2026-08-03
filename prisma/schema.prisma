@@ -82,6 +82,9 @@ model Cultivator {
   techniques            CultivatorTechnique[]
   familyMembers         FamilyMember[]
   events                GameEvent[]
+  memoryEntries         MemoryEntry[]
+  npcRelationEntries     NpcRelation[]
+  worldEvents           WorldEvent[]
 }
 
 model CultivatorTechnique {
@@ -136,6 +139,59 @@ model GameEvent {
   Cultivator   Cultivator @relation(fields: [cultivatorId], references: [id])
 
   @@index([cultivatorId, createdAt])
+}
+
+model MemoryEntry {
+  id              String   @id @default(cuid())
+  cultivatorId    String
+  title           String
+  summary         String
+  narrative       String?
+  important       Boolean  @default(false)
+  tags            String?
+  cultivatorAge   Int
+  cultivatorRealm String?
+  embedding       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  Cultivator      Cultivator @relation(fields: [cultivatorId], references: [id], onDelete: Cascade)
+
+  @@index([cultivatorId, createdAt])
+  @@index([cultivatorId, important])
+  @@index([cultivatorId, cultivatorAge])
+}
+
+model NpcRelation {
+  id              String   @id @default(cuid())
+  cultivatorId    String
+  npcId           String
+  npcName         String
+  relationType    String   @default("认识")
+  intimacy        Int      @default(50)
+  history         String?  // JSON: [{ts, text}] 关系变化历史，最多 20 条
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  Cultivator      Cultivator @relation(fields: [cultivatorId], references: [id], onDelete: Cascade)
+
+  @@unique([cultivatorId, npcId])
+  @@index([cultivatorId])
+}
+
+model WorldEvent {
+  id              String   @id @default(cuid())
+  cultivatorId    String
+  eventId         String
+  title           String
+  description     String
+  stage           String   @default("觉醒")
+  duration        Int      @default(1)
+  elapsed         Int      @default(0)
+  resolved        Boolean  @default(false)
+  effect          String?
+  startedAt       DateTime @default(now())
+  Cultivator      Cultivator @relation(fields: [cultivatorId], references: [id], onDelete: Cascade)
+
+  @@index([cultivatorId, resolved])
 }
 
 model User {

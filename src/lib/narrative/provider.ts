@@ -80,6 +80,38 @@ export async function syncProviderConfig(): Promise<void> {
   } catch {
     /* 仅首次加载失败时静默保留上次值 */
   }
+
+  // Configure embedding service (independent provider, e.g. SiliconFlow BGE-M3)
+  try {
+    const { configureEmbedding } = await import("@/lib/embedding");
+    const embedBaseUrl = readSetting("EMBEDDING_BASE_URL");
+    const embedApiKey = readSetting("EMBEDDING_API_KEY");
+    if (embedBaseUrl && embedApiKey) {
+      configureEmbedding({
+        baseUrl: embedBaseUrl,
+        apiKey: embedApiKey,
+        model: readSetting("EMBEDDING_MODEL") || undefined,
+      });
+      return;
+    }
+    // 未配置独立 embedding 时，退回叙事 provider 根域名（仅当该 provider 支持 embeddings）
+    const provider = getRuntimeProviderConfig(1);
+    if (provider?.baseUrl && provider?.apiKey) {
+      let fallbackBase = provider.baseUrl;
+      try {
+        fallbackBase = new URL(provider.baseUrl).origin;
+      } catch {
+        // keep as-is
+      }
+      configureEmbedding({
+        baseUrl: fallbackBase,
+        apiKey: provider.apiKey,
+        model: readSetting("EMBEDDING_MODEL") || undefined,
+      });
+    }
+  } catch {
+    // Embedding config is non-critical
+  }
 }
 
 function readSetting(key: string): string | undefined {
@@ -137,6 +169,8 @@ export async function callAI(params: {
   userPrompt: string;
   maxTokens?: number;
   temperature?: number;
+  /** 可选：流式回调，收到增量文本时调用（仅 openai 兼容 provider 支持） */
+  onDelta?: (delta: string) => void;
 }): Promise<string> {
   await syncProviderConfig().catch((e) => {
     logger.error("callAI: syncProviderConfig 失败", e);
@@ -177,11 +211,70 @@ export async function callAI(params: {
         }
         case "openai": {
           const OpenAI = (await import("openai")).default;
-          const client = new OpenAI({
+          const clientOptions: Record<string, unknown> = {
             apiKey: provider.apiKey,
             ...(provider.baseUrl ? { baseURL: provider.baseUrl } : {}),
-          });
+          };
+          // 若配置了 AI_PROXY（如本地 Clash），注入 undici ProxyAgent，解决被墙域名不可达
+          const proxyUrl = readSetting("AI_PROXY");
+          if (proxyUrl) {
+            try {
+              const undici = await import("undici");
+              const dispatcher = new undici.ProxyAgent(proxyUrl);
+              clientOptions.fetch = (input: RequestInfo | URL, init?: RequestInit) =>
+                undici.fetch(
+                  input as Parameters<typeof undici.fetch>[0],
+                  { ...(init || {}), dispatcher } as Parameters<typeof undici.fetch>[1]
+                );
+            } catch {
+              // 代理注入失败则直连
+            }
+          }
+          const client = new OpenAI(clientOptions as ConstructorParameters<typeof OpenAI>[0]);
           const controller = new AbortController();
+          if (params.onDelta) {
+            // 流式模式：边生成边回调增量（仅当调用方需要流式）
+            const stream = await withTimeout(
+              client.chat.completions.create(
+                {
+                  model,
+                  max_tokens: maxTokens,
+                  temperature,
+                  stream: true,
+                  messages: [
+                    { role: "system", content: params.systemPrompt },
+                    { role: "user", content: params.userPrompt },
+                  ],
+                },
+                { signal: controller.signal }
+              ),
+              PROVIDER_TIMEOUT_MS,
+              `Provider openai (${model})`,
+              controller
+            );
+            // 空闲超时：20s 无新 chunk 视为挂起（长叙事生成期间重置）
+            let acc = "";
+            let idleTimer: NodeJS.Timeout | null = null;
+            const armIdle = () => {
+              if (idleTimer) clearTimeout(idleTimer);
+              idleTimer = setTimeout(() => controller.abort(), 20_000);
+            };
+            armIdle();
+            try {
+              for await (const chunk of stream) {
+                armIdle();
+                const d = chunk.choices?.[0]?.delta?.content;
+                if (d) {
+                  acc += d;
+                  params.onDelta(d);
+                }
+              }
+            } finally {
+              if (idleTimer) clearTimeout(idleTimer);
+            }
+            if (!isNonEmptyString(acc)) throw new Error("EMPTY_RESPONSE");
+            return acc;
+          }
           const resp = await withTimeout(
             client.chat.completions.create({
               model,
@@ -256,7 +349,7 @@ export async function warmupAI(): Promise<void> {
     await callAI({
       systemPrompt: "你是连接预热助手。",
       userPrompt: "ping",
-      maxTokens: 1,
+      maxTokens: 8,
       temperature: 0,
     }).catch(() => {});
   } catch {

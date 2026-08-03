@@ -70,6 +70,7 @@ vi.mock("@/lib/narrative-effects", () => {
   return {
     applyEffects: mockApplyEffects,
     clampEffectsArray: mockClampEffectsArray,
+    persistNarrativeMemory: vi.fn().mockResolvedValue("mem-1"),
     NarrativeEffectSchema: z.object({
       kind: z.string(),
       delta: z.number(),
@@ -77,6 +78,7 @@ vi.mock("@/lib/narrative-effects", () => {
     }),
   };
 });
+vi.mock("@/lib/embedding", () => ({ embedMemoryEntries: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("@/lib/utils", () => ({ sanitizeAttributes: mockSanitizeAttributes }));
 vi.mock("@/lib/cultivation-data", () => ({ calculateMaxStamina: mockCalculateMaxStamina }));
 vi.mock("@/lib/gold", () => ({ getGoldMaxGainByRealm: mockGetGoldMaxGainByRealm }));
