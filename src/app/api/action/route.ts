@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireCultivator } from "@/lib/auth-helpers";
 import { executeAction, type ActionResult } from "@/server/action/action-service";
-import { streamNarrativeResult } from "@/lib/narrative-stream";
+import { streamNarrativeResult, streamAIJob } from "@/lib/narrative-stream";
 import {
   withApiErrorHandling,
   AppError,
@@ -46,6 +46,48 @@ async function handler(request: NextRequest) {
   const isStream = new URL(request.url).searchParams.get("stream") === "true";
   if (!actionId)
     return NextResponse.json(badRequest("缺少必填参数: actionId").toJSON(), { status: 400 });
+
+  if (isStream) {
+    // 真流式：AI 边生成边推 narrative 正文，完成后执行事务
+    return streamAIJob({
+      run: async (onDelta) => {
+        let result: ActionResult;
+        try {
+          result = await executeAction(
+            { actionId, freeInput, worldId, attributes, npcIds, npcNames, familyMemberId },
+            cultivator,
+            { onDelta }
+          );
+        } catch (error) {
+          if (error instanceof AllProvidersFailedError) throw actionProviderError(error);
+          throw error;
+        }
+        if (result.status === "daoXiao") {
+          return { result: { daoXiao: true, summary: result.summary } };
+        }
+        if (result.status === "error") {
+          throw new Error(result.message || "行动执行失败");
+        }
+        const { data } = result;
+        const capped = {
+          ...data.cultivator,
+          stamina: Math.min(data.cultivator.stamina, data.cultivator.stamina),
+        };
+        return {
+          result: {
+            narrative: data.narrativeResult,
+            cultivator: capped,
+            expGained: data.expGained,
+            combatExpGain: data.combatExpGain,
+            canBreakthrough: data.canBreakthrough,
+            awakenEvent: data.awakenEvent,
+            techniqueEvents: data.techniqueEvents,
+          },
+        };
+      },
+      errorMessage: "行动叙事生成失败，请稍后重试",
+    });
+  }
 
   let result: ActionResult;
   try {

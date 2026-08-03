@@ -725,6 +725,8 @@ export async function generateActionNarrative(params: {
   giftDecision?: { givesGold: number; reason: string };
   /** 当前可用的行动列表，用于生成各行动类型的候选词 */
   availableActions?: { id: string; name: string }[];
+  /** 可选：流式回调，边生成边收到 AI 增量文本（透传给 callAI） */
+  onDelta?: (delta: string) => void;
 }): Promise<NarrativeResult> {
   const realmStr =
     params.realm === "凡人"
@@ -801,6 +803,7 @@ ${params.availableActions?.length ? params.availableActions.map(a => `- ${a.id}/
       userPrompt: prompt,
       maxTokens: 2000,
       temperature: 0.85,
+      ...(params.onDelta ? { onDelta: params.onDelta } : {}),
     });
     if (!text || !text.trim()) {
       text = await callAI({
@@ -808,6 +811,7 @@ ${params.availableActions?.length ? params.availableActions.map(a => `- ${a.id}/
         userPrompt: prompt,
         maxTokens: 2000,
         temperature: 0.85,
+        ...(params.onDelta ? { onDelta: params.onDelta } : {}),
       });
     }
     const result = extractJson(text, {

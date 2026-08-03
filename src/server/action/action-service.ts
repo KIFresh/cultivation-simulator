@@ -120,7 +120,11 @@ export interface CombatResultLike {
   enemy?: { id: string; name: string };
 }
 
-export async function executeAction(input: ActionInput, cultivator: any): Promise<ActionResult> {
+export async function executeAction(
+  input: ActionInput,
+  cultivator: any,
+  opts?: { onDelta?: (delta: string) => void }
+): Promise<ActionResult> {
   const { actionId, freeInput, worldId, attributes } = input;
 
   const action = getActionById(actionId);
@@ -285,6 +289,7 @@ export async function executeAction(input: ActionInput, cultivator: any): Promis
       realmLevel: newRealmLevel,
       memoryContext,
     },
+    ...(opts?.onDelta ? { onDelta: opts.onDelta } : {}),
   });
 
   const newEntry = createEntry(
