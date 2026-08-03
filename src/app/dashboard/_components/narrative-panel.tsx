@@ -321,7 +321,8 @@ const Chips = React.memo(function Chips({
   onPick: (text: string) => void;
   disabled?: boolean;
 }) {
-  const items = chips && chips.length > 0 ? chips : (ACTION_CHIPS[actionId] ?? ACTION_CHIPS.DEFAULT);
+  const items =
+    Array.isArray(chips) && chips.length > 0 ? chips : (ACTION_CHIPS[actionId] ?? ACTION_CHIPS.DEFAULT);
   return (
     <div className="flex flex-wrap gap-1 pt-1">
       {items.map((text) => (
