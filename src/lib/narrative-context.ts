@@ -267,9 +267,12 @@ export async function retrieveRelevantMemories(
     return { hot: "", relevant: "", early: "" };
   }
 
-  // Layer 1: Hot (最近5条)
+  // Layer 1: Hot（重要记忆保底最多 2 条 + 最近补齐，去重）
   const hotEntries = allEntries.slice(0, 5);
-  const hot = hotEntries
+  const importantEntries = allEntries.filter((e) => e.important).slice(0, 2);
+  const hotSet = new Map<string, typeof allEntries[number]>();
+  for (const e of [...importantEntries, ...hotEntries]) hotSet.set(e.id, e);
+  const hot = [...hotSet.values()]
     .map((e) => (e.important ? "⭐ " : "") + `【${e.title}】${e.summary}`)
     .join("\n");
 
@@ -287,7 +290,7 @@ export async function retrieveRelevantMemories(
       relevant = indices
         .map((i) => {
           const e = entriesWithEmbedding[i];
-          return `【${e.title}】${e.summary}`;
+          return (e.important ? "⭐ " : "") + `【${e.title}】${e.summary}`;
         })
         .join("\n");
     }
@@ -306,7 +309,7 @@ export async function retrieveRelevantMemories(
       .slice(0, limit - vectorCount);
     if (tagResults.length > 0) {
       const tagText = tagResults
-        .map((e) => `【${e.title}】${e.summary}`)
+        .map((e) => (e.important ? "⭐ " : "") + `【${e.title}】${e.summary}`)
         .join("\n");
       relevant = relevant ? relevant + "\n" + tagText : tagText;
     }
