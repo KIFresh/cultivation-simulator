@@ -30,6 +30,7 @@ const mockJsonHelper = vi.hoisted(() => ({
 const mockLogger = vi.hoisted(() => ({
   error: vi.fn(),
   warn: vi.fn(),
+  info: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));

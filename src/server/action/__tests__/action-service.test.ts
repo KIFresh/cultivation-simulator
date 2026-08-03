@@ -621,7 +621,7 @@ describe("executeAction - EXPLORE 战斗分支", () => {
     // 确认效果包含金币
     const effectsArg = mockClampEffectsArray.mock.calls[0]?.[0] ?? [];
     expect(effectsArg.some((e: any) => e.kind === "gold" && e.delta === 15)).toBe(true);
-    vi.restoreAllMocks();
+    vi.spyOn(Math, "random").mockRestore();
   });
 
   it("战斗失败施加 injuryDebuff", async () => {
@@ -644,7 +644,7 @@ describe("executeAction - EXPLORE 战斗分支", () => {
     // updateData 中应包含 injuryDebuff
     const updateCall = tx.cultivator.update.mock.calls[0]?.[0];
     expect(updateCall?.data?.injuryDebuff).toBe(3);
-    vi.restoreAllMocks();
+    vi.spyOn(Math, "random").mockRestore();
   });
 
   it("道消直接返回不提交事务", async () => {
@@ -664,7 +664,7 @@ describe("executeAction - EXPLORE 战斗分支", () => {
     expect(result.status).toBe("daoXiao");
     // $transaction 不应被调用
     expect(prisma.$transaction).not.toHaveBeenCalled();
-    vi.restoreAllMocks();
+    vi.spyOn(Math, "random").mockRestore();
   });
 });
 

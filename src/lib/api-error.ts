@@ -195,7 +195,7 @@ export function withApiErrorHandling(handler: ApiHandler): ApiHandler {
           response.headers.set("x-request-id", requestId);
         }
       }
-      const responseRequestId = response.headers.get("x-request-id") || requestId;
+      const responseRequestId = response.headers?.get("x-request-id") || requestId;
       logger.info("[api] request completed", {
         requestId: responseRequestId,
         method: request.method,

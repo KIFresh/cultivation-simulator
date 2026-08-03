@@ -79,9 +79,9 @@ describe("错误工厂函数", () => {
     expect(err.code).toBe("CONFLICT");
   });
 
-  it("serviceUnavailable 状态码 502", () => {
+  it("serviceUnavailable 状态码 503", () => {
     const err = serviceUnavailable();
-    expect(err.status).toBe(502);
+    expect(err.status).toBe(503);
     expect(err.code).toBe("SERVICE_UNAVAILABLE");
   });
 });

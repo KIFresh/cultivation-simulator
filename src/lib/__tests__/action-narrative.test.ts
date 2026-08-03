@@ -4,6 +4,13 @@ import { generateActionNarrative } from "../narrative";
 vi.mock("../narrative/provider", () => ({
   callAI: vi.fn(),
   buildSystemPrompt: vi.fn(() => ""),
+  AllProvidersFailedError: class AllProvidersFailedError extends Error {
+    failures: Array<{ provider: string; model?: string; code: string }> = [];
+    constructor(failures: Array<{ provider: string; model?: string; code: string }>) {
+      super("ALL_PROVIDERS_FAILED");
+      this.failures = failures;
+    }
+  },
 }));
 
 const mockCallAI = vi.mocked(await import("../narrative/provider")).callAI as jest.Mocked<any>;
