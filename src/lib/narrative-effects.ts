@@ -708,7 +708,7 @@ export async function persistNarrativeMemory(
         title: args.title || "",
         summary: args.summary || args.title || "",
         narrative: args.narrative ?? null,
-        important: args.important ?? true,
+        important: args.important ?? false,
         tags: JSON.stringify(args.tags ?? []),
         cultivatorAge: c.age,
         cultivatorRealm: c.realm,

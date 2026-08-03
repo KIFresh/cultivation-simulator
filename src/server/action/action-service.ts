@@ -326,7 +326,7 @@ export async function executeAction(
       title: narrativeResult.title || "",
       summary: narrativeResult.summary || "",
       narrative: narrativeResult.narrative || null,
-      important: true,
+      important: false,
       tags: JSON.stringify(memTags),
       cultivatorAge: cultivator.age,
       cultivatorRealm: newRealm,

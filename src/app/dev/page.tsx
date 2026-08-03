@@ -16,6 +16,7 @@ export default function DevPage() {
   } | null>(null);
   const [localData, setLocalData] = useState<Record<string, string>>({});
   const [showValues, setShowValues] = useState(false);
+  const [quickCreating, setQuickCreating] = useState(false);
 
   useEffect(() => {
     // 检查 dev mode
@@ -38,6 +39,9 @@ export default function DevPage() {
   }, [router]);
 
   const handleQuickCreate = async () => {
+    if (quickCreating) return;
+    setQuickCreating(true);
+    try {
     // 随机出生资质
     const births = [
       { id: "waste", p: 5 },
@@ -152,6 +156,9 @@ export default function DevPage() {
     if (await genNarrative()) {
       window.location.href = "/dashboard";
     }
+    } finally {
+      setQuickCreating(false);
+    }
   };
 
   const handleReset = async () => {
@@ -214,9 +221,18 @@ export default function DevPage() {
           <div className="flex flex-wrap gap-2">
             <button
               onClick={handleQuickCreate}
-              className="px-4 py-2 rounded-xl bg-[#B83227] hover:bg-[#7A1F18] text-white text-sm font-medium transition-colors flex items-center gap-1.5"
+              disabled={quickCreating}
+              className="px-4 py-2 rounded-xl bg-[#B83227] hover:bg-[#7A1F18] disabled:opacity-70 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors flex items-center gap-1.5"
             >
-              <Sparkles className="w-3.5 h-3.5" /> 快速生成角色
+              {quickCreating ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" /> 生成中…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5" /> 快速生成角色
+                </>
+              )}
             </button>
             <button
               onClick={handleReset}
