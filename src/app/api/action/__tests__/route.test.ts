@@ -178,6 +178,18 @@ function makeRequest(body: Record<string, unknown>): NextRequest {
   });
 }
 
+// stream 分支契约测试：mock streamAIJob 捕获 run 回调
+let streamCaptured: { run: (onDelta: (t: string) => void) => Promise<{ result: unknown }> } | null = null;
+vi.mock("@/lib/narrative-stream", () => ({
+  streamNarrativeResult: vi.fn(),
+  streamAIJob: vi.fn((opts: { run: (onDelta: (t: string) => void) => Promise<{ result: unknown }> }) => {
+    streamCaptured = { run: opts.run };
+    return new Response("event: done\ndata: {}\n\n", {
+      headers: { "Content-Type": "text/event-stream" },
+    });
+  }),
+}));
+
 describe("Action API", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -256,6 +268,21 @@ describe("Action API", () => {
       expect(res.status).toBe(400);
       const data = await res.json();
       expect(data.error).toBe("行动力不足");
+    });
+
+    it("stream=true 时走 streamAIJob，run 完成返回叙事结果", async () => {
+      const req = new NextRequest(new URL("http://test/api/action?stream=true"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-user-id": "u1" },
+        body: JSON.stringify({ userId: "u1", actionId: "MEDITATE" }),
+      });
+      const res = await POST(req);
+      expect(res.headers.get("Content-Type")).toContain("event-stream");
+      expect(streamCaptured).not.toBeNull();
+      const { result } = await streamCaptured!.run(() => {});
+      expect(result.narrative).toBeDefined();
+      expect(result.cultivator).toBeDefined();
+      expect(result.expGained).toBeDefined();
     });
   });
 });
