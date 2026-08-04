@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireCultivator, apiError } from "@/lib/auth-helpers";
+import { requireCultivator, apiError, clampInt } from "@/lib/auth-helpers";
 import { logger } from "@/lib/logger";
 import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
 
@@ -121,13 +121,10 @@ async function postHandler(request: NextRequest) {
   const cultivator = auth.cultivator;
 
   const body = await parseJsonBody(request);
-  const { eventId, choiceIndex } = body;
+  const { eventId } = body;
+  const choiceIndex = clampInt(body.choiceIndex, 0, 2, -1);
 
-  if (!eventId || choiceIndex === undefined) {
-    return NextResponse.json({ error: "缺少必填信息（eventId, choiceIndex）" }, { status: 400 });
-  }
-
-  if (choiceIndex < 0 || choiceIndex > 2) {
+  if (!eventId || choiceIndex < 0 || body.choiceIndex < 0 || body.choiceIndex > 2) {
     return NextResponse.json({ error: "选项无效，请选择 0/1/2（低/中/高风险）" }, { status: 400 });
   }
 

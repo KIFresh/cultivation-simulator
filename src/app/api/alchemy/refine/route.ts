@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireCultivator, apiError } from "@/lib/auth-helpers";
+import { requireCultivator, apiError, sanitizeString } from "@/lib/auth-helpers";
 import { logger } from "@/lib/logger";
 import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
 import {
@@ -21,7 +21,8 @@ import {
  */
 async function postHandler(request: NextRequest) {
   const body = await parseJsonBody(request);
-  const { userId, formulaId } = body;
+  const { userId } = body;
+  const formulaId = sanitizeString(body.formulaId, 50);
   if (!userId || !formulaId) return apiError("缺少必填参数", 400);
 
   const auth = await requireCultivator(request);

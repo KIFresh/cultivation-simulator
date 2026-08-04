@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getShopItems, getRealmIndex, isRealmSufficient } from "@/lib";
-import { requireCultivator } from "@/lib/auth-helpers";
+import { requireCultivator, sanitizeString } from "@/lib/auth-helpers";
 import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
 import { logger } from "@/lib/logger";
 
@@ -49,8 +49,9 @@ async function postHandler(request: NextRequest) {
 
     const { cultivator: c } = auth;
     const body = await parseJsonBody(request);
-    const { itemId, quantity = 1 } = body;
+    const { quantity = 1 } = body;
 
+    const itemId = sanitizeString(body.itemId, 50);
     if (!itemId) return NextResponse.json({ error: "缺少商品 ID" }, { status: 400 });
     const qty = Math.floor(Number(quantity));
     if (!Number.isFinite(qty) || qty < 1 || qty > MAX_QUANTITY) {

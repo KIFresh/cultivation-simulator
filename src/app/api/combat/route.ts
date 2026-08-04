@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveCombat, type PlayerCombatData } from "@/lib/combat-engine";
-import { requireCultivator } from "@/lib/auth-helpers";
+import { requireCultivator, sanitizeString } from "@/lib/auth-helpers";
 import {
   applyEffects,
   clampEffectsArray,
@@ -18,7 +18,8 @@ async function handler(request: NextRequest) {
   const cultivator = auth.cultivator;
 
   const body = await parseJsonBody(request);
-  const { enemyId, locationId } = body;
+  const enemyId = sanitizeString(body.enemyId, 50) ?? undefined;
+  const locationId = sanitizeString(body.locationId, 50) ?? undefined;
 
   // 检查每日战斗次数上限
   const today = new Date();

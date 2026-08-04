@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import type { CultivatorWithUser } from "@/lib/auth-helpers";
+import type { Cultivator, Prisma } from "@/generated/prisma/client";
 import {
   getActionById,
   getActionsWithLockInfo,
@@ -21,6 +23,7 @@ import {
 import {
   generateActionNarrative,
   type StoryEntry,
+  type NarrativeResult,
   createEntry,
   buildSummaryFromEntries,
   compressStorySummary,
@@ -70,8 +73,8 @@ export type ActionResult =
   | { status: "error"; message: string; code?: number };
 
 export interface ActionResultData {
-  narrativeResult: any;
-  cultivator: any;
+  narrativeResult: NarrativeResult;
+  cultivator: Cultivator;
   expGained: number;
   combatExpGain: number;
   canBreakthrough: boolean;
@@ -120,9 +123,15 @@ export interface CombatResultLike {
   enemy?: { id: string; name: string };
 }
 
+/** CultivatorWithUser 接口缺 allowance 字段，这里补全 executeAction 实际读取的行字段 */
+type CultivatorRow = CultivatorWithUser & {
+  allowanceYear?: number | null;
+  allowanceRemaining?: number;
+};
+
 export async function executeAction(
   input: ActionInput,
-  cultivator: any,
+  cultivator: CultivatorRow,
   opts?: { onDelta?: (delta: string) => void }
 ): Promise<ActionResult> {
   const { actionId, freeInput, worldId, attributes } = input;
@@ -209,16 +218,16 @@ export async function executeAction(
         careerUpdatedYear: true,
       },
     })) ?? [];
-  const guardians = familyMembers.filter((member: any) =>
+  const guardians = familyMembers.filter((member) =>
     isFamilyGuardianRelation(member.relation)
   );
   const targetFamily =
-    guardians.find((member: any) =>
+    guardians.find((member) =>
       input.familyMemberId ? member.id === input.familyMemberId : member.name === selectedFamilyName
     ) ?? null;
   // 未完成迁移的旧家庭成员也按确定性默认职业计算，绝不采信客户端收入。
   const householdIncome = calculateHouseholdIncome(
-    familyMembers.map((member: any): FamilyCareer => {
+    familyMembers.map((member): FamilyCareer => {
       if (member.careerCategory) return member as FamilyCareer;
       return initializeFamilyCareer({
         relation: member.relation,
@@ -278,9 +287,14 @@ export async function executeAction(
     awakenEvent: !!awakenEvent,
     storySummary: summaryText,
 
-    availableActions: getActionsWithLockInfo(cultivator.age, cultivator.realm, cultivator.location)
-      .filter((a: any) => a.id !== "FREE")
-      .map((a: any) => ({ id: a.id, name: a.name })),
+    availableActions: getActionsWithLockInfo(
+      cultivator.worldId ?? "earth",
+      cultivator.age,
+      cultivator.realm,
+      cultivator.location ?? undefined
+    )
+      .filter((a) => a.id !== "FREE")
+      .map((a) => ({ id: a.id, name: a.name })),
 
     giftDecision: { givesGold: giftDecision.givesGold, reason: giftDecision.reason },
     state: {
@@ -306,7 +320,7 @@ export async function executeAction(
     updatedEntries = [...updatedEntries.filter((e) => e.important), ce];
   }
 
-  const updateData: Record<string, any> = {
+  const updateData: Prisma.CultivatorUpdateInput = {
     cultivationExp: { increment: expGained },
     totalExp: { increment: expGained },
     realm: newRealm,
@@ -413,7 +427,7 @@ export async function executeAction(
           combatExpGain = 0;
           if (!combatResult.win && combatResult.penalty?.injuryDebuff) {
             updateData.injuryDebuff = Math.max(
-              updateData.injuryDebuff ?? 0,
+              typeof updateData.injuryDebuff === "number" ? updateData.injuryDebuff : 0,
               combatResult.penalty.injuryDebuff
             );
           }
@@ -431,7 +445,8 @@ export async function executeAction(
             };
           }
           if (!combatResult.win && combatResult.penalty?.lifespanLoss) {
-            const currentMax = updateData.maxAge ?? cultivator.maxAge ?? 80;
+            const currentMax =
+              (typeof updateData.maxAge === "number" ? updateData.maxAge : cultivator.maxAge) ?? 80;
             updateData.maxAge = Math.max(1, currentMax - combatResult.penalty.lifespanLoss);
           }
           if (!combatResult.win && combatResult.penalty?.mindDemonDelta) {
@@ -446,7 +461,9 @@ export async function executeAction(
           ) {
             const currentInv = JSON.parse(cultivator.inventory || "[]");
             for (const lostId of combatResult.penalty.itemLoss) {
-              const idx = currentInv.findIndex((i: any) => i.itemId === lostId && !i.equipped);
+              const idx = currentInv.findIndex(
+                (i: { itemId?: string; equipped?: boolean }) => i.itemId === lostId && !i.equipped
+              );
               if (idx !== -1) {
                 currentInv[idx].quantity = (currentInv[idx].quantity ?? 1) - 1;
                 if (currentInv[idx].quantity <= 0) currentInv.splice(idx, 1);

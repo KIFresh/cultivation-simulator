@@ -20,7 +20,15 @@ const mockRequireCultivator = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/combat-engine", () => ({ resolveCombat: mockResolveCombat }));
-vi.mock("@/lib/auth-helpers", () => ({ requireCultivator: mockRequireCultivator }));
+vi.mock("@/lib/auth-helpers", () => ({
+  requireCultivator: mockRequireCultivator,
+  sanitizeString: (value: unknown, maxLength = 500) => {
+    if (typeof value !== "string") return null;
+    const trimmed = value.trim();
+    if (trimmed.length === 0) return null;
+    return trimmed.length > maxLength ? trimmed.slice(0, maxLength) : trimmed;
+  },
+}));
 vi.mock("@/lib/narrative-effects", () => ({
   applyEffects: vi.fn().mockResolvedValue(undefined),
   clampEffectsArray: vi.fn((effects: any) => effects),

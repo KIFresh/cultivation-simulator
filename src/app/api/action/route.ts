@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireCultivator } from "@/lib/auth-helpers";
+import { requireCultivator, requireFields, sanitizeString } from "@/lib/auth-helpers";
 import { executeAction, type ActionResult } from "@/server/action/action-service";
 import { streamNarrativeResult, streamAIJob } from "@/lib/narrative-stream";
 import {
@@ -29,7 +29,13 @@ async function handler(request: NextRequest) {
   const cultivator = auth.cultivator;
 
   const body = await parseJsonBody(request);
-  const { actionId, freeInput, worldId, attributes } = body;
+
+  const missing = requireFields(body, ["actionId"]);
+  if (missing) return NextResponse.json(badRequest(missing).toJSON(), { status: 400 });
+  const actionId = sanitizeString(body.actionId, 50);
+  if (!actionId) return NextResponse.json(badRequest("无效的 actionId").toJSON(), { status: 400 });
+
+  const { freeInput, worldId, attributes } = body;
   const cleanNpcValues = (value: unknown) =>
     Array.isArray(value)
       ? value
@@ -44,8 +50,6 @@ async function handler(request: NextRequest) {
       ? body.familyMemberId.trim()
       : undefined;
   const isStream = new URL(request.url).searchParams.get("stream") === "true";
-  if (!actionId)
-    return NextResponse.json(badRequest("缺少必填参数: actionId").toJSON(), { status: 400 });
 
   if (isStream) {
     // 真流式：AI 边生成边推 narrative 正文，完成后执行事务

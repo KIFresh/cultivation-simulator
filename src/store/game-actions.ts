@@ -3,11 +3,14 @@ import { consumeNarrativeStream } from "@/lib/sse-client";
 import { parseAttrs, deriveStoreFields } from "./game-helpers";
 import { applyNarrativeResult } from "./game-narrative";
 import { getActionById } from "@/lib/cultivation-data";
-import type { CultivatorData } from "@/app/dashboard/types";
+import type { CultivatorData, NarrativeDisplay } from "@/app/dashboard/types";
+import type { GameStore } from "./game-store";
+
+type StoreSet = (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void;
 
 let lastRequest: { endpoint: string; body: Record<string, unknown> } | null = null;
 
-export function initActions(set: (partial: any) => void, get: () => any) {
+export function initActions(set: StoreSet, get: () => GameStore) {
   return {
     setUserId: (id: string | null) => set({ userId: id }),
 
@@ -24,7 +27,7 @@ export function initActions(set: (partial: any) => void, get: () => any) {
         });
         return;
       }
-      set((state: any) => {
+      set((state) => {
         const merged = { ...(state.cultivator || {}), ...data } as CultivatorData;
         const derived = deriveStoreFields(merged);
         return { ...derived };
@@ -40,7 +43,7 @@ export function initActions(set: (partial: any) => void, get: () => any) {
         const { getCachedCultivator } = await import("@/lib/cache");
         const cached = await getCachedCultivator(userId);
         if (cached) {
-          set((state: any) => ({ ...state, ...deriveStoreFields(cached), userId }));
+          set((state) => ({ ...state, ...deriveStoreFields(cached), userId }));
         }
       } catch {
         // Cache miss is fine
@@ -53,7 +56,7 @@ export function initActions(set: (partial: any) => void, get: () => any) {
         const data = await res.json();
         const raw = data?.user?.cultivator ?? data?.cultivator ?? null;
         if (!raw) return;
-        set((state: any) => ({ ...state, ...deriveStoreFields(raw), userId }));
+        set((state) => ({ ...state, ...deriveStoreFields(raw), userId }));
       } catch {
         // Silent fail: keep cached data
       }
@@ -107,7 +110,7 @@ export function initActions(set: (partial: any) => void, get: () => any) {
           let replaced = false;
           await consumeNarrativeStream(res, {
             onChunk: (c: string) =>
-              set((s: any) => {
+              set((s) => {
                 if (!replaced) {
                   replaced = true;
                   return { streamingText: c };
@@ -157,7 +160,7 @@ export function initActions(set: (partial: any) => void, get: () => any) {
           let replaced = false;
           await consumeNarrativeStream(res, {
             onChunk: (c: string) =>
-              set((s: any) => {
+              set((s) => {
                 if (!replaced) {
                   replaced = true;
                   return { streamingText: c };
@@ -207,7 +210,7 @@ export function initActions(set: (partial: any) => void, get: () => any) {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (data.daoXiao) {
-          set((state: any) => ({
+          set((state) => ({
             ...state,
             ...(data.cultivator ? deriveStoreFields(data.cultivator) : {}),
             actionLoading: false,
@@ -237,7 +240,7 @@ export function initActions(set: (partial: any) => void, get: () => any) {
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        if (data.cultivator) set((state: any) => ({ ...state, ...deriveStoreFields(data.cultivator) }));
+        if (data.cultivator) set((state) => ({ ...state, ...deriveStoreFields(data.cultivator) }));
         set({ actionLoading: false });
       } catch (e) {
         set({
@@ -259,7 +262,7 @@ export function initActions(set: (partial: any) => void, get: () => any) {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (data.daoXiao) {
-          set((state: any) => ({
+          set((state) => ({
             ...state,
             ...deriveStoreFields(data.cultivator || state.cultivator),
             narrativeError: { message: "道消！叙事生成中断。", params: data.summary },
@@ -267,7 +270,7 @@ export function initActions(set: (partial: any) => void, get: () => any) {
           }));
           return;
         }
-        set((state: any) => ({
+        set((state) => ({
           ...state,
           ...deriveStoreFields(data.cultivator || state.cultivator),
           narrative: data.narrative ?? state.narrative,
@@ -281,13 +284,13 @@ export function initActions(set: (partial: any) => void, get: () => any) {
       }
     },
 
-    setNarrative: (narrative: any) => set({ narrative }),
+    setNarrative: (narrative: NarrativeDisplay | null) => set({ narrative }),
 
-    setLastActionResult: (result: any) => set({ lastActionResult: result }),
+    setLastActionResult: (result: Record<string, unknown> | null) => set({ lastActionResult: result }),
 
     setLocation: async (loc: string) => {
       const { userId, cultivator } = get();
-      set((state: any) => ({ ...state, ...deriveStoreFields({ ...(cultivator || {}), location: loc }) }));
+      set((state) => ({ ...state, ...deriveStoreFields({ ...(cultivator || {}), location: loc }) }));
       if (userId) {
         try {
           await fetch("/api/cultivator", {

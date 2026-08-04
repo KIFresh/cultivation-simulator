@@ -65,6 +65,18 @@ vi.mock("@/lib/auth-helpers", () => {
   } as any;
   return {
     requireCultivator: mockRequireCultivator,
+    requireFields: (body: Record<string, unknown>, fields: string[]) => {
+      for (const f of fields) {
+        if (body[f] === undefined || body[f] === null || body[f] === "") return `缺少必填参数: ${f}`;
+      }
+      return null;
+    },
+    sanitizeString: (value: unknown, maxLength = 500) => {
+      if (typeof value !== "string") return null;
+      const trimmed = value.trim();
+      if (trimmed.length === 0) return null;
+      return trimmed.length > maxLength ? trimmed.slice(0, maxLength) : trimmed;
+    },
     apiError: vi.fn(
       (msg: string, status = 400) => new Response(JSON.stringify({ error: msg }), { status })
     ),

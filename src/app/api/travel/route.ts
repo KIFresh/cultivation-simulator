@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calcTravelCostByMode, type TravelModeId } from "@/lib";
 import { previewRob, applyRobResult, parseMilestonesJson } from "@/lib/travel-rob";
-import { requireCultivator } from "@/lib/auth-helpers";
+import { requireCultivator, sanitizeString } from "@/lib/auth-helpers";
 import {
   applyEffects,
   clampEffectsArray,
@@ -19,7 +19,8 @@ async function postHandler(request: NextRequest) {
   const c = auth.cultivator;
 
   const body = await parseJsonBody(request);
-  const { locationId, useTaxi, travelMode } = body;
+  const { useTaxi, travelMode } = body;
+  const locationId = sanitizeString(body.locationId, 50);
   if (!locationId) {
     return NextResponse.json({ error: "缺少必填参数" }, { status: 400 });
   }

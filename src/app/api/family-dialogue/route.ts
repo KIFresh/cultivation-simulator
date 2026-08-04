@@ -14,7 +14,7 @@ import {
 } from "@/lib/narrative";
 import { streamNarrativeResult } from "@/lib/narrative-stream";
 import { prisma } from "@/lib/prisma";
-import { requireCultivator, apiError } from "@/lib/auth-helpers";
+import { requireCultivator, apiError, sanitizeString } from "@/lib/auth-helpers";
 import { json } from "@/lib/json-helper";
 import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
 import { logger } from "@/lib/logger";
@@ -42,7 +42,8 @@ function hasPhone(inventoryRaw: string | null): boolean {
 
 async function postHandler(request: NextRequest) {
   const body = await parseJsonBody(request);
-  const { familyMemberName, familyMemberRelation, playerMessage } = body;
+  const { familyMemberName, familyMemberRelation } = body;
+  const playerMessage = sanitizeString(body.playerMessage, 1000);
   const isStream = new URL(request.url).searchParams.get("stream") === "true";
 
   if (!familyMemberName || !playerMessage) {

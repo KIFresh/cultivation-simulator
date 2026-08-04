@@ -2,18 +2,21 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { ScrollText } from "lucide-react";
-import type { NarrativeDisplay } from "@/app/dashboard/types";
-import { mergeNpcs } from "@/lib/npc-utils";
+import type { Action } from "@/lib";
+import type { CultivatorData, NarrativeDisplay } from "@/app/dashboard/types";
+import { mergeNpcs, type NpcLike } from "@/lib/npc-utils";
+
+type NpcProp = NpcLike & { realm?: string };
 
 interface NarrativePanelProps {
   narrative: NarrativeDisplay | null;
   streamingText: string | null;
-  availableActions: any[];
+  availableActions: (Action & { locked?: boolean; lockReason?: string })[];
   activeActionId: string | null;
   actionLoading: boolean;
-  cultivator: any;
-  currentNPCs?: any[];
-  familyMembers?: any[];
+  cultivator: CultivatorData | null;
+  currentNPCs?: NpcProp[];
+  familyMembers?: NpcProp[];
   isAwake?: boolean;
   currentLoc?: string;
   onExpandToggle: () => void;
@@ -82,8 +85,8 @@ export const NarrativePanel = React.memo(function NarrativePanel({
   );
 
   const selectedNpcNames = useMemo(() => {
-    return mergedNpcs.filter((npc: any) => selectedNpcs.includes(npc.name));
-  }, [mergedNpcs, selectedNpcs]) as any[];
+    return mergedNpcs.filter((npc) => selectedNpcs.includes(npc.name));
+  }, [mergedNpcs, selectedNpcs]);
 
   const actionPlaceholder = useMemo(() => {
     if (selectedNpcNames.length === 1) {
@@ -91,7 +94,7 @@ export const NarrativePanel = React.memo(function NarrativePanel({
       return `对【${npc.name}】说些什么…`;
     }
     if (selectedNpcNames.length > 1) {
-      const names = selectedNpcNames.map((n: any) => n.name).join("、");
+      const names = selectedNpcNames.map((n) => n.name).join("、");
       return `向【${names}】行动…`;
     }
     return "描述你想怎么做…";
@@ -155,7 +158,7 @@ export const NarrativePanel = React.memo(function NarrativePanel({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {visibleActions.map((action) => {
             const isActive = activeActionId === action.id;
-            const cant = cultivator.stamina < action.actionPointCost;
+            const cant = cultivator!.stamina < action.actionPointCost;
             const isLocked = action.locked;
             const lockReason = action.lockReason || "";
             const disabled = actionLoading || cant || isLocked;
@@ -206,7 +209,7 @@ export const NarrativePanel = React.memo(function NarrativePanel({
                       >
                         不指定 NPC
                       </button>
-                      {mergedNpcs.map((npc: any) => {
+                      {mergedNpcs.map((npc) => {
                         const active = selectedNpcs.includes(npc.name);
                         return (
                           <button
@@ -273,7 +276,7 @@ export const NarrativePanel = React.memo(function NarrativePanel({
                     />
                     {selectedNpcs.length > 0 && (
                       <div className="flex items-center justify-between text-[10px] text-gray-400">
-                        <span>已选：{selectedNpcNames.map((n: any) => n.name).join("、")}</span>
+                        <span>已选：{selectedNpcNames.map((n) => n.name).join("、")}</span>
                         <button
                           type="button"
                           onClick={() => setSelectedNpcs([])}
