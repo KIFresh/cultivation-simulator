@@ -1456,6 +1456,14 @@ export function parseOccupationFromNarrative(
 // 日常活动系统
 // ============================================================
 
+/** 学科经验产出档位：minAge <= 年龄 < maxAge 时，从 subjects 随机取一门 +amount。 */
+export interface SubjectExpBand {
+  minAge: number;
+  maxAge: number;
+  subjects: string[];
+  amount: number;
+}
+
 export interface DailyActivity {
   id: string;
   name: string;
@@ -1466,6 +1474,7 @@ export interface DailyActivity {
   attrGrowth: [string, number][];
   minAge: number;
   requireAwakened?: boolean;
+  subjectExp?: SubjectExpBand[];
 }
 
 export const DAILY_ACTIVITIES: DailyActivity[] = [
@@ -1479,6 +1488,34 @@ export const DAILY_ACTIVITIES: DailyActivity[] = [
     attrGrowth: [
       ["spirit", 1],
       ["insight", 1],
+    ],
+    subjectExp: [
+      {
+        minAge: 6,
+        maxAge: 12,
+        subjects: ["math", "chinese", "english", "pe"],
+        amount: 8,
+      },
+      {
+        minAge: 12,
+        maxAge: 15,
+        subjects: ["math", "chinese", "english", "pe", "history", "physics"],
+        amount: 12,
+      },
+      {
+        minAge: 15,
+        maxAge: 18,
+        subjects: [
+          "math",
+          "chinese",
+          "english",
+          "pe",
+          "history",
+          "physics",
+          "chemistry",
+        ],
+        amount: 15,
+      },
     ],
     minAge: 6,
   },
