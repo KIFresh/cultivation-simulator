@@ -3,6 +3,7 @@
 import { useCallback, useMemo } from "react";
 import { useGameStore } from "@/store";
 import { safeJsonParse } from "@/lib/json-helper";
+import { isAwakened } from "@/lib/cultivation-data";
 
 export interface SkillLevel {
   id: string;
@@ -14,11 +15,11 @@ export interface SkillLevel {
 
 const ATTR_LABELS: Record<string, string> = {
   root: "根骨",
-  spirit: "神识",
+  spirit: "感知",
   insight: "悟性",
   luck: "气运",
   charm: "魅力",
-  mind: "道心",
+  mind: "心性",
 };
 
 const SUBJECT_LABELS: Record<string, string> = {
@@ -27,6 +28,13 @@ const SUBJECT_LABELS: Record<string, string> = {
   pill: "丹道",
   array: "阵法",
   beast: "御兽",
+  math: "数学",
+  chinese: "语文",
+  english: "英语",
+  pe: "体育",
+  history: "历史",
+  physics: "物理",
+  chemistry: "化学",
 };
 
 const EXP_PER_LEVEL = 100;
@@ -48,7 +56,7 @@ function toRecord(raw: unknown): ExpRecord {
  * 将 attributeExp / subjectExp 实时派生为「技能等级」。
  * 项目记忆：技能等级实时同步 —— 等级由经验值即时计算，无需额外存储。
  */
-export function deriveSkillLevels(attributeExp: unknown, subjectExp: unknown): SkillLevel[] {
+export function deriveSkillLevels(attributeExp: unknown, subjectExp: unknown, isAwake = false): SkillLevel[] {
   const attr = toRecord(attributeExp);
   const subj = toRecord(subjectExp);
   const skills: SkillLevel[] = [];
@@ -58,7 +66,7 @@ export function deriveSkillLevels(attributeExp: unknown, subjectExp: unknown): S
     const level = val?.level ?? Math.floor(exp / EXP_PER_LEVEL) + 1;
     skills.push({
       id: `attr_${key}`,
-      name: ATTR_LABELS[key] ?? key,
+      name: key === "spirit" && isAwake ? "灵性" : ATTR_LABELS[key] ?? key,
       level,
       exp: exp % EXP_PER_LEVEL,
       expToNext: EXP_PER_LEVEL,
@@ -91,10 +99,11 @@ export interface UseDataSyncResult {
  */
 export function useDataSync(): UseDataSyncResult {
   const cultivator = useGameStore((s) => s.cultivator);
+  const isAwake = cultivator ? isAwakened(cultivator.realm) : false;
 
   const skills = useMemo(
-    () => deriveSkillLevels(cultivator?.attributeExp ?? null, cultivator?.subjectExp ?? null),
-    [cultivator?.attributeExp, cultivator?.subjectExp]
+    () => deriveSkillLevels(cultivator?.attributeExp ?? null, cultivator?.subjectExp ?? null, isAwake),
+    [cultivator?.attributeExp, cultivator?.subjectExp, isAwake]
   );
 
   const sync = useCallback(() => {

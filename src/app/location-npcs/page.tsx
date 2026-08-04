@@ -10,14 +10,16 @@ import {
 } from "@/lib/location-npcs";
 
 import TopNav from "@/components/top-nav";
+import { useGameStore } from "@/store";
+import { isAwakened } from "@/lib/cultivation-data";
 
 const ATTR_LABEL: Record<string, string> = {
   root: "根骨",
-  spirit: "神识",
+  spirit: "感知",
   insight: "悟性",
   luck: "气运",
   charm: "魅力",
-  mind: "心智",
+  mind: "心性",
 };
 
 interface LocationNpcPayload {
@@ -34,6 +36,7 @@ export default function LocationNpcsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<LocationNpcInteractionResult | null>(null);
+  const isAwake = useGameStore((s) => (s.cultivator ? isAwakened(s.cultivator.realm) : false));
 
   async function load() {
     setLoading(true);
@@ -161,7 +164,7 @@ export default function LocationNpcsPage() {
             <p className="text-xs text-[#f5d98a]">
               ✦ 亲密度 +{result.intimacyDelta}
               {result.attr && result.attrDelta
-                ? ` · ${ATTR_LABEL[result.attr]} +${result.attrDelta}`
+                ? ` · ${result.attr === "spirit" && isAwake ? "灵性" : ATTR_LABEL[result.attr]} +${result.attrDelta}`
                 : ""}
             </p>
             {result.goldDelta !== 0 && (
