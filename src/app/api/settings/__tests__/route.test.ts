@@ -15,19 +15,28 @@ const mockNarrative = vi.hoisted(() => ({ syncProviderConfig: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/narrative", () => mockNarrative);
 
-function request(method = "GET", body?: unknown) {
+process.env.ADMIN_KEY = "test-admin-key";
+
+function request(method = "GET", body?: unknown, auth = true) {
   return new NextRequest("http://localhost/api/settings", {
     method,
     headers: {
+      ...(auth ? { "x-admin-key": process.env.ADMIN_KEY! } : {}),
       ...(body ? { "Content-Type": "application/json" } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
   });
 }
 
-describe("settings route — no auth required", () => {
+describe("settings route — admin auth", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("未带 x-admin-key 时拒绝写入配置", async () => {
+    const response = await POST(request("POST", { settings: { AI_PROVIDER_1: "openai" } }, false));
+    expect(response.status).toBe(401);
+    expect(mockPrisma.appSetting.upsert).not.toHaveBeenCalled();
   });
 
   it("读取配置时不返回明文 API Key", async () => {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isPrivateOrLocalUrl } from "@/lib/auth-helpers";
+import { isPrivateOrLocalUrl, requireAdminKey } from "@/lib/auth-helpers";
 import { AppError, withApiErrorHandling, parseJsonBody, serviceUnavailable, badRequest } from "@/lib/api-error";
 import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
@@ -17,6 +17,9 @@ async function loadApiKey(index: number): Promise<string | null> {
 }
 
 async function handler(request: NextRequest) {
+  if (!requireAdminKey(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   try {
     const body = await parseJsonBody(request);
     let { baseUrl, apiKey, type, providerIndex } = body;

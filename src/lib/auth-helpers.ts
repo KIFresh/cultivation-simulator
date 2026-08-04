@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { safeJsonParse } from "./json-helper";
@@ -179,6 +180,16 @@ export function isPrivateOrLocalUrl(rawUrl: string): boolean {
 }
 
 // ── 管理员鉴权 ────────────────────────────────────────────
+
+/** 管理员鉴权：从请求头读 x-admin-key，与 env ADMIN_KEY 常量时间比较 */
+export function requireAdminKey(request: NextRequest): boolean {
+  const adminKey = process.env.ADMIN_KEY;
+  if (!adminKey) return false; // 未配置则拒绝
+  const provided = request.headers.get("x-admin-key");
+  if (!provided) return false;
+  // 常量时间比较防时序攻击
+  return timingSafeEqual(Buffer.from(adminKey), Buffer.from(provided));
+}
 
 // ── 安全 JSON.parse ───────────────────────────────────────
 export { safeJsonParse } from "./json-helper";

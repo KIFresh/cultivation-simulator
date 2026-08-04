@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { syncProviderConfig } from "@/lib/narrative";
 import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
 import { logger } from "@/lib/logger";
+import { requireAdminKey } from "@/lib/auth-helpers";
 
 const PROVIDER_FIELDS = ["AI_PROVIDER_1", "AI_PROVIDER_2", "AI_PROVIDER_3"] as const;
 const SENSITIVE_SUFFIX = "_KEY";
@@ -25,6 +26,9 @@ async function getHandler() {
 }
 
 async function postHandler(request: NextRequest) {
+  if (!requireAdminKey(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   const body = await parseJsonBody(request);
   const { settings } = body;
   if (!settings || typeof settings !== "object" || Array.isArray(settings)) {
