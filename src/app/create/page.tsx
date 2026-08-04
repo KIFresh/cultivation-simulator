@@ -74,7 +74,7 @@ const TALENTS = [
   { id: "forge", name: "炼器鬼手", cost: 3, desc: "根骨+1灵性+1，炼器水平提升" },
   { id: "treasure", name: "多宝童子", cost: 4, desc: "气运+2，初始获得一件宝物" },
   { id: "body", name: "体修奇才", cost: 2, desc: "根骨+2，肉身强度提升" },
-  { id: "mind", name: "神识过人", cost: 2, desc: "心性+2，神识强度提升" },
+  { id: "mind", name: "心性坚毅", cost: 2, desc: "心性+2，意志力提升" },
 ];
 
 const ATTR_DEFS = [
