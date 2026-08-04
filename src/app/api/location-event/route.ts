@@ -76,9 +76,11 @@ async function postHandler(request: NextRequest) {
   }
   // 属性经验
   if (fx.attrExp && Object.keys(fx.attrExp).length > 0) {
-    const attrExpData = json.attributeExp(c.attributeExp) || {};
-    const next = addAttrExp(attrExpData, fx.attrExp);
+    const attrExpData = json.attributeExp(c.attributeExp);
+    const attrs = json.attributes(c.attributes);
+    const next = addAttrExp(attrExpData, fx.attrExp, attrs);
     updateData.attributeExp = JSON.stringify(next);
+    updateData.attributes = JSON.stringify(attrs);
   }
   // 遇见 NPC（写入 location_npc 桩，Phase 2 扩展互动）
   if (fx.npcMeet) {
