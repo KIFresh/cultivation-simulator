@@ -117,7 +117,7 @@ export default function BackupsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAF7F3]">
+    <div className="min-h-screen bg-[var(--background)]">
       <TopNav />
       <main className="max-w-4xl mx-auto p-6">
         <div className="flex items-center justify-between mb-6">
@@ -158,7 +158,7 @@ export default function BackupsPage() {
             {backups.map((b) => (
               <div
                 key={b.filename}
-                className="bg-white border border-[#E5E0D0] rounded-lg p-4 flex items-center justify-between"
+                className="bg-[var(--card)] border border-[#E5E0D0] rounded-lg p-4 flex items-center justify-between"
               >
                 <div>
                   <p className="font-medium text-[#2C2C2C]">{b.filename}</p>
@@ -173,7 +173,7 @@ export default function BackupsPage() {
                 <button
                   onClick={() => handleImport(b)}
                   disabled={importing}
-                  className="px-3 py-1 bg-[#B83227] text-white text-sm rounded hover:opacity-90 transition-opacity disabled:opacity-50"
+                  className="px-3 py-1 bg-[var(--destructive)] text-white text-sm rounded hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
                   恢复
                 </button>

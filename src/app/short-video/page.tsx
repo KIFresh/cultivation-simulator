@@ -136,7 +136,7 @@ export default function ShortVideoPage() {
               placeholder="给短片起个标题（可留空）"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="bg-white border-border text-foreground"
+              className="bg-[var(--card)] border-border text-foreground"
             />
             <Button
               className="w-full bg-primary hover:bg-[#B33A2A] text-white"

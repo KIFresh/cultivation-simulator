@@ -219,7 +219,7 @@ export default function RelationshipsPage() {
 
   const getIntimacyColor = (v: number) => {
     if (v >= 70) return "text-emerald-700";
-    if (v >= 40) return "text-[#B83227]";
+    if (v >= 40) return "text-[var(--destructive)]";
     return "text-red-500";
   };
 
@@ -228,13 +228,13 @@ export default function RelationshipsPage() {
       <TopNav />
       <div className="main-container space-y-6">
         <div className="pt-2">
-          <h1 className="font-calligraphy text-2xl font-bold text-[#7A1F18]">人际关系</h1>
+          <h1 className="font-calligraphy text-2xl font-bold text-[var(--primary)]">人际关系</h1>
           <p className="text-sm text-gray-500 mt-0.5">修仙之路上的缘分与羁绊</p>
         </div>
 
         {!talkingTo && family.length > 0 && (
           <div className="silk-card rounded-3xl p-6">
-            <h3 className="text-sm font-bold text-[#2C1E1E] flex items-center gap-2 pb-3 mb-3 border-b border-[#EADCD0]">
+            <h3 className="text-sm font-bold text-[var(--foreground)] flex items-center gap-2 pb-3 mb-3 border-b border-[var(--border)]">
               <span>🏠</span> 家人
             </h3>
             <div className="space-y-2">
@@ -242,12 +242,12 @@ export default function RelationshipsPage() {
                 <button
                   key={m.id}
                   onClick={() => setTalkingTo(m.id)}
-                  className="w-full flex items-center gap-3 p-3 rounded-2xl border border-[#EADCD0] bg-white hover:border-[#B83227] hover:bg-[#FDF2F0] transition-all text-left"
+                  className="w-full flex items-center gap-3 p-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] hover:border-[var(--destructive)] hover:bg-[var(--muted)] transition-all text-left"
                 >
                   <span className="text-2xl">{relationIcons[m.relation] || "👤"}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-[#2C1E1E] font-medium">{m.name}</span>
+                      <span className="text-[var(--foreground)] font-medium">{m.name}</span>
                       <span className="text-xs text-gray-400">
                         {m.relation} · {m.age}岁
                       </span>
@@ -270,7 +270,7 @@ export default function RelationshipsPage() {
         {/* NPC 关系 */}
         {!talkingTo && npcRelations.length > 0 && (
           <div className="silk-card rounded-3xl p-6">
-            <h3 className="text-sm font-bold text-[#2C1E1E] flex items-center gap-2 pb-3 mb-3 border-b border-[#EADCD0]">
+            <h3 className="text-sm font-bold text-[var(--foreground)] flex items-center gap-2 pb-3 mb-3 border-b border-[var(--border)]">
               <span>🌟</span> 江湖故人
             </h3>
             <div className="space-y-2">
@@ -285,12 +285,12 @@ export default function RelationshipsPage() {
                 return (
                   <div
                     key={npc.npcId}
-                    className="w-full flex items-center gap-3 p-3 rounded-2xl border border-[#EADCD0] bg-white"
+                    className="w-full flex items-center gap-3 p-3 rounded-2xl border border-[var(--border)] bg-[var(--card)]"
                   >
                     <span className="text-2xl">👤</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-[#2C1E1E] font-medium">{npc.npcName}</span>
+                        <span className="text-[var(--foreground)] font-medium">{npc.npcName}</span>
                         <span className={`text-xs ${typeColors[npc.relationType] || "text-gray-400"}`}>
                           {npc.relationType}
                         </span>
@@ -326,17 +326,17 @@ export default function RelationshipsPage() {
         {/* 对话面板 */}
         {talkingTo && talkMember && (
           <div className="silk-card rounded-3xl p-0 flex flex-col h-[70vh] overflow-hidden">
-            <div className="p-4 pb-3 border-b border-[#EADCD0] shrink-0">
+            <div className="p-4 pb-3 border-b border-[var(--border)] shrink-0">
               <div className="flex items-center justify-between">
                 <button
                   onClick={() => setTalkingTo(null)}
-                  className="text-xs text-[#7A1F18] hover:text-[#B83227] transition-colors"
+                  className="text-xs text-[var(--primary)] hover:text-[var(--destructive)] transition-colors"
                 >
                   ← 返回列表
                 </button>
                 <div className="flex items-center gap-2">
                   <span className="text-lg">{relationIcons[talkMember.relation]}</span>
-                  <span className="text-[#2C1E1E] font-medium">{talkMember.name}</span>
+                  <span className="text-[var(--foreground)] font-medium">{talkMember.name}</span>
                   <span className="text-xs text-gray-400">{talkMember.relation}</span>
                   <Heart className={`w-3 h-3 ${getIntimacyColor(talkMember.intimacy)}`} />
                   <span className={`text-xs ${getIntimacyColor(talkMember.intimacy)}`}>
@@ -360,8 +360,8 @@ export default function RelationshipsPage() {
                     <div
                       className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${
                         entry.role === "player"
-                          ? "bg-[#B83227] text-white"
-                          : "bg-[#FAF4EB] text-[#2C1E1E] border border-[#EADCD0]"
+                          ? "bg-[var(--destructive)] text-white"
+                          : "bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)]"
                       }`}
                     >
                       {entry.content}
@@ -371,27 +371,27 @@ export default function RelationshipsPage() {
 
                 {streamingText !== null && (
                   <div className="flex justify-start">
-                    <div className="max-w-[80%] rounded-2xl px-3 py-2 text-sm leading-relaxed bg-[#FAF4EB] text-[#2C1E1E] border border-[#EADCD0]">
+                    <div className="max-w-[80%] rounded-2xl px-3 py-2 text-sm leading-relaxed bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)]">
                       {streamingText}
-                      <span className="inline-block w-1 h-3 ml-0.5 bg-[#B83227] animate-pulse align-middle" />
+                      <span className="inline-block w-1 h-3 ml-0.5 bg-[var(--destructive)] animate-pulse align-middle" />
                     </div>
                   </div>
                 )}
               </div>
             </div>
-            <div className="flex gap-2 p-4 border-t border-[#EADCD0] shrink-0">
+            <div className="flex gap-2 p-4 border-t border-[var(--border)] shrink-0">
               <input
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSend()}
                 placeholder={`对${talkMember.relation}说点什么……`}
                 disabled={sending}
-                className="flex-1 px-3 py-2 rounded-xl border border-[#EADCD0] bg-white text-sm text-[#2C1E1E] placeholder:text-gray-400 focus:outline-none focus:border-[#B83227] disabled:opacity-50"
+                className="flex-1 px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--card)] text-sm text-[var(--foreground)] placeholder:text-gray-400 focus:outline-none focus:border-[var(--destructive)] disabled:opacity-50"
               />
               <button
                 onClick={handleSend}
                 disabled={!message.trim() || sending}
-                className="h-10 w-10 bg-[#B83227] hover:bg-[#7A1F18] text-white rounded-xl flex items-center justify-center shrink-0 disabled:opacity-50 transition-colors"
+                className="h-10 w-10 bg-[var(--destructive)] hover:bg-[var(--primary)] text-white rounded-xl flex items-center justify-center shrink-0 disabled:opacity-50 transition-colors"
               >
                 {sending ? (
                   <Sparkles className="w-4 h-4 animate-spin" />

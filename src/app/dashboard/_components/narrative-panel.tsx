@@ -102,16 +102,16 @@ export const NarrativePanel = React.memo(function NarrativePanel({
     [availableActions]
   );
   return (
-    <div className="rounded-3xl border border-[#EADCD0] bg-white p-6 shadow-sm">
-      <div className="mb-6 flex items-center gap-3 border-b border-[#EADCD0] pb-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FDF2F0] text-[#B83227]">
+    <div className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm">
+      <div className="mb-6 flex items-center gap-3 border-b border-[var(--border)] pb-4">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--muted)] text-[var(--destructive)]">
           <ScrollText className="h-4 w-4" />
         </div>
         <div>
-          <h3 className="calligraphy text-xl font-bold tracking-widest text-[#2C1E1E]">
+          <h3 className="calligraphy text-xl font-bold tracking-widest text-[var(--foreground)]">
             {streamingText !== null ? "✍️ 叙事流转中…" : narrative?.title}
           </h3>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-[#D49B4B]">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--ring)]">
             {streamingText !== null ? "Streaming" : isAwake ? "Awake" : "Main Event"}
           </p>
         </div>
@@ -119,13 +119,13 @@ export const NarrativePanel = React.memo(function NarrativePanel({
 
       <div className="relative group">
         {streamingText !== null ? (
-          <p className="whitespace-pre-wrap text-sm leading-relaxed tracking-wide text-amber-950/80">
+          <p className="whitespace-pre-wrap text-sm leading-relaxed tracking-wide text-[var(--foreground)]/80">
             {streamingText}
-            <span className="ml-0.5 inline-block h-4 w-1.5 align-middle bg-[#B83227] animate-pulse" />
+            <span className="ml-0.5 inline-block h-4 w-1.5 align-middle bg-[var(--destructive)] animate-pulse" />
           </p>
         ) : (
           <p
-            className={`text-sm leading-relaxed tracking-wide text-amber-950/80 ${
+            className={`text-sm leading-relaxed tracking-wide text-[var(--foreground)]/80 ${
               !narrativeExpanded && (narrative?.narrative?.length || 0) > 150 ? "line-clamp-4" : ""
             }`}
           >
@@ -135,7 +135,7 @@ export const NarrativePanel = React.memo(function NarrativePanel({
         {streamingText === null && (narrative?.narrative?.length || 0) > 150 && (
           <button
             onClick={onExpandToggle}
-            className="mt-3 flex items-center gap-1 text-xs font-bold text-[#B83227] hover:underline"
+            className="mt-3 flex items-center gap-1 text-xs font-bold text-[var(--destructive)] hover:underline"
           >
             <span>{narrativeExpanded ? "▲ 收起全文" : "▼ 展开全文"}</span>
           </button>
@@ -167,28 +167,28 @@ export const NarrativePanel = React.memo(function NarrativePanel({
                     if (disabled) return;
                     onActionClick(action.id, selectedNpcs);
                   }}
-                  className={`group flex items-center justify-between rounded-2xl border px-4 py-4 text-left shadow-sm transition-all hover:border-[#B83227] hover:bg-[#FDF2F0] ${
+                  className={`group flex items-center justify-between rounded-2xl border px-4 py-4 text-left shadow-sm transition-all hover:border-[var(--destructive)] hover:bg-[var(--muted)] ${
                     cant
                       ? "opacity-40"
                       : isLocked
                         ? "opacity-30"
                         : isActive
-                          ? "border-[#B83227] bg-[#FDF2F0]"
-                          : "border-[#EADCD0] bg-white"
+                          ? "border-[var(--destructive)] bg-[var(--muted)]"
+                          : "border-[var(--border)] bg-[var(--card)]"
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FAF4EB] text-amber-900/70 transition-colors group-hover:bg-[#B83227] group-hover:text-white">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--muted)] text-[var(--muted-foreground)] transition-colors group-hover:bg-[var(--destructive)] group-hover:text-white">
                       <span className="text-base leading-none">{action.icon}</span>
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-[#2C1E1E]">{action.name}</h4>
+                      <h4 className="text-xs font-bold text-[var(--foreground)]">{action.name}</h4>
                       <p className="mt-0.5 text-[9px] text-gray-400">
                         {isLocked ? lockReason : "尝试行动"}
                       </p>
                     </div>
                   </div>
-                  <span className="font-mono text-[10px] font-bold text-[#D49B4B]">
+                  <span className="font-mono text-[10px] font-bold text-[var(--ring)]">
                     -{action.actionPointCost}
                   </span>
                 </button>
@@ -200,8 +200,8 @@ export const NarrativePanel = React.memo(function NarrativePanel({
                         onClick={() => setSelectedNpcs([])}
                         className={`shrink-0 rounded-xl border px-2.5 py-1.5 text-[11px] transition-colors ${
                           selectedNpcs.length === 0
-                            ? "border-[#B83227] bg-[#FDF2F0] text-[#B83227]"
-                            : "border-[#EADCD0] bg-white text-[#2C1E1E] hover:border-[#B83227]/40"
+                            ? "border-[var(--destructive)] bg-[var(--muted)] text-[var(--destructive)]"
+                            : "border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] hover:border-[var(--destructive)]/40"
                         }`}
                       >
                         不指定 NPC
@@ -215,8 +215,8 @@ export const NarrativePanel = React.memo(function NarrativePanel({
                             onClick={() => toggleNpc(npc.name)}
                             className={`shrink-0 rounded-xl border px-2.5 py-1.5 text-[11px] transition-colors ${
                               active
-                                ? "border-[#B83227] bg-[#FDF2F0] text-[#B83227]"
-                                : "border-[#EADCD0] bg-white text-[#2C1E1E] hover:border-[#B83227]/40"
+                                ? "border-[var(--destructive)] bg-[var(--muted)] text-[var(--destructive)]"
+                                : "border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] hover:border-[var(--destructive)]/40"
                             }`}
                           >
                             <span className="mr-1">
@@ -247,13 +247,13 @@ export const NarrativePanel = React.memo(function NarrativePanel({
                             handleSubmitAction(action.id);
                           }
                         }}
-                        className="h-7 flex-1 rounded-lg border border-[#EADCD0] bg-white px-2 text-[11px] text-[#2C1E1E] focus:outline-none focus:border-[#B83227] disabled:opacity-50"
+                        className="h-7 flex-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 text-[11px] text-[var(--foreground)] focus:outline-none focus:border-[var(--destructive)] disabled:opacity-50"
                         placeholder={actionPlaceholder}
                         autoFocus
                         disabled={actionLoading || streamingText !== null}
                       />
                       <button
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#B83227] text-white hover:bg-[#7A1F18] disabled:opacity-50"
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--destructive)] text-white hover:bg-[var(--destructive)] disabled:opacity-50"
                         disabled={actionLoading || streamingText !== null}
                         onClick={(e) => {
                           e.preventDefault();
@@ -277,7 +277,7 @@ export const NarrativePanel = React.memo(function NarrativePanel({
                         <button
                           type="button"
                           onClick={() => setSelectedNpcs([])}
-                          className="text-[#B83227] hover:underline"
+                          className="text-[var(--destructive)] hover:underline"
                         >
                           取消选择
                         </button>
@@ -331,7 +331,7 @@ const Chips = React.memo(function Chips({
           type="button"
           disabled={disabled}
           onClick={() => onPick(text)}
-          className="rounded-full border border-[#EADCD0] bg-white px-2 py-1 text-[10px] text-[#2C1E1E] hover:border-[#B83227]/60 disabled:opacity-50"
+          className="rounded-full border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[10px] text-[var(--foreground)] hover:border-[var(--destructive)]/60 disabled:opacity-50"
         >
           {text}
         </button>

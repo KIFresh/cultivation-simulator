@@ -158,7 +158,7 @@ export default function ExchangePage() {
               <select
                 value={tier}
                 onChange={(e) => setTier(e.target.value as Tier)}
-                className="flex-1 h-9 rounded-md border border-border bg-white text-foreground text-sm px-2"
+                className="flex-1 h-9 rounded-md border border-border bg-[var(--card)] text-foreground text-sm px-2"
               >
                 {(Object.keys(TIER_LABEL) as Tier[]).map((t) => (
                   <option key={t} value={t}>
@@ -171,7 +171,7 @@ export default function ExchangePage() {
                 min={1}
                 value={amount}
                 onChange={(e) => setAmount(Math.max(1, parseInt(e.target.value || "1", 10)))}
-                className="w-24 h-9 bg-white border-border text-foreground"
+                className="w-24 h-9 bg-[var(--card)] border-border text-foreground"
               />
             </div>
             <Button

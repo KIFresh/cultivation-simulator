@@ -178,7 +178,7 @@ export default function SpiritPetPage() {
                 placeholder="给灵宠起个名字（可留空）"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="bg-white border-border text-foreground"
+                className="bg-[var(--card)] border-border text-foreground"
               />
               <Button
                 className="w-full bg-primary hover:bg-[#B33A2A] text-white"

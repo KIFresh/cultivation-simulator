@@ -21,10 +21,10 @@ export const AttributeGrid = React.memo(function AttributeGrid({ attributes }: A
       {ATTR_INFO.map((a) => (
         <div
           key={a.key}
-          className="rounded-2xl border border-[#EADCD0] bg-white p-3 text-center shadow-sm"
+          className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3 text-center shadow-sm"
         >
           <p className="text-[10px] text-gray-400">{a.label}</p>
-          <p className="font-mono font-bold text-sm text-[#2C1E1E]">
+          <p className="font-mono font-bold text-sm text-[var(--foreground)]">
             {Math.round(attributes[a.key] || 0)}
           </p>
         </div>

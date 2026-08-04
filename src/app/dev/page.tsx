@@ -200,29 +200,29 @@ export default function DevPage() {
         <div className="flex items-center justify-between pt-2">
           <button
             onClick={() => router.push("/dashboard")}
-            className="flex items-center gap-1 text-sm text-[#7A1F18] hover:text-[#B83227] transition-colors"
+            className="flex items-center gap-1 text-sm text-[var(--primary)] hover:text-[var(--destructive)] transition-colors"
           >
             <Home className="w-4 h-4" /> 返回
           </button>
-          <span className="text-xs font-bold text-[#B83227] bg-[#FDF2F0] px-2 py-0.5 rounded border border-[#B83227]/30">
+          <span className="text-xs font-bold text-[var(--destructive)] bg-[var(--muted)] px-2 py-0.5 rounded border border-[var(--destructive)]/30">
             DEV MODE
           </span>
         </div>
 
-        <h1 className="font-calligraphy text-2xl font-bold text-[#7A1F18] flex items-center gap-2">
-          <Wrench className="w-6 h-6 text-[#D49B4B]" /> 调试面板
+        <h1 className="font-calligraphy text-2xl font-bold text-[var(--primary)] flex items-center gap-2">
+          <Wrench className="w-6 h-6 text-[var(--ring)]" /> 调试面板
         </h1>
 
         {/* 快速操作 */}
         <div className="silk-card rounded-3xl p-6">
-          <h3 className="text-sm font-bold text-[#2C1E1E] flex items-center gap-2 pb-3 mb-3 border-b border-[#EADCD0]">
-            <Sparkles className="w-4 h-4 text-[#D49B4B]" /> 快速操作
+          <h3 className="text-sm font-bold text-[var(--foreground)] flex items-center gap-2 pb-3 mb-3 border-b border-[var(--border)]">
+            <Sparkles className="w-4 h-4 text-[var(--ring)]" /> 快速操作
           </h3>
           <div className="flex flex-wrap gap-2">
             <button
               onClick={handleQuickCreate}
               disabled={quickCreating}
-              className="px-4 py-2 rounded-xl bg-[#B83227] hover:bg-[#7A1F18] disabled:opacity-70 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors flex items-center gap-1.5"
+              className="px-4 py-2 rounded-xl bg-[var(--destructive)] hover:bg-[var(--primary)] disabled:opacity-70 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors flex items-center gap-1.5"
             >
               {quickCreating ? (
                 <>
@@ -242,13 +242,13 @@ export default function DevPage() {
             </button>
             <button
               onClick={handleClearLocal}
-              className="px-4 py-2 rounded-xl bg-white text-[#B83227] border border-[#B83227]/30 hover:bg-[#FDF2F0] text-sm font-medium transition-colors flex items-center gap-1.5"
+              className="px-4 py-2 rounded-xl bg-[var(--card)] text-[var(--destructive)] border border-[var(--destructive)]/30 hover:bg-[var(--muted)] text-sm font-medium transition-colors flex items-center gap-1.5"
             >
               <Trash2 className="w-3.5 h-3.5" /> 清空 localStorage
             </button>
             <button
               onClick={handleRefresh}
-              className="px-4 py-2 rounded-xl bg-white text-[#B83227] border border-[#B83227]/30 hover:bg-[#FDF2F0] text-sm font-medium transition-colors flex items-center gap-1.5"
+              className="px-4 py-2 rounded-xl bg-[var(--card)] text-[var(--destructive)] border border-[var(--destructive)]/30 hover:bg-[var(--muted)] text-sm font-medium transition-colors flex items-center gap-1.5"
             >
               <RefreshCw className="w-3.5 h-3.5" /> 刷新
             </button>
@@ -257,7 +257,7 @@ export default function DevPage() {
 
         {/* 数据库状态 */}
         <div className="silk-card rounded-3xl p-6">
-          <h3 className="text-sm font-bold text-[#2C1E1E] flex items-center gap-2 pb-3 mb-3 border-b border-[#EADCD0]">
+          <h3 className="text-sm font-bold text-[var(--foreground)] flex items-center gap-2 pb-3 mb-3 border-b border-[var(--border)]">
             <Database className="w-4 h-4 text-blue-500" /> 数据库状态
           </h3>
           {dbStatus ? (
@@ -284,13 +284,13 @@ export default function DevPage() {
 
         {/* localStorage 数据 */}
         <div className="silk-card rounded-3xl p-6">
-          <h3 className="text-sm font-bold text-[#2C1E1E] flex items-center gap-2 justify-between pb-3 mb-3 border-b border-[#EADCD0]">
+          <h3 className="text-sm font-bold text-[var(--foreground)] flex items-center gap-2 justify-between pb-3 mb-3 border-b border-[var(--border)]">
             <span className="flex items-center gap-2">
               <Database className="w-4 h-4 text-emerald-600" /> localStorage
             </span>
             <button
               onClick={() => setShowValues(!showValues)}
-              className="text-gray-400 hover:text-[#2C1E1E] transition-colors"
+              className="text-gray-400 hover:text-[var(--foreground)] transition-colors"
             >
               {showValues ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
             </button>
@@ -302,9 +302,9 @@ export default function DevPage() {
               {Object.entries(localData).map(([key, value]) => (
                 <div
                   key={key}
-                  className="flex gap-2 border-b border-[#EADCD0]/50 pb-1 last:border-0"
+                  className="flex gap-2 border-b border-[var(--border)]/50 pb-1 last:border-0"
                 >
-                  <span className="font-medium text-[#2C1E1E] shrink-0 w-28 truncate">{key}</span>
+                  <span className="font-medium text-[var(--foreground)] shrink-0 w-28 truncate">{key}</span>
                   <span className="text-gray-500 truncate">
                     {showValues ? value : value.length > 50 ? `${value.slice(0, 50)}...` : value}
                   </span>

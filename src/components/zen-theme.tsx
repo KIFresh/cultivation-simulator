@@ -261,7 +261,7 @@ export function ZenBrand({ onBack }: { onBack?: () => void }) {
 // 朱砂印章标签（如「契约已立」）
 export function ZenSeal({ children }: { children: ReactNode }) {
   return (
-    <span className="border border-dashed border-[#8C2D19]/70 text-[#8C2D19] text-[10px] px-2 py-0.5 font-bold calligraphy inline-block bg-white/90 seal-animation shadow-sm">
+    <span className="border border-dashed border-[#8C2D19]/70 text-[#8C2D19] text-[10px] px-2 py-0.5 font-bold calligraphy inline-block bg-[var(--card)]/90 seal-animation shadow-sm">
       {children}
     </span>
   );
@@ -282,7 +282,7 @@ export function ZenCard({
   children: ReactNode;
 }) {
   const base =
-    "relative rounded-2xl border bg-white/95 backdrop-blur-md shadow-sm transition-all duration-300 overflow-hidden";
+    "relative rounded-2xl border bg-[var(--card)]/95 backdrop-blur-md shadow-sm transition-all duration-300 overflow-hidden";
   const state = selected
     ? "border-[#8C2D19]/60 bg-[#8C2D19]/[0.03] shadow-md"
     : disabled
@@ -320,7 +320,7 @@ export function ZenButton({
         type="button"
         disabled={disabled}
         onClick={onClick}
-        className={`w-full py-2.5 border border-[#1A1A1A] bg-[#FAF8F5] hover:bg-white hover:border-[#8C2D19] transition-all duration-300 rounded text-xs font-semibold tracking-[0.3em] text-[#1A1A1A] hover:text-[#8C2D19] shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed ${className}`}
+        className={`w-full py-2.5 border border-[#1A1A1A] bg-[#FAF8F5] hover:bg-[var(--card)] hover:border-[#8C2D19] transition-all duration-300 rounded text-xs font-semibold tracking-[0.3em] text-[#1A1A1A] hover:text-[#8C2D19] shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed ${className}`}
       >
         {children}
       </button>

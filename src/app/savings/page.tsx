@@ -127,7 +127,7 @@ export default function SavingsPage() {
               min={1}
               value={amount}
               onChange={(e) => setAmount(Math.max(1, parseInt(e.target.value || "1", 10)))}
-              className="bg-white border-border text-foreground"
+              className="bg-[var(--card)] border-border text-foreground"
             />
             <div className="grid grid-cols-2 gap-2">
               <Button

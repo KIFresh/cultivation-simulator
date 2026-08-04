@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>无尽仙途 · 暗黑模式预览（复刻真实 dashboard 排版）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ═══ 浅色 = 项目现有色值原样 ═══ */
+  :root {
+    --page-bg: #FAF7F3;
+    --header-bg: rgba(250,247,243,.95);
+    --header-border: #D2C6B2;
+    --card-bg: #ffffff;
+    --card-bg-soft: rgba(255,255,255,.8);
+    --card-border: #EADCD0;
+    --card-shadow: 0 4px 20px -2px rgba(122,31,24,.05);
+    --card-shadow-hover: 0 8px 25px -2px rgba(122,31,24,.1);
+    --ink: #2C1E1E;
+    --ink-2: #5A5040;
+    --ink-3: #8a7a72;
+    --ink-4: #8B7355;
+    --gray-300: #D1D5DB;
+    --gray-400: #9CA3AF;
+    --gray-500: #6B7280;
+    --amber-950: rgba(69,26,3,.8);
+    --amber-sub: rgba(120,53,15,.6);
+    --vermilion: #B83227;
+    --vermilion-deep: #7A1F18;
+    --vermilion-text: #7A1F18;
+    --ink-title: #7A1F18;
+    --gold: #D49B4B;
+    --gauge-track: #FAF4EB;
+    --soft-bg: #FDF2F0;
+    --soft-bg-hover: #B83227;
+    --seal-bg: #ffffff;
+    --navtag-bg: #ffffff;
+    --navtag-border: #EADCD0;
+    --navtag-text: #5A5040;
+    --navtag-hover-text: #8C2D19;
+    --navtag-hover-border: #C9A896;
+    --action-icon-bg: #FAF4EB;
+    --action-icon-text: rgba(120,53,15,.7);
+  }
+  /* ═══ 暗黑「墨夜黑」：中性炭黑 + 朱砂金（宣纸↔墨玉）═══ */
+  .dark {
+    --page-bg: #141414;
+    --header-bg: rgba(20,20,20,.95);
+    --header-border: #333333;
+    --card-bg: #1E1E1E;
+    --card-bg-soft: rgba(30,30,30,.85);
+    --card-border: #333333;
+    --card-shadow: 0 4px 20px -2px rgba(0,0,0,.55);
+    --card-shadow-hover: 0 8px 25px -2px rgba(0,0,0,.7);
+    --ink: #E8E4DE;
+    --ink-2: #B8B2A8;
+    --ink-3: #8F897F;
+    --ink-4: #A89E8E;
+    --gray-300: #3D3D3D;
+    --gray-400: #8A857C;
+    --gray-500: #9C968C;
+    --amber-950: rgba(232,220,200,.85);
+    --amber-sub: rgba(224,176,106,.6);
+    --vermilion: #E05A48;
+    --vermilion-deep: #F08A72;
+    --vermilion-text: #F08A72;
+    --ink-title: #F5F2ED;
+    --gold: #E5B96E;
+    --gauge-track: #2A2A2A;
+    --soft-bg: #2A1F1C;
+    --soft-bg-hover: #E05A48;
+    --seal-bg: #1E1E1E;
+    --navtag-bg: #1E1E1E;
+    --navtag-border: #333333;
+    --navtag-text: #B8B2A8;
+    --navtag-hover-text: #F08A72;
+    --navtag-hover-border: #6E4438;
+    --action-icon-bg: #2A2A2A;
+    --action-icon-text: #C9A87A;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  /* 无障碍：键盘焦点可见 + 减少动效偏好（skill 规则） */
+  button:focus-visible, a:focus-visible, .nav-tag:focus-visible {
+    outline: 2px solid var(--gold); outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+  body {
+    font-family: 'Noto Serif SC','Songti SC','STSong','SimSun','宋体',Georgia,serif;
+    background: var(--page-bg); color: var(--ink);
+    min-height: 100vh; transition: background .3s, color .3s;
+  }
+  .calligraphy { font-family: "Ma Shan Zheng","STKaiti","KaiTi","楷体",cursive,serif; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+  /* 预览切换条（非项目 UI） */
+  .preview-bar { display: flex; justify-content: center; gap: 8px; padding: 10px; font-size: 12px; color: var(--ink-3); }
+  .preview-bar button { font-family: inherit; font-size: 12px; padding: 5px 14px; border-radius: 999px; border: 1px solid var(--card-border); background: var(--card-bg); color: var(--ink-2); cursor: pointer; }
+  .preview-bar button.on { background: var(--vermilion); color: #fff; border-color: var(--vermilion); }
+
+  /* ═══ TopNav（复刻 top-nav.tsx）═══ */
+  header { position: sticky; top: 0; z-index: 50; background: var(--header-bg); backdrop-filter: blur(8px); border-bottom: 1px solid var(--header-border); }
+  .header-inner { max-width: 1152px; margin: 0 auto; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+  .logo-box { width: 36px; height: 36px; background: var(--vermilion); border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,.15); transform: rotate(3deg); }
+  .dark .logo-box { box-shadow: 0 4px 8px rgba(0,0,0,.5); }
+  .logo-box span { color: #fff; font-size: 18px; }
+  .brand h1 { font-size: 18px; font-weight: 700; letter-spacing: .3em; color: var(--vermilion-text); line-height: 1.1; }
+  .brand p { font-size: 9px; color: var(--amber-sub); letter-spacing: .3em; text-transform: uppercase; line-height: 1.1; }
+  nav { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0; }
+  .nav-tag { padding: 6px 16px; border-radius: 999px; font-size: 12px; font-weight: 500; background: var(--navtag-bg); border: 1px solid var(--navtag-border); color: var(--navtag-text); white-space: nowrap; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,.05); transition: all .2s; }
+  .nav-tag:hover { color: var(--navtag-hover-text); border-color: var(--navtag-hover-border); }
+  .nav-tag.active { background: var(--vermilion); color: #fff; border-color: var(--vermilion); transform: translateY(-2px); box-shadow: 0 4px 10px rgba(184,50,39,.25); }
+
+  /* ═══ 主体 12 栅格（左5 右7，复刻 dashboard）═══ */
+  .main { max-width: 1152px; margin: 0 auto; padding: 24px 16px; display: grid; grid-template-columns: 1fr; gap: 32px; }
+  @media (min-width: 1024px) { .main { grid-template-columns: 5fr 7fr; } }
+
+  .silk-card { background-color: var(--card-bg); border: 1px solid var(--card-border); box-shadow: var(--card-shadow); border-radius: 24px; padding: 32px; position: relative; overflow: hidden; transition: all .25s ease; }
+  .silk-card:hover { box-shadow: var(--card-shadow-hover); border-color: rgba(184,50,39,.35); }
+
+  /* 左栏角色卡 */
+  .dark .silk-card { border-color: rgba(255,255,255,.09); }
+  .dark .silk-card:hover { border-color: rgba(224,90,72,.5); }
+  .dark .memory-panel, .dark .gauge, .dark .attr-box, .dark .action-btn { border-color: rgba(255,255,255,.08); }
+
+  .seal-wrap { position: absolute; top: 24px; right: 32px; text-align: center; user-select: none; }
+  .seal-mark { border: 2px solid var(--vermilion); color: var(--vermilion); padding: 4px 12px; font-size: 14px; font-weight: 700; background: var(--seal-bg); display: inline-block; border-radius: 2px; transform: rotate(-3deg); opacity: .95; }
+  .seal-age { font-size: 10px; color: var(--amber-sub); margin-top: 4px; }
+  .char-name { font-size: 30px; font-weight: 700; letter-spacing: .1em; color: var(--ink-title); margin-bottom: 4px; }
+  .char-meta { display: flex; align-items: center; gap: 12px; font-size: 12px; flex-wrap: wrap; }
+  .root-label { color: var(--gold); font-weight: 700; }
+  .meta-sep { color: var(--gray-300); }
+  .occupation { color: var(--gray-500); }
+  .loc-line { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 11px; color: var(--gray-400); }
+  .loc-line .pin { color: var(--vermilion); }
+
+  .status-zone { border-top: 1px solid var(--card-border); border-bottom: 1px solid var(--card-border); padding: 24px 0; margin-top: 28px; margin-bottom: 24px; display: flex; flex-direction: column; gap: 16px; }
+
+  /* StatusGauge */
+  .gauge { border-radius: 16px; border: 1px solid var(--card-border); background: var(--card-bg-soft); padding: 12px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+  .dark .gauge { box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+  .gauge-head { display: flex; justify-content: space-between; }
+  .gauge-label { font-size: 10px; color: var(--gray-500); }
+  .gauge-hint { font-size: 10px; color: var(--gray-400); }
+  .gauge-value { font-weight: 700; font-size: 14px; color: var(--ink); margin-top: 2px; }
+  .gauge-track { margin-top: 6px; height: 6px; border-radius: 999px; background: var(--gauge-track); }
+  .gauge-fill { height: 100%; border-radius: 999px; background: var(--vermilion); }
+
+  /* AttributeGrid 六维 */
+  .attr-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .attr-box { border-radius: 16px; border: 1px solid var(--card-border); background: var(--card-bg); padding: 12px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+  .attr-label { font-size: 10px; color: var(--gray-400); }
+  .attr-value { font-weight: 700; font-size: 14px; color: var(--ink); margin-top: 2px; }
+
+  /* 右栏 */
+  .right-col { display: flex; flex-direction: column; gap: 24px; }
+  .card-pad-6 { padding: 24px; }
+  .loc-header { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+  .loc-header .pin { color: var(--vermilion); font-size: 14px; }
+  .loc-title { font-size: 14px; font-weight: 700; color: var(--amber-950); }
+  .loc-title .season { margin-left: 8px; font-size: 12px; color: var(--gray-400); font-weight: 400; }
+  .npc-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font-size: 12px; }
+  .npc-row .label { color: var(--gray-400); }
+  .npc-chip { background: var(--soft-bg); color: var(--vermilion-text); padding: 6px 12px; border-radius: 12px; border: 1px solid rgba(184,50,39,.2); display: flex; align-items: center; gap: 8px; cursor: pointer; transition: transform .2s; }
+  .npc-chip:hover { transform: scale(1.05); }
+  .npc-chip .avatar { width: 24px; height: 24px; border-radius: 999px; background: #4A3B5C; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; }
+  .npc-chip b { font-weight: 700; }
+  .npc-chip .age { font-weight: 400; opacity: .7; font-size: 9px; }
+  .inv-hint { margin-top: 16px; background: var(--gauge-track); border-radius: 12px; padding: 12px; font-size: 12px; color: var(--ink-3); }
+  .dark .inv-hint { color: var(--gray-500); }
+
+  /* 主事件卡 */
+  .event-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
+  .event-head .doc-icon { color: var(--vermilion); font-size: 16px; }
+  .event-title { font-size: 18px; font-weight: 700; color: var(--vermilion-text); }
+  .event-sub { font-size: 9px; letter-spacing: .2em; color: var(--gray-400); text-transform: uppercase; }
+  .event-text { font-size: 14px; line-height: 2; color: var(--ink); }
+  .expand-line { margin-top: 10px; font-size: 12px; color: var(--vermilion); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+  .choice-divider { display: flex; align-items: center; gap: 8px; margin: 20px 0 14px; font-size: 10px; font-weight: 700; letter-spacing: .2em; color: var(--gray-400); }
+  .choice-divider::before, .choice-divider::after { content: ''; flex: 1; height: 1px; background: var(--card-border); }
+  .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 640px) { .action-grid { grid-template-columns: 1fr; } }
+  .action-btn { display: flex; align-items: center; justify-content: space-between; border-radius: 16px; border: 1px solid var(--card-border); background: var(--card-bg); padding: 16px; text-align: left; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,.05); transition: all .2s; font-family: inherit; }
+  .action-btn:hover { border-color: var(--vermilion); background: var(--soft-bg); }
+  .action-btn .left { display: flex; align-items: center; gap: 12px; }
+  .action-icon { width: 36px; height: 36px; border-radius: 12px; background: var(--action-icon-bg); color: var(--action-icon-text); display: flex; align-items: center; justify-content: center; font-size: 16px; transition: all .2s; }
+  .action-btn:hover .action-icon { background: var(--vermilion); color: #fff; }
+  .action-name { font-size: 12px; font-weight: 700; color: var(--ink); }
+  .action-sub { font-size: 9px; color: var(--gray-400); margin-top: 2px; }
+  .action-cost { font-weight: 700; font-size: 10px; color: var(--gold); }
+  .dark .action-sub, .dark .attr-label { color: #9C968C; }
+  .dark .event-sub { color: #8A857C; letter-spacing: .18em; }
+  .dark .expand-line { color: var(--gold); }
+  .dark .choice-divider { color: #9C968C; }
+
+  .advance-btn { width: 100%; height: 48px; border-radius: 12px; border: 1px solid var(--card-border); background: var(--card-bg); color: var(--ink); font-size: 15px; font-family: inherit; cursor: pointer; transition: all .2s; }
+  .advance-btn:hover { background: var(--soft-bg); border-color: var(--vermilion); }
+
+  /* 道心明镜 */
+  .memory-panel { border: 1px solid var(--card-border); background: var(--card-bg); border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+  .memory-header { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 12px; font-size: 14px; font-weight: 500; color: var(--ink); background: transparent; border: none; cursor: pointer; font-family: inherit; }
+  .memory-body { padding: 0 12px 12px; }
+  .memory-entry { font-size: 12px; padding: 4px 0; border-bottom: 1px solid var(--card-border); }
+  .memory-entry:last-child { border-bottom: none; }
+  .memory-title { color: var(--ink); font-weight: 500; }
+  .memory-summary { color: var(--ink-4); margin-left: 8px; }
+  .memory-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 8px; margin-top: 8px; font-size: 12px; color: var(--gray-500); border-top: 1px solid var(--card-border); }
+  .memory-link { display: inline-flex; height: 28px; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid var(--card-border); background: var(--page-bg); color: var(--ink-2); padding: 0 12px; font-size: 12px; cursor: pointer; text-decoration: none; }
+
+  .note { margin: 32px 0 48px; text-align: center; font-size: 12px; color: var(--ink-3); border: 1px dashed var(--card-border); border-radius: 12px; padding: 12px; }
+</style>
+</head>
+<body>
+
+<div class="preview-bar">
+  <button id="btn-light" class="on" onclick="setTheme(false)">浅色（现有 UI）</button>
+  <button id="btn-dark" onclick="setTheme(true)">暗黑模式</button>
+</div>
+
+<header>
+  <div class="header-inner">
+    <a class="brand" href="#">
+      <div class="logo-box"><span class="calligraphy">仙</span></div>
+      <div>
+        <h1 class="calligraphy">无尽仙途</h1>
+        <p>Infinity Immortal Way</p>
+      </div>
+    </a>
+    <nav>
+      <span class="nav-tag active">修炼</span>
+      <span class="nav-tag">世界</span>
+      <span class="nav-tag">关系</span>
+      <span class="nav-tag">物品</span>
+      <span class="nav-tag">技能</span>
+      <span class="nav-tag">资产</span>
+      <span class="nav-tag">记忆</span>
+      <span class="nav-tag">记录</span>
+      <span class="nav-tag">生活</span>
+    </nav>
+  </div>
+</header>
+
+<div class="main">
+  <!-- ═══ 左栏：角色卡（复刻 dashboard 左 5 列）═══ -->
+  <section>
+    <div class="silk-card">
+      <div class="seal-wrap">
+        <div class="seal-mark calligraphy">凡人</div>
+        <div class="seal-age mono">1 岁</div>
+      </div>
+
+      <div style="margin-bottom:28px;">
+        <h2 class="char-name calligraphy">李念安</h2>
+        <div class="char-meta">
+          <span class="root-label">金灵根 · 中品 · 未觉醒</span>
+          <span class="meta-sep">|</span>
+          <span class="occupation">🍼 婴儿</span>
+        </div>
+        <div class="loc-line"><span class="pin">📍</span> 家</div>
+      </div>
+
+      <div class="status-zone">
+        <div class="gauge">
+          <div class="gauge-head"><span class="gauge-label">行动力</span><span class="gauge-hint">4 / 6</span></div>
+          <p class="gauge-value mono">4</p>
+          <div class="gauge-track"><div class="gauge-fill" style="width:66%"></div></div>
+        </div>
+        <div class="gauge">
+          <div class="gauge-head"><span class="gauge-label">金币存余</span></div>
+          <p class="gauge-value mono" style="color:var(--vermilion)">50</p>
+        </div>
+        <div class="gauge">
+          <div class="gauge-head"><span class="gauge-label">❤️ 健康值</span></div>
+          <p class="gauge-value mono">100</p>
+        </div>
+      </div>
+
+      <div class="attr-grid">
+        <div class="attr-box"><p class="attr-label">根骨</p><p class="attr-value mono">0</p></div>
+        <div class="attr-box"><p class="attr-label">神识</p><p class="attr-value mono">0</p></div>
+        <div class="attr-box"><p class="attr-label">悟性</p><p class="attr-value mono">0</p></div>
+        <div class="attr-box"><p class="attr-label">气运</p><p class="attr-value mono">0</p></div>
+        <div class="attr-box"><p class="attr-label">魅力</p><p class="attr-value mono">0</p></div>
+        <div class="attr-box"><p class="attr-label">道心</p><p class="attr-value mono">0</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 右栏：境域 + 主事件 + 道心明镜（复刻 dashboard 右 7 列）═══ -->
+  <section class="right-col">
+    <!-- 当前境域 -->
+    <div class="silk-card card-pad-6">
+      <div class="loc-header">
+        <span class="pin">📍</span>
+        <h3 class="loc-title">当前境域：家<span class="season">（第1季）</span></h3>
+      </div>
+      <div class="npc-row">
+        <span class="label">附近的人：</span>
+        <span class="npc-chip"><span class="avatar">👩</span><b>王秀兰<span class="age">（36岁）</span></b></span>
+        <span class="npc-chip"><span class="avatar">👨</span><b>李建国<span class="age">（38岁）</span></b></span>
+      </div>
+      <div class="inv-hint">袖里乾坤空空如也，尚无灵材入账。</div>
+    </div>
+
+    <!-- 主事件 -->
+    <div class="silk-card card-pad-6">
+      <div class="event-head">
+        <span class="doc-icon">📄</span>
+        <div>
+          <div class="event-title">咿呀学语</div>
+          <div class="event-sub">MAIN EVENT</div>
+        </div>
+      </div>
+      <p class="event-text">
+        李念安躺在床上，蹬着两条小腿，眼睛直勾勾地盯着妈妈的脸。妈妈刚给他换完尿布，正低头冲他笑。他张了张嘴，发出一串含糊不清的"啊啊"声，小手在空中乱扒。妈妈握住他的小手，轻轻晃了晃，说："念安想说话啦？叫妈妈。"他听不懂，但觉得妈妈的声音好听，又哼唧了两声，口水顺着嘴角流下来。妈妈拿纸巾擦了擦他的下巴，把他抱起来，他靠在妈妈肩…
+      </p>
+      <span class="expand-line">▼ 展开全文</span>
+
+      <div class="choice-divider">当下抉择</div>
+      <div class="action-grid">
+        <button class="action-btn">
+          <span class="left">
+            <span class="action-icon">💬</span>
+            <span><span class="action-name">与人交谈</span><div class="action-sub">尝试行动</div></span>
+          </span>
+          <span class="action-cost mono">-2</span>
+        </button>
+        <button class="action-btn">
+          <span class="left">
+            <span class="action-icon">🚶</span>
+            <span><span class="action-name">四处闲逛</span><div class="action-sub">尝试行动</div></span>
+          </span>
+          <span class="action-cost mono">-2</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 推进季节 -->
+    <button class="advance-btn">推进季节</button>
+
+    <!-- 道心明镜 -->
+    <div class="memory-panel">
+      <button class="memory-header"><span>📖 道心明镜</span><span>▼</span></button>
+      <div class="memory-body">
+        <div class="memory-entry"><span class="memory-title">⭐ 晨光初啼</span><span class="memory-summary">在书香门第降生，哭声清亮。</span></div>
+        <div class="memory-entry"><span class="memory-title">第一次打坐</span><span class="memory-summary">盘腿坐沙发上，腿麻了但没放弃。</span></div>
+        <div class="memory-entry"><span class="memory-title">零花钱的谈判</span><span class="memory-summary">用撒娇从父亲那里换来十元。</span></div>
+        <div class="memory-footer">
+          <span>共 3 条</span>
+          <a class="memory-link" href="#">查看全部记忆 →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="note">真实 dashboard 排版原样复刻 · 仅做暗黑模式颜色映射 · 布局 / 组件 / 间距未改动</div>
+
+<script>
+  function setTheme(dark) {
+    document.documentElement.classList.toggle('dark', dark);
+    document.getElementById('btn-light').classList.toggle('on', !dark);
+    document.getElementById('btn-dark').classList.toggle('on', dark);
+    try { localStorage.setItem('dark-preview-v3', dark ? '1' : '0'); } catch (e) {}
+  }
+  try {
+    if (localStorage.getItem('dark-preview-v3') === '1') setTheme(true);
+    else if (localStorage.getItem('dark-preview-v3') === null && window.matchMedia('(prefers-color-scheme: dark)').matches) setTheme(true);
+  } catch (e) {}
+</script>
+</body>
+</html>

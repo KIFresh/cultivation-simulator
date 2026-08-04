@@ -82,7 +82,7 @@ export default function ShopPage() {
   const categories = [...new Set(items.map((i) => i.category))];
 
   return (
-    <main className="min-h-screen bg-[#FAF4EB]">
+    <main className="min-h-screen bg-[var(--muted)]">
       <TopNav />
       <div className="mx-auto max-w-4xl px-4 py-6">
         <div className="mb-6 flex items-center justify-between">
@@ -96,11 +96,11 @@ export default function ShopPage() {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="text-xl font-bold text-[#2C1E1E]">{isMarket ? "坊市" : "商店"}</h1>
+              <h1 className="text-xl font-bold text-[var(--foreground)]">{isMarket ? "坊市" : "商店"}</h1>
               <p className="text-xs text-gray-400">{isMarket ? "风险与机遇并存" : "按需选购"}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 rounded-2xl bg-white px-4 py-2 shadow-sm">
+          <div className="flex items-center gap-2 rounded-2xl bg-[var(--card)] px-4 py-2 shadow-sm">
             <Coins className="h-4 w-4 text-amber-500" />
             <span className="text-sm font-bold text-amber-700">{gold}</span>
           </div>
@@ -135,11 +135,11 @@ export default function ShopPage() {
                     return (
                       <Card
                         key={s.itemId}
-                        className={`overflow-hidden rounded-2xl border ${isLocked ? "border-gray-200 opacity-55" : "border-[#EADCD0]"} bg-white shadow-sm`}
+                        className={`overflow-hidden rounded-2xl border ${isLocked ? "border-gray-200 opacity-55" : "border-[var(--border)]"} bg-[var(--card)] shadow-sm`}
                       >
                         <CardContent className="flex items-center justify-between p-4">
                           <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FAF4EB] text-lg">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--muted)] text-lg">
                               {s.item.icon || "📦"}
                             </div>
                             <div className="min-w-0">

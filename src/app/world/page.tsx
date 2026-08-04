@@ -109,7 +109,7 @@ export default function WorldPage() {
       <div className="main-container space-y-6">
         <button
           onClick={() => router.push("/dashboard")}
-          className="flex items-center gap-1 text-sm text-[#7A1F18] hover:text-[#B83227] transition-colors"
+          className="flex items-center gap-1 text-sm text-[var(--primary)] hover:text-[var(--destructive)] transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> 返回修行
         </button>
@@ -117,17 +117,17 @@ export default function WorldPage() {
                 {/* 世界事件 */}
                 {worldEvents.length > 0 && (
                   <div className="silk-card rounded-3xl p-6">
-                    <h3 className="text-sm font-bold text-[#2C1E1E] flex items-center gap-2 pb-3 mb-3 border-b border-[#EADCD0]">
-                      <Bell className="w-4 h-4 text-[#D49B4B]" /> 当前世界事件
+                    <h3 className="text-sm font-bold text-[var(--foreground)] flex items-center gap-2 pb-3 mb-3 border-b border-[var(--border)]">
+                      <Bell className="w-4 h-4 text-[var(--ring)]" /> 当前世界事件
                     </h3>
                     <div className="space-y-3">
                       {worldEvents.map((evt) => (
                         <div
                           key={evt.id}
-                          className="p-4 rounded-2xl bg-[#FFF8F0] border border-[#D49B4B]/30"
+                          className="p-4 rounded-2xl bg-[#FFF8F0] border border-[var(--ring)]/30"
                         >
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm font-bold text-[#2C1E1E]">{evt.title}</span>
+                            <span className="text-sm font-bold text-[var(--foreground)]">{evt.title}</span>
                             <span>
                               {evt.eventId === "spiritual_tide" ? "🌊" :
                                evt.eventId === "beast_disturbance" ? "🐾" :
@@ -140,7 +140,7 @@ export default function WorldPage() {
                             <button
                               onClick={() => handleJoinEvent(evt)}
                               disabled={joining === evt.id}
-                              className="px-3 py-1 bg-[#B83227] text-white text-xs rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                              className="px-3 py-1 bg-[var(--destructive)] text-white text-xs rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
                             >
                               {joining === evt.id ? "参与中…" : "参与事件"}
                             </button>
@@ -152,9 +152,9 @@ export default function WorldPage() {
                 )}
 
                 <div className="silk-card rounded-3xl p-6">
-                  <div className="flex items-center justify-between pb-4 border-b border-[#EADCD0]">
-            <h3 className="font-calligraphy text-2xl font-bold tracking-widest text-[#7A1F18] flex items-center">
-              <Globe className="mr-2.5 text-[#D49B4B]" /> 世界
+                  <div className="flex items-center justify-between pb-4 border-b border-[var(--border)]">
+            <h3 className="font-calligraphy text-2xl font-bold tracking-widest text-[var(--primary)] flex items-center">
+              <Globe className="mr-2.5 text-[var(--ring)]" /> 世界
             </h3>
             <span className="text-[10px] text-gray-400 font-mono tracking-wider uppercase">
               WORLD MAP
@@ -164,8 +164,8 @@ export default function WorldPage() {
           <div className="flex flex-col md:flex-row gap-6 pt-4">
             {/* 左侧：出行方式选择 */}
             <div className="md:w-52 shrink-0 space-y-3">
-              <div className="flex items-center space-x-2 pb-1 text-xs font-bold text-[#2C1E1E]">
-                <Compass className="text-[#B83227]" /> 出行方式
+              <div className="flex items-center space-x-2 pb-1 text-xs font-bold text-[var(--foreground)]">
+                <Compass className="text-[var(--destructive)]" /> 出行方式
               </div>
               <div className="grid grid-cols-2 md:grid-cols-1 gap-2">
                 {TRAVEL_MODES.map((m) => {
@@ -176,13 +176,13 @@ export default function WorldPage() {
                       onClick={() => setSelectedMode(m.id)}
                       className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-colors ${
                         active
-                          ? "border-[#B83227] bg-[#FDF2F0]"
-                          : "border-[#EADCD0] bg-white hover:border-[#D49B4B]"
+                          ? "border-[var(--destructive)] bg-[var(--muted)]"
+                          : "border-[var(--border)] bg-[var(--card)] hover:border-[var(--ring)]"
                       }`}
                     >
                       <span className="text-lg leading-none">{m.icon}</span>
                       <div>
-                        <div className="text-[13px] font-medium text-[#2C1E1E]">{m.name}</div>
+                        <div className="text-[13px] font-medium text-[var(--foreground)]">{m.name}</div>
                         <div className="text-[9px] text-gray-400 leading-tight">{m.desc}</div>
                       </div>
                     </button>
@@ -196,8 +196,8 @@ export default function WorldPage() {
 
             {/* 右侧：可往之地 */}
             <div className="flex-1 space-y-3">
-              <div className="flex items-center space-x-2 pb-1 text-xs font-bold text-[#2C1E1E]">
-                <MapPin className="text-[#B83227]" /> 可往之地
+              <div className="flex items-center space-x-2 pb-1 text-xs font-bold text-[var(--foreground)]">
+                <MapPin className="text-[var(--destructive)]" /> 可往之地
               </div>
               {LOCATIONS.map((loc) => {
                 const unlocked = !loc.requireAwakened || awake;
@@ -218,8 +218,8 @@ export default function WorldPage() {
                     key={loc.id}
                     className={`p-4 rounded-2xl border transition-all ${
                       unlocked
-                        ? "bg-[#FAF4EB] border-[#D49B4B]/40"
-                        : "bg-gray-50/70 border-[#EADCD0]/60 opacity-60 select-none"
+                        ? "bg-[var(--muted)] border-[var(--ring)]/40"
+                        : "bg-gray-50/70 border-[var(--border)]/60 opacity-60 select-none"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-3">
@@ -227,7 +227,7 @@ export default function WorldPage() {
                         <div
                           className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg border ${
                             unlocked
-                              ? "bg-white text-[#B83227] border-[#EADCD0]"
+                              ? "bg-[var(--card)] text-[var(--destructive)] border-[var(--border)]"
                               : "bg-gray-100 text-gray-400 border-gray-200"
                           }`}
                         >
@@ -235,7 +235,7 @@ export default function WorldPage() {
                         </div>
                         <div>
                           <h4
-                            className={`font-bold text-sm ${unlocked ? "text-[#2C1E1E]" : "text-gray-500"}`}
+                            className={`font-bold text-sm ${unlocked ? "text-[var(--foreground)]" : "text-gray-500"}`}
                           >
                             {loc.name}
                           </h4>
@@ -244,7 +244,7 @@ export default function WorldPage() {
                       </div>
                       <div className="text-right shrink-0">
                         {isCurrent ? (
-                          <span className="text-xs font-bold px-3 py-1.5 rounded-lg bg-[#B83227] text-white">
+                          <span className="text-xs font-bold px-3 py-1.5 rounded-lg bg-[var(--destructive)] text-white">
                             当前所在地
                           </span>
                         ) : unlocked ? (
@@ -259,7 +259,7 @@ export default function WorldPage() {
                                 handleTravel(loc.id, selectedMode);
                             }}
                             title={`体力${cost.staminaCost} · 金币${cost.goldCost}`}
-                            className="text-xs font-bold px-3 py-1.5 rounded-lg border border-[#EADCD0] bg-white text-[#2C1E1E] hover:border-[#B83227] hover:bg-[#FDF2F0] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="text-xs font-bold px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] hover:border-[var(--destructive)] hover:bg-[var(--muted)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             前往 · 体力{cost.staminaCost} 金{cost.goldCost}
                           </button>

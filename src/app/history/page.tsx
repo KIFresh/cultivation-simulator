@@ -20,8 +20,8 @@ const typeLabel = (type: string) => {
   if (type === "BREAKTHROUGH") return { text: "突破", cls: "border-red-300 text-red-700" };
   if (type === "ENCOUNTER" || type === "RANDOM_ENCOUNTER")
     return { text: "奇遇", cls: "border-purple-300 text-purple-700" };
-  if (type === "ACTION") return { text: "行动", cls: "border-[#B83227]/30 text-[#B83227]" };
-  return { text: "修炼", cls: "border-[#EADCD0] text-gray-500" };
+  if (type === "ACTION") return { text: "行动", cls: "border-[var(--destructive)]/30 text-[var(--destructive)]" };
+  return { text: "修炼", cls: "border-[var(--border)] text-gray-500" };
 };
 
 const fmt = (iso: string) => {
@@ -73,7 +73,7 @@ export default function HistoryPage() {
         <TopNav />
         <div className="main-container space-y-3 pt-6">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-20 bg-[#EADCD0]/40 rounded-2xl animate-pulse" />
+            <div key={i} className="h-20 bg-[var(--border)]/40 rounded-2xl animate-pulse" />
           ))}
         </div>
       </VermilionShell>
@@ -85,8 +85,8 @@ export default function HistoryPage() {
       <TopNav />
       <div className="main-container space-y-6">
         <div className="pt-2">
-          <h1 className="font-calligraphy text-2xl font-bold text-[#7A1F18] flex items-center gap-2">
-            <BookOpen className="w-6 h-6 text-[#D49B4B]" /> 修炼记录
+          <h1 className="font-calligraphy text-2xl font-bold text-[var(--primary)] flex items-center gap-2">
+            <BookOpen className="w-6 h-6 text-[var(--ring)]" /> 修炼记录
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">共 {total} 条修炼轨迹</p>
         </div>
@@ -97,18 +97,18 @@ export default function HistoryPage() {
             <p>修炼之路方才开始……</p>
           </div>
         ) : (
-          <div className="relative border-l-2 border-[#EADCD0] ml-3 pl-6 space-y-6">
+          <div className="relative border-l-2 border-[var(--border)] ml-3 pl-6 space-y-6">
             {events.map((event) => {
               const isLong = event.narrative.length > 150;
               const isExp = expanded[event.id];
               return (
                 <div key={event.id} className="relative">
-                  <span className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-[#B83227] border-2 border-white" />
+                  <span className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-[var(--destructive)] border-2 border-white" />
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <Badge variant="outline" className={`text-xs ${typeLabel(event.type).cls}`}>
                       {typeLabel(event.type).text}
                     </Badge>
-                    <span className="text-sm font-medium text-[#2C1E1E]">{event.title}</span>
+                    <span className="text-sm font-medium text-[var(--foreground)]">{event.title}</span>
                     <span className="text-xs text-gray-400 ml-auto">{fmt(event.createdAt)}</span>
                   </div>
                   <p
@@ -121,7 +121,7 @@ export default function HistoryPage() {
                       onClick={() =>
                         setExpanded((prev) => ({ ...prev, [event.id]: !prev[event.id] }))
                       }
-                      className="text-[#B83227] text-xs hover:underline mt-1"
+                      className="text-[var(--destructive)] text-xs hover:underline mt-1"
                     >
                       {isExp ? "▲ 收起" : "▼ 展开全文"}
                     </button>
@@ -136,7 +136,7 @@ export default function HistoryPage() {
           <button
             onClick={loadMore}
             disabled={loadingMore}
-            className="w-full h-11 rounded-2xl border border-[#EADCD0] bg-white text-sm font-medium text-[#7A1F18] hover:border-[#B83227] hover:bg-[#FDF2F0] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full h-11 rounded-2xl border border-[var(--border)] bg-[var(--card)] text-sm font-medium text-[var(--primary)] hover:border-[var(--destructive)] hover:bg-[var(--muted)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {loadingMore ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             {loadingMore ? "加载中…" : "加载更多"}

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useDevModeEnabled } from "@/hooks/use-dev-mode";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const NAV_TABS: { label: string; href: string }[] = [
   { label: "修炼", href: "/dashboard" },
@@ -38,18 +39,18 @@ export default function TopNav() {
         rel="stylesheet"
       />
 
-      <header className="sticky top-0 z-50 bg-[#FAF7F3]/95 backdrop-blur border-b border-[#D2C6B2]">
+      <header className="sticky top-0 z-50 bg-[var(--background)]/95 backdrop-blur border-b border-[var(--border)]">
         <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col md:flex-row justify-between items-center gap-3">
           {/* 品牌区 */}
           <Link href="/" className="flex items-center space-x-3 shrink-0 cursor-pointer">
-            <div className="w-9 h-9 bg-[#B83227] flex items-center justify-center rounded-lg shadow-md rotate-3">
+            <div className="w-9 h-9 bg-[var(--destructive)] flex items-center justify-center rounded-lg shadow-md rotate-3">
               <span className="text-white calligraphy text-lg">仙</span>
             </div>
             <div>
-              <h1 className="text-lg font-bold tracking-widest text-[#7A1F18] calligraphy leading-tight">
+              <h1 className="text-lg font-bold tracking-widest text-[var(--primary)] calligraphy leading-tight">
                 无尽仙途
               </h1>
-              <p className="text-[9px] text-amber-900/60 tracking-[0.3em] uppercase leading-tight">
+              <p className="text-[9px] text-[var(--muted-foreground)] tracking-[0.3em] uppercase leading-tight">
                 Infinity Immortal Way
               </p>
             </div>
@@ -63,10 +64,10 @@ export default function TopNav() {
                 <Link
                   key={t.href}
                   href={t.href}
-                  className={`nav-tag px-4 py-1.5 rounded-full text-xs font-medium bg-white border shadow-sm whitespace-nowrap transition-all duration-200 ${
+                  className={`nav-tag px-4 py-1.5 rounded-full text-xs font-medium bg-[var(--card)] border shadow-sm whitespace-nowrap transition-all duration-200 ${
                     active
-                      ? "active !bg-[#B83227] !text-white !border-[#B83227] translate-y-[-2px] shadow-[0_4px_10px_rgba(184,50,39,0.25)]"
-                      : "border-[#EADCD0] text-[#5A5040] hover:text-[#8C2D19] hover:border-[#C9A896]"
+                      ? "active !bg-[var(--destructive)] !text-white !border-[var(--destructive)] translate-y-[-2px] shadow-[0_4px_10px_rgba(184,50,39,0.25)]"
+                      : "border-[var(--border)] text-[var(--muted-foreground)] hover:text-[var(--destructive)] hover:border-[var(--border)]"
                   }`}
                 >
                   {t.label}
@@ -74,6 +75,8 @@ export default function TopNav() {
               );
             })}
           </nav>
+
+          <ThemeToggle />
         </div>
       </header>
 
@@ -82,9 +85,9 @@ export default function TopNav() {
           transition: all 0.2s ease;
         }
         .nav-tag.active {
-          background-color: #b83227 !important;
+          background-color: var(--destructive) !important;
           color: #ffffff !important;
-          border-color: #b83227 !important;
+          border-color: var(--destructive) !important;
           transform: translateY(-2px);
           box-shadow: 0 4px 10px rgba(184, 50, 39, 0.25);
         }

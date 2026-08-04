@@ -36,14 +36,14 @@ export const InventoryPanel = React.memo(function InventoryPanel({
   }, [inventory]);
 
   return (
-    <div className="mt-3 p-3 text-[11px] text-gray-400 bg-[#FAF4EB] rounded-xl border border-[#EADCD0] flex flex-wrap gap-1">
+    <div className="mt-3 p-3 text-[11px] text-gray-400 bg-[var(--muted)] rounded-xl border border-[var(--border)] flex flex-wrap gap-1">
       {items.equipped.length === 0 && items.backpack.length === 0 && (
         <span className="text-gray-400">袖里乾坤空空如也，尚无灵材入账。</span>
       )}
       {items.equipped.map(({ inv, item }) => (
         <span
           key={`eq-${inv.itemId}`}
-          className="inline-flex items-center gap-1 text-[10px] bg-[#F0E8D8] text-[#8B7355] px-1.5 py-0.5 rounded border border-[#D8C8B0] m-0.5 cursor-help"
+          className="inline-flex items-center gap-1 text-[10px] bg-[var(--muted)] text-[var(--muted-foreground)] px-1.5 py-0.5 rounded border border-[var(--border)] m-0.5 cursor-help"
           onMouseEnter={(e) =>
             setTooltip({
               item,
@@ -68,7 +68,7 @@ export const InventoryPanel = React.memo(function InventoryPanel({
       {items.backpack.map(({ inv, item }) => (
         <span
           key={`bp-${inv.itemId}`}
-          className="inline-flex items-center gap-1 text-[10px] bg-[#FAF4EB] text-gray-500 px-1.5 py-0.5 rounded m-0.5 cursor-help"
+          className="inline-flex items-center gap-1 text-[10px] bg-[var(--muted)] text-gray-500 px-1.5 py-0.5 rounded m-0.5 cursor-help"
           onMouseEnter={(e) =>
             setTooltip({
               item,
@@ -93,14 +93,14 @@ export const InventoryPanel = React.memo(function InventoryPanel({
       ))}
       {tooltip && (
         <div
-          className="fixed z-50 rounded-md border border-[#EADCD0] bg-white px-3 py-2 text-xs text-[#2C1E1E] shadow-md"
+          className="fixed z-50 rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-xs text-[var(--foreground)] shadow-md"
           style={{ left: tooltip.x + 12, top: tooltip.y + 12 }}
         >
           <p className="font-medium">
             {tooltip.item.icon} {tooltip.item.name}
           </p>
           <p className="text-gray-400 mt-0.5">{tooltip.item.description}</p>
-          {tooltip.item.effect && <p className="text-[#D49B4B] mt-0.5">✨ {tooltip.item.effect}</p>}
+          {tooltip.item.effect && <p className="text-[var(--ring)] mt-0.5">✨ {tooltip.item.effect}</p>}
           {(tooltip.item as any).useEffect && (
             <button
               onClick={() => {
@@ -108,7 +108,7 @@ export const InventoryPanel = React.memo(function InventoryPanel({
                 setTooltip(null);
                 onUseItem(itemId);
               }}
-              className="mt-1 w-full text-xs bg-[#B83227] text-white rounded px-2 py-0.5 hover:bg-[#7A1F18]"
+              className="mt-1 w-full text-xs bg-[var(--destructive)] text-white rounded px-2 py-0.5 hover:bg-[var(--destructive)]"
             >
               {(tooltip.item as any).useLabel || "使用"}
             </button>

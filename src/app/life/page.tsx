@@ -45,14 +45,14 @@ export default function LifePage() {
       <div className="main-container space-y-6">
         <button
           onClick={() => router.push("/dashboard")}
-          className="flex items-center gap-1 text-sm text-[#7A1F18] hover:text-[#B83227] transition-colors"
+          className="flex items-center gap-1 text-sm text-[var(--primary)] hover:text-[var(--destructive)] transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> 回到修行台
         </button>
 
         <div className="pt-2">
-          <h1 className="font-calligraphy text-2xl font-bold text-[#7A1F18] flex items-center gap-2">
-            <BookOpen className="w-6 h-6 text-[#D49B4B]" /> 凡人生活
+          <h1 className="font-calligraphy text-2xl font-bold text-[var(--primary)] flex items-center gap-2">
+            <BookOpen className="w-6 h-6 text-[var(--ring)]" /> 凡人生活
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">修行之外，烟火人间也有机缘与成长。</p>
         </div>
@@ -62,11 +62,11 @@ export default function LifePage() {
             <Link
               key={a.href}
               href={a.href}
-              className="silk-card rounded-2xl p-4 flex items-center gap-3 hover:border-[#B83227] transition-all"
+              className="silk-card rounded-2xl p-4 flex items-center gap-3 hover:border-[var(--destructive)] transition-all"
             >
               <span className="text-2xl">{a.icon}</span>
               <div>
-                <p className="text-base font-bold text-[#2C1E1E]">{a.name}</p>
+                <p className="text-base font-bold text-[var(--foreground)]">{a.name}</p>
                 <p className="text-xs text-gray-400">{a.desc}</p>
               </div>
             </Link>

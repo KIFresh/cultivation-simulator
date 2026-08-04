@@ -60,19 +60,19 @@ export default function MemoryPanel({ cultivatorId }: { cultivatorId: string }) 
               <p className="text-xs text-muted-foreground text-center py-4">暂无记忆</p>
             ) : (
               entries.map((entry) => (
-                <div key={entry.id} className="text-xs py-1 border-b border-[#EADCD0] last:border-0">
-                  <span className="text-[#2C1E1E] font-medium">
+                <div key={entry.id} className="text-xs py-1 border-b border-[var(--border)] last:border-0">
+                  <span className="text-[var(--foreground)] font-medium">
                     {entry.important ? "⭐ " : ""}
                     {entry.title}
                   </span>
-                  {entry.summary && <span className="text-[#8B7355] ml-2 truncate">{entry.summary}</span>}
+                  {entry.summary && <span className="text-[var(--muted-foreground)] ml-2 truncate">{entry.summary}</span>}
                 </div>
               ))
             )}
           </div>
 
           {!loading && entries.length > 0 && (
-            <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground border-t border-[#EADCD0]">
+            <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground border-t border-[var(--border)]">
               <span>共 {entries.length} 条</span>
               <Link
                 href="/memory"

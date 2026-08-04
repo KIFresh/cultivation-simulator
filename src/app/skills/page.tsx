@@ -172,11 +172,11 @@ export default function SkillsPage() {
   );
 
   return (
-    <main className="min-h-screen bg-[#FAF7F3]">
+    <main className="min-h-screen bg-[var(--background)]">
       <TopNav />
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
         <div>
-          <h1 className="text-xl font-bold text-[#2C1E1E]">📖 技能</h1>
+          <h1 className="text-xl font-bold text-[var(--foreground)]">📖 技能</h1>
           <p className="text-xs text-[#8B7355] mt-1">功法和技艺，提升修为与生活的能力</p>
         </div>
 
@@ -207,13 +207,13 @@ export default function SkillsPage() {
                           <span className="text-[10px] text-[#8B7355]">
                             Lv.{exp.level} · {progress}/100
                           </span>
-                          <span className="text-xs font-mono text-[#2C1E1E]">
+                          <span className="text-xs font-mono text-[var(--foreground)]">
                             {Math.round(cultivator.attributes?.[attr.key] || 0)}
                           </span>
                         </div>
-                        <div className="h-1.5 bg-[#EADCD0] rounded-full overflow-hidden">
+                        <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-gradient-to-r from-[#4A90D9] to-[#B83227] rounded-full transition-all"
+                            className="h-full bg-gradient-to-r from-[#4A90D9] to-[var(--destructive)] rounded-full transition-all"
                             style={{ width: `${progress}%` }}
                           />
                         </div>
@@ -243,7 +243,7 @@ export default function SkillsPage() {
         {/* 已装备 */}
         <section>
           <h2 className="text-sm font-semibold text-[#5A5040] mb-2 flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#B83227]" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--destructive)]" />
             已装备 ({filteredEquipped.length}/3)
           </h2>
           <div className="space-y-2">
@@ -256,24 +256,24 @@ export default function SkillsPage() {
               return (
                 <div
                   key={record.id}
-                  className="border border-[#EADCD0] bg-white rounded-lg p-3 flex items-center gap-3"
+                  className="border border-[var(--border)] bg-[var(--card)] rounded-lg p-3 flex items-center gap-3"
                 >
                   <span className="text-2xl">{tech.icon}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-[#2C1E1E]">
+                    <p className="text-sm font-medium text-[var(--foreground)]">
                       {tech.name}{" "}
                       <span className="text-xs text-[#8B7355]">Lv.{record.level}</span>
                     </p>
                     <p className="text-xs text-[#8B7355]">{tech.description}</p>
                     {tech.effects.map((e, i) => (
-                      <p key={i} className="text-xs text-[#D49B4B]">
+                      <p key={i} className="text-xs text-[var(--ring)]">
                         ✨ {getEffectText(e, record.level)}
                       </p>
                     ))}
                     <div className="flex items-center gap-1 mt-1">
-                      <div className="flex-1 h-1 bg-[#EADCD0] rounded-full overflow-hidden">
+                      <div className="flex-1 h-1 bg-[var(--border)] rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-[#B83227] rounded-full"
+                          className="h-full bg-[var(--destructive)] rounded-full"
                           style={{
                             width: `${(record.proficiency / (tech.upgradeProficiency[record.level - 1] || 1)) * 100}%`,
                           }}
@@ -300,9 +300,9 @@ export default function SkillsPage() {
             {emptySlots.map((slot) => (
               <div
                 key={`empty-${slot}`}
-                className="border border-dashed border-[#D2C6B2] bg-[#FAF7F3] rounded-lg p-3 flex items-center gap-3"
+                className="border border-dashed border-[#D2C6B2] bg-[var(--background)] rounded-lg p-3 flex items-center gap-3"
               >
-                <div className="w-10 h-10 rounded-lg bg-[#EADCD0] flex items-center justify-center text-[#8B7355]">
+                <div className="w-10 h-10 rounded-lg bg-[var(--border)] flex items-center justify-center text-[#8B7355]">
                   □
                 </div>
                 <span className="text-sm text-[#8B7355] flex-1">空槽位 {slot}</span>
@@ -325,17 +325,17 @@ export default function SkillsPage() {
                 return (
                   <div
                     key={record.id}
-                    className="border border-[#EADCD0] bg-white rounded-lg p-3 flex items-center gap-3"
+                    className="border border-[var(--border)] bg-[var(--card)] rounded-lg p-3 flex items-center gap-3"
                   >
                     <span className="text-2xl">{tech.icon}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-[#2C1E1E]">
+                      <p className="text-sm font-medium text-[var(--foreground)]">
                         {tech.name}{" "}
                         <span className="text-xs text-[#8B7355]">Lv.{record.level}</span>
                       </p>
                       <p className="text-xs text-[#8B7355]">{tech.description}</p>
                       {tech.effects.map((e, i) => (
-                        <p key={i} className="text-xs text-[#D49B4B]">
+                        <p key={i} className="text-xs text-[var(--ring)]">
                           ✨ {getEffectText(e, record.level)}
                         </p>
                       ))}

@@ -34,12 +34,12 @@ export const ActionInputRow = React.memo(function ActionInputRow({
             onSubmit(actionId);
           }
         }}
-        className="h-7 flex-1 rounded-lg border border-[#EADCD0] bg-white px-2 text-[11px] text-[#2C1E1E] focus:outline-none focus:border-[#B83227] disabled:opacity-50"
+        className="h-7 flex-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 text-[11px] text-[var(--foreground)] focus:outline-none focus:border-[var(--destructive)] disabled:opacity-50"
         placeholder="描述你想怎么做…"
         autoFocus
       />
       <button
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#B83227] text-white hover:bg-[#7A1F18] disabled:opacity-50"
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--destructive)] text-white hover:bg-[var(--primary)] disabled:opacity-50"
         disabled={loading}
         onClick={(e) => {
           e.preventDefault();

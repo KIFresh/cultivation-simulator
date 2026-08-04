@@ -64,16 +64,16 @@ export default function ItemsPage() {
     return (
       <div
         key={item.inv.itemId}
-        className="flex items-start gap-3 border border-[#EADCD0] bg-white rounded-lg p-3"
+        className="flex items-start gap-3 border border-[var(--border)] bg-[var(--card)] rounded-lg p-3"
       >
         <span className="text-2xl shrink-0 mt-0.5">{icon}</span>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-[#2C1E1E]">
+          <p className="text-sm font-medium text-[var(--foreground)]">
             {name}
             <span className="text-xs text-[#8B7355] ml-2">×{item.inv.quantity}</span>
           </p>
           {desc && <p className="text-xs text-[#8B7355] mt-0.5">{desc}</p>}
-          {effect && <p className="text-xs text-[#D49B4B] mt-0.5">✨ {effect}</p>}
+          {effect && <p className="text-xs text-[var(--ring)] mt-0.5">✨ {effect}</p>}
         </div>
         {showUseButton && def?.useEffect ? (
           <div className="flex gap-1 shrink-0">
@@ -115,7 +115,7 @@ export default function ItemsPage() {
 
   if (inventory.length === 0) {
     return (
-      <main className="min-h-screen bg-[#FAF7F3]">
+      <main className="min-h-screen bg-[var(--background)]">
         <TopNav />
         <div className="max-w-2xl mx-auto px-4 py-8">
           <Card>
@@ -132,13 +132,13 @@ export default function ItemsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#FAF7F3]">
+    <main className="min-h-screen bg-[var(--background)]">
       <TopNav />
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
         {/* 返回按钮 */}
         <button
           onClick={() => router.push("/dashboard")}
-          className="flex items-center gap-1 text-sm text-[#8B7355] hover:text-[#2C1E1E] transition-colors"
+          className="flex items-center gap-1 text-sm text-[#8B7355] hover:text-[var(--foreground)] transition-colors"
           aria-label="返回仪表盘"
         >
           <svg
@@ -158,7 +158,7 @@ export default function ItemsPage() {
         </button>
         {/* 页面标题 */}
         <div>
-          <h1 className="text-xl font-bold text-[#2C1E1E]">🎒 背包物品</h1>
+          <h1 className="text-xl font-bold text-[var(--foreground)]">🎒 背包物品</h1>
           <p className="text-xs text-[#8B7355] mt-1">随身携带的各类物品，可在修炼中发挥作用</p>
         </div>
 
@@ -166,7 +166,7 @@ export default function ItemsPage() {
         {equipped.length > 0 && (
           <section>
             <h2 className="text-sm font-semibold text-[#5A5040] mb-2 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#B83227]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--destructive)]" />
               装备中
             </h2>
             <div className="space-y-2">{equipped.map((item) => renderItem(item, false))}</div>
@@ -201,10 +201,10 @@ export default function ItemsPage() {
             const inv = inventory.find((i) => i.itemId === openItemId);
             if (!def) return null;
             return (
-              <div className="border border-[#EADCD0] bg-white rounded-lg p-4">
+              <div className="border border-[var(--border)] bg-[var(--card)] rounded-lg p-4">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-sm font-medium text-[#2C1E1E]">{def.name}</p>
+                    <p className="text-sm font-medium text-[var(--foreground)]">{def.name}</p>
                     <p className="text-xs text-[#8B7355]">×{inv?.quantity ?? 0}</p>
                   </div>
                   <Button
@@ -219,7 +219,7 @@ export default function ItemsPage() {
                 {def.description && (
                   <p className="text-xs text-[#8B7355] mt-2">{def.description}</p>
                 )}
-                {def.effect && <p className="text-xs text-[#D49B4B] mt-1">✨ {def.effect}</p>}
+                {def.effect && <p className="text-xs text-[var(--ring)] mt-1">✨ {def.effect}</p>}
                 {def.useLabel && (
                   <p className="text-xs text-[#8B7355] mt-2">使用方式：{def.useLabel}</p>
                 )}

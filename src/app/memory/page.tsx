@@ -134,7 +134,7 @@ export default function MemoryPage() {
     return (
       <VermilionShell>
         <TopNav />
-        <main className="flex-1 flex items-center justify-center min-h-screen bg-[#FAF7F3]">
+        <main className="flex-1 flex items-center justify-center min-h-screen bg-[var(--background)]">
           <p className="text-[#8a7a72]">加载中…</p>
         </main>
       </VermilionShell>
@@ -144,7 +144,7 @@ export default function MemoryPage() {
   return (
     <VermilionShell>
       <TopNav />
-      <main className="flex-1 min-h-screen bg-[#FAF7F3] p-6">
+      <main className="flex-1 min-h-screen bg-[var(--background)] p-6">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-[#2C2C2C]">记忆面板</h1>
@@ -153,7 +153,7 @@ export default function MemoryPage() {
             placeholder="搜索标签…"
             value={searchTag}
             onChange={(e) => setSearchTag(e.target.value)}
-            className="px-3 py-1.5 border border-[#D0C8C0] rounded text-sm bg-white"
+            className="px-3 py-1.5 border border-[#D0C8C0] rounded text-sm bg-[var(--card)]"
           />
         </div>
 
@@ -162,7 +162,7 @@ export default function MemoryPage() {
         ) : (
           <div className="space-y-3">
             {filteredEntries.map((entry) => (
-              <div key={entry.id} className="bg-white border border-[#E5E0D0] rounded-lg p-4 shadow-sm">
+              <div key={entry.id} className="bg-[var(--card)] border border-[#E5E0D0] rounded-lg p-4 shadow-sm">
                 {editingId === entry.id ? (
                   <div className="space-y-2">
                     <input
