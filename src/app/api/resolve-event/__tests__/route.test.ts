@@ -54,7 +54,7 @@ describe("resolve-event 金币结算（凡人经济自循环）", () => {
     // 模拟事务：执行回调，返回回调结果
     mockTransaction.mockImplementation(async (cb: any) => {
       const tx = {
-        cultivator: { update: vi.fn() },
+        cultivator: { update: vi.fn(), findUnique: vi.fn().mockResolvedValue({ attributeExp: null }) },
         familyMember: { findMany: mockFindMany, update: vi.fn() },
         gameEvent: { create: vi.fn() },
       };

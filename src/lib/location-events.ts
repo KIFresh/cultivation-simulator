@@ -23,50 +23,57 @@ export type AttrExpMap = Record<string, { exp: number; level: number }>;
 export const LOCATION_EVENT_POOL: Record<string, LocationEvent[]> = {
   home: [
     {
-      id: "home_tidy",
+      id: "home_tidy_mind",
       title: "整理旧物",
-      description: "你在杂物间翻出一本蒙尘的笔记。",
+      description: "你在杂物间翻出一本蒙尘的笔记，旧物勾起思绪。",
       minAge: 1,
-      effects: { goldDelta: 0, attrExp: { insight: 5 }, memory: true },
+      effects: { attrExp: { mind: 3 }, memory: true },
+    },
+    {
+      id: "home_tidy_luck",
+      title: "整理旧物",
+      description: "你在杂物间翻出一本蒙尘的笔记，竟夹着一张旧彩票。",
+      minAge: 1,
+      effects: { attrExp: { luck: 3 }, memory: true },
     },
     {
       id: "home_garden",
       title: "院中静坐",
       description: "你在院子里看了半天蚂蚁搬家，竟有些入定。",
       minAge: 3,
-      effects: { healthDelta: 2, attrExp: { mind: 4 } },
+      effects: { healthDelta: 2, attrExp: { mind: 2 } },
     },
   ],
-  market: [
+  kindergarten: [
     {
-      id: "market_pickpocket",
-      title: "小偷出没",
-      description: "人群里一只手伸向你的口袋。",
-      minAge: 6,
-      effects: { goldDelta: -10, healthDelta: -2 },
+      id: "kindergarten_toy",
+      title: "抢玩具",
+      description: "幼儿园里，小朋友抢走了你手里的玩具车。",
+      minAge: 3,
+      effects: { attrExp: { charm: 3, mind: 2 } },
     },
     {
-      id: "market_luck",
-      title: "地摊捡漏",
-      description: "你在地摊上淘到一件看似普通的物件。",
-      minAge: 8,
-      effects: { goldDelta: 15, attrExp: { luck: 3 } },
+      id: "kindergarten_nap",
+      title: "午睡吃饭",
+      description: "午睡起来，你乖乖吃完了小碗里的饭菜。",
+      minAge: 3,
+      effects: { healthDelta: 2, attrExp: { root: 2 } },
     },
   ],
-  mountain: [
+  downtown: [
     {
-      id: "mountain_spring",
-      title: "山泉煮茶",
-      description: "你掬一捧山泉，灵气隐隐。",
-      minAge: 5,
-      effects: { healthDelta: 5, attrExp: { spirit: 4 }, npcMeet: "hermit" },
+      id: "downtown_price",
+      title: "认识菜价",
+      description: "菜市场里，你跟着妈妈认了认今天的菜价。",
+      minAge: 7,
+      effects: { attrExp: { charm: 2, luck: 3 } },
     },
     {
-      id: "mountain_fall",
-      title: "失足滑落",
-      description: "山路湿滑，你摔了一跤。",
-      minAge: 4,
-      effects: { healthDelta: -8 },
+      id: "downtown_account",
+      title: "帮妈妈算账",
+      description: "你帮妈妈心算找零，居然分毫不差。",
+      minAge: 7,
+      effects: { attrExp: { charm: 2, insight: 3 } },
     },
   ],
   school: [
@@ -75,7 +82,7 @@ export const LOCATION_EVENT_POOL: Record<string, LocationEvent[]> = {
       title: "藏书阁漫游",
       description: "你在图书馆角落翻到一本奇书。",
       minAge: 7,
-      effects: { attrExp: { insight: 6 }, memory: true },
+      effects: { attrExp: { insight: 3 }, memory: true },
     },
     {
       id: "school_club",
@@ -83,15 +90,6 @@ export const LOCATION_EVENT_POOL: Record<string, LocationEvent[]> = {
       description: "你被拉进一个古怪的社团。",
       minAge: 7,
       effects: { charm: 2, npcMeet: "club_senior" },
-    },
-  ],
-  clinic: [
-    {
-      id: "clinic_herb",
-      title: "药庐帮忙",
-      description: "你在药庐帮老大夫分拣草药。",
-      minAge: 6,
-      effects: { healthDelta: 3, attrExp: { spirit: 3 } },
     },
   ],
 };
