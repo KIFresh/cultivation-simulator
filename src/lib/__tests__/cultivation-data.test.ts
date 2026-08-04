@@ -388,11 +388,11 @@ describe("cultivation-data", () => {
 
   // ── 属性成长 ──
   describe("calculateYearlyAttributeGrowth", () => {
-    it("should return same attributes for age >= 18", () => {
+    it("should return no exp delta for age >= 16", () => {
       const result = calculateYearlyAttributeGrowth(18, 20, { root: 10 });
-      expect(result).toEqual({ root: 10 });
+      expect(result).toEqual({});
     });
-    it("should grow attributes for children", () => {
+    it("should return exp delta for children", () => {
       const result = calculateYearlyAttributeGrowth(0, 1, {
         root: 5,
         spirit: 5,
@@ -401,7 +401,9 @@ describe("cultivation-data", () => {
         charm: 5,
         mind: 5,
       });
-      expect(result.root).toBeGreaterThanOrEqual(5);
+      // 经验增量 = 属性增量 × 1426.8，必然为正
+      expect(result.root).toBeGreaterThan(0);
+      expect(Object.keys(result).length).toBeGreaterThan(0);
     });
   });
 
