@@ -6,6 +6,11 @@ import { addAttrExp } from "@/lib/location-events";
 import { json } from "@/lib/json-helper";
 import { MORTAL_EVENTS, DINNER_EVENTS, FESTIVAL_EVENTS, EXAM_EVENTS } from "@/lib/mortal-events";
 import {
+  COMPETITION_POOL,
+  resolveCompetition,
+  addSubjectExp,
+} from "@/lib/competition-events";
+import {
   applyEffects,
   clampEffectsArray,
   type NarrativeEffect,
@@ -14,9 +19,84 @@ import {
 import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
 import { logger } from "@/lib/logger";
 
+/** 竞赛结算：按学科等级定名次，产出学科经验 + 悟性经验 + 魅力经验 */
+async function resolveCompetitionHandler(
+  cultivator: any,
+  competitionId: string,
+  subjectKey: string
+) {
+  const competition = COMPETITION_POOL.find((c) => c.id === competitionId);
+  if (!competition) {
+    return NextResponse.json({ error: "竞赛不存在" }, { status: 400 });
+  }
+
+  const subjectExpMap = json.subjectExp(cultivator.subjectExp);
+  const subjectLevel = subjectExpMap[subjectKey]?.level ?? 0;
+  const prize = resolveCompetition(competition, subjectLevel);
+
+  // 产出：学科经验（subjectExp）+ 悟性/魅力经验（attributeExp）
+  const subjectDelta: Record<string, number> = { [subjectKey]: prize.subjectExp };
+  const attrDelta: Record<string, number> = {};
+  if (prize.insightExp !== 0) attrDelta.insight = prize.insightExp;
+  if (prize.charmExp !== 0) attrDelta.charm = prize.charmExp;
+
+  await prisma.$transaction(async (tx: any) => {
+    const current = await tx.cultivator.findUnique({
+      where: { id: cultivator.id },
+      select: { attributeExp: true, attributes: true, subjectExp: true },
+    });
+    const attrExpData = json.attributeExp(current?.attributeExp) || {};
+    const attrs = json.attributes(current?.attributes);
+    const nextAttrExp = addAttrExp(attrExpData, attrDelta, attrs);
+    const nextSubjectExp = addSubjectExp(
+      json.subjectExp(current?.subjectExp),
+      subjectDelta
+    );
+    await tx.cultivator.update({
+      where: { id: cultivator.id },
+      data: {
+        attributeExp: JSON.stringify(nextAttrExp),
+        attributes: JSON.stringify(attrs),
+        subjectExp: JSON.stringify(nextSubjectExp),
+      },
+    });
+    await tx.gameEvent.create({
+      data: {
+        cultivatorId: cultivator.id,
+        type: "DAILY_EVENT",
+        title: `${competition.subjectName}·${prize.name}`,
+        narrative: `参加${competition.subjectName}，获得${prize.name}！`,
+        reward: JSON.stringify({ competitionId, subjectKey, prize: prize.name }),
+      },
+    });
+  });
+
+  const updated = await prisma.cultivator.findUnique({ where: { id: cultivator.id } });
+  return NextResponse.json({
+    cultivator: updated,
+    narrative: `你参加了${competition.subjectName}，凭借扎实的功底获得了${prize.name}。`,
+    competition: {
+      id: competition.id,
+      name: competition.subjectName,
+      prize: prize.name,
+      subjectExp: prize.subjectExp,
+      insightExp: prize.insightExp,
+      charmExp: prize.charmExp,
+    },
+  });
+}
+
 async function postHandler(request: NextRequest) {
   const body = await parseJsonBody(request);
-  const { eventId, optionIndex } = body;
+  const { eventId, optionIndex, competitionId, subjectKey } = body;
+
+  // ── 竞赛结算分支（无需 eventId/optionIndex） ──────
+  if (typeof competitionId === "string" && typeof subjectKey === "string") {
+    const auth = await requireCultivator(request);
+    if ("error" in auth) return auth.error;
+    return resolveCompetitionHandler(auth.cultivator, competitionId, subjectKey);
+  }
+
   if (typeof eventId !== "string" || typeof optionIndex !== "number") {
     return NextResponse.json({ error: "缺少必要参数" }, { status: 400 });
   }

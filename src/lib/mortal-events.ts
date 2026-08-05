@@ -161,6 +161,36 @@ export const EXAM_EVENTS: MortalEvent[] = [
       },
     ],
   },
+  {
+    id: "e_final_exam",
+    text: "期末考试出分了。",
+    ageBand: "7-12",
+    options: [
+      {
+        effects: { insight: 10, mind: 10 },
+        narrative: "你复习充分，期末考发挥出色，老师当众表扬了你。",
+      },
+      {
+        effects: { mind: -5 },
+        narrative: "你临时抱佛脚，考得一般，暗下决心下学期更努力。",
+      },
+    ],
+  },
+  {
+    id: "e_final_exam_junior",
+    text: "初中期末考试出分了。",
+    ageBand: "13-15",
+    options: [
+      {
+        effects: { insight: 15, mind: 10 },
+        narrative: "你沉着应考，期末排名冲进前列，同学纷纷侧目。",
+      },
+      {
+        effects: { mind: -10 },
+        narrative: "你大意失荆州，名次下滑，假期决定埋头苦读。",
+      },
+    ],
+  },
 ];
 
 /**

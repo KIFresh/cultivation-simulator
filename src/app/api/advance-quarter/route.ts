@@ -46,6 +46,14 @@ import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
 import { logger } from "@/lib/logger";
 import { addAttrExp, type AttrExpMap } from "@/lib/location-events";
 import { json } from "@/lib/json-helper";
+import {
+  pickCompetitions,
+  addSubjectExp,
+  unlockedSubjects,
+  type SubjectExpMap,
+  type CompetitionEvent,
+} from "@/lib/competition-events";
+import { EXAM_EVENTS } from "@/lib/mortal-events";
 
 async function handler(request: NextRequest) {
   // ── 鉴权 ──────────────────────────────────────────────
@@ -104,6 +112,9 @@ async function handler(request: NextRequest) {
   let maxAge = cultivator.maxAge || 0;
   let newAttributes = savedAttrs;
   let nextAttrExp: AttrExpMap | null = null;
+  let nextSubjectExp: SubjectExpMap | null = null;
+  let competitions: { semester: string; events: CompetitionEvent[] }[] | null = null;
+  let finalExamResult: { text: string; subject: string; gained: number } | null = null;
   let npcRelations: Record<string, NpcRelationData> = {};
   let cliqueKey: CliqueKey | null = null;
   let currentSavings: number | undefined;
@@ -207,6 +218,30 @@ async function handler(request: NextRequest) {
         rank: schoolRank,
         description: `参加${schoolStage.name}升学考试，考入${getSchoolName(schoolStage, schoolRank)}`,
       };
+    }
+
+    // ── 竞赛 + 期末考（每年上/下学期各 1 轮，学龄期 6-18 岁） ──
+    const subjectExpMap = json.subjectExp(cultivator.subjectExp);
+    if (newAge >= 6 && newAge <= 18) {
+      const eligible = pickCompetitions(newAge, subjectExpMap);
+      if (eligible.length > 0) {
+        competitions = [
+          { semester: "上学期", events: eligible },
+          { semester: "下学期", events: eligible },
+        ];
+      }
+      // 期末考：每年末固定产出学科经验 +10~15（随机已解锁学科）
+      if (newAge >= 7 && newAge <= 15) {
+        const examId = newAge <= 12 ? "e_final_exam" : "e_final_exam_junior";
+        const exam = EXAM_EVENTS.find((e) => e.id === examId);
+        const subjects = unlockedSubjects(newAge);
+        if (exam && subjects.length > 0) {
+          const subject = subjects[Math.floor(Math.random() * subjects.length)]!;
+          const gained = 10 + Math.floor(Math.random() * 6); // 10-15
+          nextSubjectExp = addSubjectExp(subjectExpMap, { [subject]: gained });
+          finalExamResult = { text: exam.text, subject, gained };
+        }
+      }
     }
 
     // ── 家庭职业与统一经济：跨年只计算一次，稍后与乐观锁在同一事务持久化 ──
@@ -380,6 +415,8 @@ async function handler(request: NextRequest) {
     updateData.attributes = JSON.stringify(newAttributes);
     // 年龄成长改走经验通道
     if (nextAttrExp) updateData.attributeExp = JSON.stringify(nextAttrExp);
+    // 期末考学科经验持久化
+    if (nextSubjectExp) updateData.subjectExp = JSON.stringify(nextSubjectExp);
     // 职业变化持久化
     updateData.occupation = occupation;
     // schoolRank 持久化（Int 类型）
@@ -529,6 +566,8 @@ async function handler(request: NextRequest) {
       : null,
     occupation,
     examResult,
+    competitions,
+    finalExam: finalExamResult,
     cliqueInfo: cliqueKey ? getCliqueInfo(cliqueKey) : null,
     pocketMoney: pocketMoneyResult,
     classBenefits: classBenefitsResult,
