@@ -22,7 +22,7 @@ export interface CompetitionResult {
     id: string;
     subject: string;
     subjectName: string;
-    prizes: CompetitionPrizeInfo[];
+    prize: CompetitionPrizeInfo;
   }[];
 }
 

@@ -29,16 +29,11 @@ export default function CompetitionResultModal({
             <div key={sem.semester} className="bg-muted rounded-lg p-3 text-sm space-y-2">
               <p className="font-bold text-[var(--destructive)]">{sem.semester}</p>
               {sem.events.map((ev) => (
-                <div key={ev.id} className="space-y-1">
-                  <p className="font-medium">📚 {ev.subjectName}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {ev.prizes
-                      .map(
-                        (p) =>
-                          `${p.name}（学科+${p.subjectExp} 悟性+${p.insightExp} 魅力+${p.charmExp}）`
-                      )
-                      .join("　")}
-                  </p>
+                <div key={ev.id} className="flex items-center justify-between">
+                  <span className="font-medium">📚 {ev.subjectName}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {ev.prize.name}（学科+{ev.prize.subjectExp} 悟性+{ev.prize.insightExp} 魅力+{ev.prize.charmExp}）
+                  </span>
                 </div>
               ))}
             </div>

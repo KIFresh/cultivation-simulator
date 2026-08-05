@@ -56,6 +56,7 @@ import { addAttrExp, type AttrExpMap } from "@/lib/location-events";
 import { json } from "@/lib/json-helper";
 import {
   pickCompetitions,
+  resolveCompetition,
   addSubjectExp,
   unlockedSubjects,
   type SubjectExpMap,
@@ -121,7 +122,7 @@ async function handler(request: NextRequest) {
   let newAttributes = savedAttrs;
   let nextAttrExp: AttrExpMap | null = null;
   let nextSubjectExp: SubjectExpMap | null = null;
-  let competitions: { semester: string; events: CompetitionEvent[] }[] | null = null;
+  let competitions: { semester: string; events: { id: string; subject: string; subjectName: string; prize: { name: string; subjectExp: number; insightExp: number; charmExp: number } }[] }[] | null = null;
   let finalExamResult: { text: string; subject: string; gained: number } | null = null;
   let npcRelations: Record<string, NpcRelationData> = {};
   let cliqueKey: CliqueKey | null = null;
@@ -263,10 +264,27 @@ async function handler(request: NextRequest) {
     if (newAge >= 6 && newAge <= 18) {
       const eligible = pickCompetitions(newAge, subjectExpMap);
       if (eligible.length > 0) {
-        competitions = [
-          { semester: "上学期", events: eligible },
-          { semester: "下学期", events: eligible },
-        ];
+        // 被动触发，自动结算：两学期各一轮，按学科等级定名次
+        const subjectExpDelta: Record<string, number> = {};
+        const attrExpDelta: Record<string, number> = {};
+        const settleSemester = (semester: string) => ({
+          semester,
+          events: eligible.map((e) => {
+            const level = subjectExpMap[e.subject]?.level ?? 0;
+            const prize = resolveCompetition(e, level);
+            subjectExpDelta[e.subject] = (subjectExpDelta[e.subject] || 0) + prize.subjectExp;
+            if (prize.insightExp > 0) attrExpDelta.insight = (attrExpDelta.insight || 0) + prize.insightExp;
+            if (prize.charmExp > 0) attrExpDelta.charm = (attrExpDelta.charm || 0) + prize.charmExp;
+            return { id: e.id, subject: e.subject, subjectName: e.subjectName, prize };
+          }),
+        });
+        competitions = [settleSemester("上学期"), settleSemester("下学期")];
+        // 学科经验累积（期末考后面接着累）
+        nextSubjectExp = addSubjectExp(subjectExpMap, subjectExpDelta);
+        // 悟性/魅力经验走属性经验通道（升级反写属性值）
+        if (Object.keys(attrExpDelta).length > 0) {
+          nextAttrExp = addAttrExp(nextAttrExp || json.attributeExp(cultivator.attributeExp) || {}, attrExpDelta, newAttributes);
+        }
       }
       // 期末考：每年末固定产出学科经验 +10~15（随机已解锁学科）
       if (newAge >= 7 && newAge <= 15) {
@@ -276,7 +294,7 @@ async function handler(request: NextRequest) {
         if (exam && subjects.length > 0) {
           const subject = subjects[Math.floor(Math.random() * subjects.length)]!;
           const gained = 10 + Math.floor(Math.random() * 6); // 10-15
-          nextSubjectExp = addSubjectExp(subjectExpMap, { [subject]: gained });
+          nextSubjectExp = addSubjectExp(nextSubjectExp || subjectExpMap, { [subject]: gained });
           finalExamResult = { text: exam.text, subject, gained };
         }
       }
