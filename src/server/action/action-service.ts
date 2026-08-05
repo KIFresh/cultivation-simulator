@@ -516,8 +516,26 @@ export async function executeAction(
 
   const techniqueUpdateOps: TechniqueUpdate[] = [];
   let techniqueEvents: ActionResultData["techniqueEvents"] = [];
-  if (actionId === "STUDY") {
-    const insight = safeAttrs.insight ?? 0;
+  if (actionId === "LEARN" || actionId === "STUDY") {
+      const insight = safeAttrs.insight ?? 0;
+      // 学科经验：按年龄取档位随机一门学科产出，悟性(insight) 每点 +10% 加速
+      const band = DAILY_ACTIVITIES.find((a) => a.id === "study")?.subjectExp?.find(
+        (b) => cultivator.age >= b.minAge && cultivator.age < b.maxAge
+      );
+      if (band) {
+        const gained = Math.round(band.amount * (1 + insight * 0.1));
+        const subject = band.subjects[Math.floor(Math.random() * band.subjects.length)]!;
+        const cur = json.subjectExp(cultivator.subjectExp);
+        const prev = cur[subject] ?? { exp: 0, level: 0 };
+        const exp = prev.exp + gained;
+        updateData.subjectExp = JSON.stringify({
+          ...cur,
+          [subject]: { exp, level: Math.floor(exp / 100) },
+        });
+      }
+    }
+    if (actionId === "STUDY") {
+      const insight = safeAttrs.insight ?? 0;
     const baseProf = calcTechniqueProficiency("study", cultivator.realm);
     const insightBonus = Math.floor(insight / 3);
     for (const record of techniqueRecords) {
@@ -549,22 +567,6 @@ export async function executeAction(
           level: result.newLevel,
           proficiency: result.newProficiency,
         },
-      });
-    }
-
-    // 学科经验：按年龄取档位随机一门学科产出，悟性(insight) 每点 +10% 加速
-    const band = DAILY_ACTIVITIES.find((a) => a.id === "study")?.subjectExp?.find(
-      (b) => cultivator.age >= b.minAge && cultivator.age < b.maxAge
-    );
-    if (band) {
-      const gained = Math.round(band.amount * (1 + insight * 0.1));
-      const subject = band.subjects[Math.floor(Math.random() * band.subjects.length)]!;
-      const cur = json.subjectExp(cultivator.subjectExp);
-      const prev = cur[subject] ?? { exp: 0, level: 0 };
-      const exp = prev.exp + gained;
-      updateData.subjectExp = JSON.stringify({
-        ...cur,
-        [subject]: { exp, level: Math.floor(exp / 100) },
       });
     }
   }

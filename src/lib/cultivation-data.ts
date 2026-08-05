@@ -370,7 +370,7 @@ export interface Action {
   description: string;
   actionPointCost: number;
   baseExp: number;
-  category: "cultivate" | "explore" | "social" | "rest" | "free";
+  category: "cultivate" | "explore" | "social" | "rest" | "free" | "study";
   minAgeEarth: number;
   narrativeTag: string;
   minRealm?: string;
@@ -448,6 +448,17 @@ export const ACTIONS: Action[] = [
     minAgeEarth: 16,
     narrativeTag: "cultivate",
     minRealm: "筑基期",
+  },
+  {
+    id: "LEARN",
+    name: "上课学习",
+    icon: "📖",
+    description: "认真听课，学习知识",
+    actionPointCost: 3,
+    baseExp: 10,
+    category: "study",
+    minAgeEarth: 6,
+    narrativeTag: "study",
   },
   {
     id: "TALK",
