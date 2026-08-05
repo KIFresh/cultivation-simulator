@@ -69,14 +69,19 @@ export function resolveCompetition(
   event: CompetitionEvent,
   subjectLevel: number
 ): CompetitionPrize {
-  if (subjectLevel <= 2) return event.prizes[3]!;
-  if (subjectLevel <= 4) {
-    return Math.random() < 0.5 ? event.prizes[1]! : event.prizes[2]!;
+  if (subjectLevel <= 2) return event.prizes[3]!; // 未获奖
+  if (subjectLevel <= 4) return event.prizes[2]!; // 三等奖
+  if (subjectLevel <= 6) {
+    return Math.random() < 0.5 ? event.prizes[1]! : event.prizes[2]!; // 50%二/50%三
   }
-  const r = Math.random();
-  if (r < 0.5) return event.prizes[0]!;
-  if (r < 0.8) return event.prizes[1]!;
-  return event.prizes[2]!;
+  if (subjectLevel <= 8) {
+    const r = Math.random();
+    if (r < 0.5) return event.prizes[0]!; // 50%一
+    if (r < 0.8) return event.prizes[1]!; // 30%二
+    return event.prizes[2]!; // 20%三
+  }
+  // Lv9+
+  return Math.random() < 0.8 ? event.prizes[0]! : event.prizes[1]!; // 80%一/20%二
 }
 
 // 学科经验累加，等级曲线同属性：100×level^1.5

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import TopNav from "@/components/top-nav";
 import MemoryPanel from "@/components/memory-panel";
 import DaoXiaoModal from "@/components/dao-xiao-modal";
+import CompetitionResultModal from "@/components/competition-result-modal";
 import TechniquePanel from "@/components/technique-panel";
 import { StatusGauge } from "@/app/dashboard/_components/status-gauge";
 import { AttributeGrid } from "@/app/dashboard/_components/attribute-grid";
@@ -12,6 +13,7 @@ import { NarrativePanel } from "@/app/dashboard/_components/narrative-panel";
 import { InventoryPanel } from "@/app/dashboard/_components/inventory-panel";
 import { NpcChatPanel } from "@/app/dashboard/_components/npc-chat-panel";
 import { useDashboardState } from "@/app/dashboard/hooks/use-dashboard-state";
+import { useGameStore } from "@/store";
 import { useDevTools } from "@/app/dashboard/hooks/use-dashboard-dev-tools";
 import { useDataSync } from "@/app/dashboard/hooks/use-data-sync";
 import { getRootInfo, formatSpiritualRootLabel } from "@/lib/cultivation-data";
@@ -81,6 +83,9 @@ export default function DashboardPage() {
       window.location.reload();
     },
   });
+
+  const competitionResults = useGameStore((s) => s.competitionResults);
+  const finalExamResult = useGameStore((s) => s.finalExamResult);
 
   // 合并附近 NPC：家庭成员优先，同名/同关系的地点 NPC 去重
   // 必须放在所有条件 return 前，避免 React Hook 顺序错乱
@@ -417,6 +422,17 @@ export default function DashboardPage() {
           userId={cultivator.id}
           summary={daoXiao.summary}
           onClose={() => setDaoXiao(null)}
+        />
+      )}
+
+      {(competitionResults || finalExamResult) && (
+        <CompetitionResultModal
+          competitionResults={competitionResults}
+          finalExamResult={finalExamResult}
+          onClose={() => {
+            useGameStore.getState().setCompetitionResults(null);
+            useGameStore.getState().setFinalExamResult(null);
+          }}
         />
       )}
 

@@ -219,6 +219,8 @@ export function initActions(set: StoreSet, get: () => GameStore) {
           return;
         }
         applyNarrativeResult(set, data);
+        if (data.competitions) set({ competitionResults: data.competitions as GameStore["competitionResults"] });
+        if (data.finalExam) set({ finalExamResult: data.finalExam as GameStore["finalExamResult"] });
       } catch (e) {
         set({
           actionLoading: false,
@@ -287,6 +289,10 @@ export function initActions(set: StoreSet, get: () => GameStore) {
     setNarrative: (narrative: NarrativeDisplay | null) => set({ narrative }),
 
     setLastActionResult: (result: Record<string, unknown> | null) => set({ lastActionResult: result }),
+
+    setCompetitionResults: (results: GameStore["competitionResults"]) => set({ competitionResults: results }),
+
+    setFinalExamResult: (result: GameStore["finalExamResult"]) => set({ finalExamResult: result }),
 
     setLocation: async (loc: string) => {
       const { userId, cultivator } = get();

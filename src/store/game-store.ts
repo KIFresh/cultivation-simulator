@@ -9,6 +9,29 @@ import { initActions } from "./game-actions";
 export type { CultivatorData, NarrativeDisplay, FamilyMember } from "@/app/dashboard/types";
 export type { InventoryItem } from "@/lib";
 
+export interface CompetitionPrizeInfo {
+  name: string;
+  subjectExp: number;
+  insightExp: number;
+  charmExp: number;
+}
+
+export interface CompetitionResult {
+  semester: string;
+  events: {
+    id: string;
+    subject: string;
+    subjectName: string;
+    prizes: CompetitionPrizeInfo[];
+  }[];
+}
+
+export interface FinalExamResult {
+  text: string;
+  subject: string;
+  gained: number;
+}
+
 export interface NarrativeErrorPayload {
   type?: string;
   code?: string;
@@ -34,6 +57,8 @@ export interface GameStore {
   currentNPCs: any[];
   /** 最近一次 action 完成的完整结果，供 dashboard 订阅处理 side-effect */
   lastActionResult: Record<string, any> | null;
+  competitionResults: CompetitionResult[] | null;
+  finalExamResult: FinalExamResult | null;
 
   setUserId: (id: string | null) => void;
   setCultivator: (data: Partial<CultivatorData> | null) => void;
@@ -47,6 +72,8 @@ export interface GameStore {
   setLocation: (loc: string) => Promise<void>;
   setNarrative: (narrative: NarrativeDisplay | null) => void;
   setLastActionResult: (result: Record<string, any> | null) => void;
+  setCompetitionResults: (results: CompetitionResult[] | null) => void;
+  setFinalExamResult: (result: FinalExamResult | null) => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -65,6 +92,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   unlockedLocations: null,
   currentNPCs: [],
   lastActionResult: null,
+  competitionResults: null,
+  finalExamResult: null,
 
   ...initActions(set, get),
 }));
