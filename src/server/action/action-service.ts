@@ -54,6 +54,13 @@ import {
 } from "@/lib/family-career";
 import { json } from "@/lib/json-helper";
 import { askTeacherQuestion, TEACHER_TYPE } from "@/lib/teacher";
+import {
+  isIsolated,
+  parseIsolationState,
+  releaseIsolation,
+  rollFriendSuccess,
+} from "@/lib/social-events";
+import { addAttrExp } from "@/lib/location-events";
 import type { NpcRelationData } from "@/lib/classmate-data";
 
 export interface ActionInput {
@@ -585,6 +592,55 @@ export async function executeAction(
     const next = askTeacherQuestion(relations, 2);
     if (next !== relations) {
       updateData.npcRelations = JSON.stringify(next);
+    }
+  }
+
+  // 交朋友：成功持久化 friend 关系（免疫孤立）+ 孤立中立即脱困；失败魅力 +2 经验
+  if (actionId === "MAKE_FRIEND") {
+    const charmLevel = safeAttrs.charm ?? 0;
+    let relations: Record<string, NpcRelationData> = {};
+    try {
+      const raw = cultivator.npcRelations;
+      relations = typeof raw === "string" && raw ? JSON.parse(raw) : {};
+    } catch {
+      relations = {};
+    }
+    const hasFriend = Object.values(relations).some((r) => r && r.type === "friend");
+    const isolated = !hasFriend && isIsolated(parseIsolationState(cultivator.quarterAccum), cultivator.age);
+    if (!hasFriend && rollFriendSuccess(charmLevel, isolated)) {
+      relations[`好友_${Object.keys(relations).length + 1}`] = {
+        type: "friend",
+        intimacy: 60,
+        avatar: "🧑",
+        realm: "凡人",
+        metAt: cultivator.age,
+        category: "friend",
+        name: "同桌好友",
+      } as NpcRelationData & { name: string };
+      updateData.npcRelations = JSON.stringify(relations);
+      if (isolated) {
+        updateData.quarterAccum = JSON.stringify(
+          releaseIsolation(parseIsolationState(cultivator.quarterAccum), cultivator.age)
+        );
+      }
+      // 成功：魅力 +5、心性 +3 经验（升级反写属性）
+      const charmBefore = safeAttrs.charm ?? 0;
+      const mindBefore = safeAttrs.mind ?? 0;
+      updateData.attributeExp = JSON.stringify(
+        addAttrExp(json.attributeExp(cultivator.attributeExp) || {}, { charm: 5, mind: 3 }, safeAttrs)
+      );
+      if ((safeAttrs.charm ?? 0) !== charmBefore || (safeAttrs.mind ?? 0) !== mindBefore) {
+        updateData.attributes = JSON.stringify(safeAttrs);
+      }
+    } else {
+      // 失败：魅力 +2 经验
+      const charmBefore = safeAttrs.charm ?? 0;
+      updateData.attributeExp = JSON.stringify(
+        addAttrExp(json.attributeExp(cultivator.attributeExp) || {}, { charm: 2 }, safeAttrs)
+      );
+      if ((safeAttrs.charm ?? 0) !== charmBefore) {
+        updateData.attributes = JSON.stringify(safeAttrs);
+      }
     }
   }
 

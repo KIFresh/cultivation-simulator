@@ -6,6 +6,7 @@ import {
   parseIsolationState,
   isIsolated,
   releaseIsolation,
+  rollFriendSuccess,
 } from "../social-events";
 import {
   calculateSchoolRankFromSubjects,
@@ -39,13 +40,17 @@ describe("checkIsolationTrigger", () => {
   it("12 岁前（小学）不触发", () => {
     expect(checkIsolationTrigger(1, 11, undefined)).toBe(false);
   });
-  it("魅力 Lv0（无经验）不触发", () => {
-    expect(checkIsolationTrigger(0, 12, undefined)).toBe(false);
+  it("魅力 Lv0 → 100% 触发", () => {
+    expect(checkIsolationTrigger(0, 12, undefined)).toBe(true);
   });
   it("魅力 Lv3+ 免疫（不触发）", () => {
     expect(checkIsolationTrigger(3, 12, undefined)).toBe(false);
   });
-  it("魅力 Lv1-2 且无冷却时按 10-20% 概率触发（random=0 → 触发）", () => {
+  it("有朋友免疫（无论魅力高低）", () => {
+    expect(checkIsolationTrigger(0, 12, undefined, true)).toBe(false);
+    expect(checkIsolationTrigger(1, 12, undefined, true)).toBe(false);
+  });
+  it("魅力 Lv1-2 且无冷却时按概率触发（random=0 → 触发）", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     expect(checkIsolationTrigger(1, 12, undefined)).toBe(true);
   });
@@ -61,6 +66,35 @@ describe("checkIsolationTrigger", () => {
   it("冷却期过后可再次触发（isolatedUntil=13, age=14）", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     expect(checkIsolationTrigger(1, 14, 13)).toBe(true);
+  });
+});
+
+describe("rollFriendSuccess", () => {
+  it("random=0 → 必然成功", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    expect(rollFriendSuccess(0)).toBe(true);
+  });
+  it("random=1 → 必然失败", () => {
+    vi.spyOn(Math, "random").mockReturnValue(1);
+    expect(rollFriendSuccess(3)).toBe(false);
+  });
+  it("魅力越高成功率越高（Lv0 20% / Lv2 40% / Lv3 60%）", () => {
+    // 0.19 < 0.2 → Lv0 成功；0.21 ≥ 0.2 → Lv0 失败
+    vi.spyOn(Math, "random").mockReturnValueOnce(0.19).mockReturnValueOnce(0.21);
+    expect(rollFriendSuccess(0)).toBe(true);
+    expect(rollFriendSuccess(0)).toBe(false);
+    // 0.39 < 0.4 → Lv2 成功；0.41 ≥ 0.4 → Lv2 失败
+    vi.spyOn(Math, "random").mockReturnValueOnce(0.39).mockReturnValueOnce(0.41);
+    expect(rollFriendSuccess(2)).toBe(true);
+    expect(rollFriendSuccess(2)).toBe(false);
+    // 0.59 < 0.6 → Lv3 成功
+    vi.spyOn(Math, "random").mockReturnValueOnce(0.59);
+    expect(rollFriendSuccess(3)).toBe(true);
+  });
+  it("孤立中概率减半（Lv0 20% → 10%）", () => {
+    vi.spyOn(Math, "random").mockReturnValueOnce(0.09).mockReturnValueOnce(0.11);
+    expect(rollFriendSuccess(0, true)).toBe(true);
+    expect(rollFriendSuccess(0, true)).toBe(false);
   });
 });
 

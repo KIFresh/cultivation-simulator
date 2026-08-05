@@ -80,19 +80,36 @@ export function releaseIsolation(state: IsolationState, age: number): IsolationS
 }
 
 /**
- * 判定是否触发孤立（设计 13.2）：
+ * 判定是否触发孤立（设计 13.2 修订）：
  * - 12 岁起（小学无孤立）
- * - 魅力 Lv1-2 才有孤立风险（Lv3+ 免疫，不触发）
+ * - 有朋友 → 免疫
  * - 孤立中或解除后 1 年冷却期内不触发
- * - 每季度 10-20% 概率（当前接线为跨年单次掷骰，即每年 10-20%）
+ * - 魅力 Lv0 → 100%；Lv1 → 40%；Lv2 → 15%；Lv3+ 免疫
  */
 export function checkIsolationTrigger(
   charmLevel: number,
   age: number,
-  isolatedUntil?: number | null
+  isolatedUntil?: number | null,
+  hasFriend = false
 ): boolean {
   if (age < 12) return false;
-  if (charmLevel < 1 || charmLevel > 2) return false;
+  if (hasFriend) return false;
   if (isolatedUntil && age < isolatedUntil + 1) return false;
-  return Math.random() < 0.1 + Math.random() * 0.1;
+  if (charmLevel <= 0) return true;
+  if (charmLevel === 1) return Math.random() < 0.4;
+  if (charmLevel === 2) return Math.random() < 0.15;
+  return false;
+}
+
+/**
+ * 交友成败判定（MAKE_FRIEND 行动）：
+ * 魅力 Lv0-1 → 20%；Lv2 → 40%；Lv3+ → 60%；孤立中概率减半。
+ */
+export function rollFriendSuccess(charmLevel: number, isolated = false): boolean {
+  let p: number;
+  if (charmLevel <= 1) p = 0.2;
+  else if (charmLevel === 2) p = 0.4;
+  else p = 0.6;
+  if (isolated) p /= 2;
+  return Math.random() < p;
 }

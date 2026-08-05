@@ -249,12 +249,13 @@ async function handler(request: NextRequest) {
 
     // ── 孤立触发/脱困（设计 13.2，魅力判定） ──────────
     const charmLevel = nextAttrExp?.charm?.level ?? 0;
+    const hasFriend = Object.values(npcRelations).some((r) => r && r.type === "friend");
     if (isIsolated(isolation, oldAge) && charmLevel >= 3) {
       // 魅力升到 Lv3 → 立即脱困（冷却从解除当年起算）
       isolation = releaseIsolation(isolation, newAge);
       releasedFromIsolation = true;
     }
-    if (checkIsolationTrigger(charmLevel, newAge, isolation.isolatedUntil)) {
+    if (checkIsolationTrigger(charmLevel, newAge, isolation.isolatedUntil, hasFriend)) {
       isolation = { ...isolation, isolatedUntil: newAge + 1 };
       isolationEvent = pickIsolationEvent();
     }

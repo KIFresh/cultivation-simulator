@@ -472,6 +472,17 @@ export const ACTIONS: Action[] = [
     narrativeTag: "social",
   },
   {
+    id: "MAKE_FRIEND",
+    name: "交朋友",
+    icon: "🤝",
+    description: "主动结交朋友，看魅力成败",
+    actionPointCost: 2,
+    baseExp: 5,
+    category: "social",
+    minAgeEarth: 6,
+    narrativeTag: "social",
+  },
+  {
     id: "TALK",
     name: "与人交谈",
     icon: "💬",
