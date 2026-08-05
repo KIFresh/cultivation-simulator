@@ -110,3 +110,39 @@ export function getTeacherRankBonus(relations: Record<string, NpcRelationData>):
   const maxIntimacy = Math.max(...teachers.map((t) => t.intimacy || 0));
   return maxIntimacy >= TEACHER_RANK_BONUS_THRESHOLD ? 1 : 0;
 }
+
+/**
+ * 请教问题（设计 13.5 增长途径之一）：随机一位师长好感 +少量（默认 +2）。
+ * 无师长时原样返回（幂等、不修改入参）。
+ */
+export function askTeacherQuestion(
+  relations: Record<string, NpcRelationData>,
+  amount = 2
+): Record<string, NpcRelationData> {
+  const teachers = Object.entries(relations).filter(([, r]) => r && r.type === TEACHER_TYPE);
+  if (teachers.length === 0) return relations;
+  const [name, r] = teachers[Math.floor(Math.random() * teachers.length)];
+  return { ...relations, [name]: { ...r, intimacy: (r.intimacy || 0) + amount } };
+}
+
+/**
+ * 成绩联动（设计 13.5 增长途径之一）：竞赛/期末考拿奖 → 全体任课老师好感 +（默认 +10）。
+ * 无师长时原样返回（幂等、不修改入参）。
+ */
+export function rewardTeachersForAchievement(
+  relations: Record<string, NpcRelationData>,
+  intimacyGain = 10
+): Record<string, NpcRelationData> {
+  let changed = false;
+  const next: Record<string, NpcRelationData> = {};
+  for (const [name, r] of Object.entries(relations)) {
+    if (r && r.type === TEACHER_TYPE) {
+      next[name] = { ...r, intimacy: (r.intimacy || 0) + intimacyGain };
+      changed = true;
+    } else {
+      next[name] = r;
+    }
+  }
+  return changed ? next : relations;
+}
+

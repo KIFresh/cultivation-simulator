@@ -880,8 +880,8 @@ export interface SchoolInfo {
 }
 export const SCHOOL_RANKS: Record<SchoolRank, SchoolInfo> = {
   普通: { rank: "普通", name: "普通学校", attrMultiplier: 1.0 },
-  重点: { rank: "重点", name: "重点学校", attrMultiplier: 1.5 },
-  名校: { rank: "名校", name: "名校学府", attrMultiplier: 2.0 },
+  重点: { rank: "重点", name: "重点学校", attrMultiplier: 1.25 },
+  名校: { rank: "名校", name: "名校学府", attrMultiplier: 1.5 },
 };
 export function getSchoolStage(age: number): SchoolStage | null {
   for (const s of SCHOOL_STAGES) {
@@ -1165,6 +1165,7 @@ export function getNPCsAtLocation(locationId: string): NPC[] {
   for (const n of NPCS.filter((n) => n.locationId === locationId)) byName.set(n.name, n);
   return Array.from(byName.values());
 }
+/** @deprecated 旧升学公式（属性+师长加权，设计 13.3 废弃），改用 calculateSchoolRankFromSubjects。 */
 export function calculateSchoolRank(
   age: number,
   attributes: Record<string, number>,
@@ -1183,6 +1184,48 @@ export function calculateSchoolRank(
   if (score >= threshold) return "重点";
   return "普通";
 }
+/**
+ * 升学节点分档阈值（设计 13.3）：key = 节点年龄，名校/重点 学科加权平均线。
+ * 6 岁幼升小不分档；12 小升初 / 15 中考 / 18 高考 分档判定。
+ */
+export const SCHOOL_RANK_THRESHOLDS: Record<number, { elite: number; key: number }> = {
+  12: { elite: 6.0, key: 4.0 },
+  15: { elite: 6.5, key: 4.5 },
+  18: { elite: 7.0, key: 5.0 },
+};
+
+/** 主科（加权 ×3）：语文/数学/英语。 */
+const MAIN_SUBJECTS = new Set(["math", "chinese", "english"]);
+/** 副科（加权 ×1）：体育/历史/物理/化学。 */
+const SUB_SUBJECTS = new Set(["pe", "history", "physics", "chemistry"]);
+
+/**
+ * 升学判定（设计 13.3，替代已废弃的 calculateSchoolRank）：
+ * 学科加权平均 = Σ(主科×3 + 副科×1 的学科等级) / 权重和，只算已解锁学科（subjectExp 中存在的键）；
+ * 师长好感修正：最高师长好感达阈值时加权平均 +0.5（由调用方换算传入）。
+ * thresholds 缺省为高考档（18 岁）。
+ */
+export function calculateSchoolRankFromSubjects(
+  subjectExp: Record<string, { exp: number; level: number }>,
+  teacherBonus = 0,
+  thresholds: { elite: number; key: number } = SCHOOL_RANK_THRESHOLDS[18]
+): SchoolRank {
+  let weightedSum = 0;
+  let weightTotal = 0;
+  for (const [key, val] of Object.entries(subjectExp)) {
+    if (!val || typeof val.level !== "number") continue;
+    const weight = MAIN_SUBJECTS.has(key) ? 3 : SUB_SUBJECTS.has(key) ? 1 : 0;
+    if (weight === 0) continue; // 未知/未解锁学科不计入
+    weightedSum += weight * val.level;
+    weightTotal += weight;
+  }
+  if (weightTotal === 0) return "普通";
+  const avg = weightedSum / weightTotal + teacherBonus;
+  if (avg >= thresholds.elite) return "名校";
+  if (avg >= thresholds.key) return "重点";
+  return "普通";
+}
+
 export function getSchoolName(stage: SchoolStage, rank: SchoolRank): string {
   return {
     普通: `${stage.name}（普通学区）`,
