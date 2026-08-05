@@ -1391,6 +1391,8 @@ export interface TravelMode {
   staminaMult: number;
   goldPerDist: number;
   desc: string;
+  /** 需要 inventory 持有指定 itemId 才能使用（如 car） */
+  requireItem?: string;
 }
 export const TRAVEL_MODES: TravelMode[] = [
   {
@@ -1403,7 +1405,7 @@ export const TRAVEL_MODES: TravelMode[] = [
   },
   { id: "bus", name: "公交", icon: "🚌", staminaMult: 0.4, goldPerDist: 2, desc: "便宜，略费体力" },
   { id: "taxi", name: "出租车", icon: "🚕", staminaMult: 0.2, goldPerDist: 6, desc: "省体力，贵" },
-  { id: "car", name: "私家车", icon: "🚗", staminaMult: 0.3, goldPerDist: 1, desc: "自由，油费低" },
+  { id: "car", name: "私家车", icon: "🚗", staminaMult: 0.3, goldPerDist: 1, desc: "自由，油费低", requireItem: "car" },
 ];
 
 /** 按出行方式计算体力/金币消耗（service 端权威计价，client 仅预估） */

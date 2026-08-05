@@ -125,6 +125,7 @@ async function handler(request: NextRequest) {
   let competitions: { semester: string; events: { id: string; subject: string; subjectName: string; prize: { name: string; subjectExp: number; insightExp: number; charmExp: number } }[] }[] | null = null;
   let finalExamResult: { text: string; subject: string; gained: number } | null = null;
   let npcRelations: Record<string, NpcRelationData> = {};
+  let carGranted = false;
   let cliqueKey: CliqueKey | null = null;
   let currentSavings: number | undefined;
   let pocketMoneyResult: { granted: number; interest: number } | null = null;
@@ -415,6 +416,17 @@ async function handler(request: NextRequest) {
         logger.error("跨年家庭职业结算失败", { cultivatorId: cultivator.id, error });
         return apiError("家庭职业结算失败，请稍后重试", 500, "FAMILY_CAREER_SETTLEMENT_FAILED");
       }
+
+      // 18 岁成年：按家庭收入等级概率获得私家车（Lv0-1: 0% / Lv2: 10% / Lv3: 50% / Lv4: 100%）
+      if (newAge === 18 && evolvedFamilyMembers.length > 0) {
+        const familyIncomeLevel = Math.max(
+          0,
+          ...evolvedFamilyMembers.map((m) => m.career.incomeLevel)
+        );
+        const chance =
+          familyIncomeLevel >= 4 ? 1 : familyIncomeLevel === 3 ? 0.5 : familyIncomeLevel === 2 ? 0.1 : 0;
+        if (Math.random() < chance) carGranted = true;
+      }
     }
 
     // ── 职业自动切换 ──────────────────────────────────
@@ -495,6 +507,19 @@ async function handler(request: NextRequest) {
     // NPC 关系持久化
     if (cultivator.worldId === "earth") {
       updateData.npcRelations = JSON.stringify(npcRelations);
+    }
+    // 18 岁成年获得私家车：inventory JSON 数组追加 car 物品
+    if (carGranted) {
+      let inv: { itemId: string; quantity: number; equipped: boolean }[] = [];
+      try {
+        inv = JSON.parse(cultivator.inventory || "[]");
+      } catch {
+        inv = [];
+      }
+      if (!inv.some((s) => s.itemId === "car")) {
+        inv.push({ itemId: "car", quantity: 1, equipped: false });
+      }
+      updateData.inventory = JSON.stringify(inv);
     }
     // 小团体派系持久化
     if (cliqueKey) {
