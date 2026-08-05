@@ -1276,6 +1276,7 @@ export interface Location {
   icon: string;
   description: string;
   unlockAge: number;
+  maxAge?: number;
   requireAwakened?: boolean;
   distanceFromHome: number;
   actionBonuses?: Record<string, number>;
@@ -1302,6 +1303,7 @@ export const LOCATIONS: Location[] = [
     icon: "🧸",
     description: "启蒙教育的地方",
     unlockAge: 3,
+    maxAge: 6,
     distanceFromHome: 1,
     localNPCs: ["kindergarten_teacher"],
   },
@@ -1311,6 +1313,7 @@ export const LOCATIONS: Location[] = [
     icon: "🏫",
     description: "学习知识的地方",
     unlockAge: 6,
+    maxAge: 18,
     distanceFromHome: 2,
     actionBonuses: { STUDY: 1.2 },
     localNPCs: ["classmate", "headteacher"],
@@ -1367,7 +1370,8 @@ export function getUnlockedLocations(
   return LOCATIONS.filter(
     (loc) =>
       narrativeUnlocks.includes(loc.id) ||
-      (loc.requireAwakened ? isAwakened && age >= loc.unlockAge : age >= loc.unlockAge)
+      ((loc.requireAwakened ? isAwakened && age >= loc.unlockAge : age >= loc.unlockAge) &&
+        (!loc.maxAge || age <= loc.maxAge))
   );
 }
 export function calcTravelCost(fromLocId: string, toLocId: string): number {
