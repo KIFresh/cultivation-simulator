@@ -174,7 +174,7 @@ ${params.cultivatorName ? `【备用名】${params.cultivatorName}` : ""}
     const text = await callAI({
       systemPrompt: SYSTEM_PROMPT_CIVILIAN,
       userPrompt: prompt,
-      maxTokens: 1000,
+      maxTokens: 800,
       temperature: 0.85,
     });
     const result: BirthNarrativeResult = extractJson(text, {
