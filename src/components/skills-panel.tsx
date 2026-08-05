@@ -3,14 +3,18 @@
 import { Sparkles } from "lucide-react";
 import { useGameStore } from "@/store";
 import type { CultivatorData } from "@/app/dashboard/types";
+import { isAwakened } from "@/lib/cultivation-data";
 import { deriveSkillLevels, type SkillLevel } from "@/app/dashboard/hooks/use-data-sync";
 
 export default function SkillsPanel() {
   const cultivator = useGameStore((s) => s.cultivator) as CultivatorData | null;
 
+  const isAwake = cultivator ? isAwakened(cultivator.realm) : false;
+
   const skills: SkillLevel[] = deriveSkillLevels(
     cultivator?.attributeExp ?? null,
-    cultivator?.subjectExp ?? null
+    cultivator?.subjectExp ?? null,
+    isAwake
   );
 
   return (
