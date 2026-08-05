@@ -11,6 +11,7 @@ import {
   calculateMaxStamina,
   getLocationActionBonus,
   isRealmSufficient,
+  DAILY_ACTIVITIES,
 } from "@/lib";
 import {
   TECHNIQUES,
@@ -51,6 +52,7 @@ import {
   NEUTRAL_FAMILY_ECONOMIC_BACKGROUND,
   type FamilyCareer,
 } from "@/lib/family-career";
+import { json } from "@/lib/json-helper";
 
 export interface ActionInput {
   actionId: string;
@@ -547,6 +549,22 @@ export async function executeAction(
           level: result.newLevel,
           proficiency: result.newProficiency,
         },
+      });
+    }
+
+    // 学科经验：按年龄取档位随机一门学科产出，悟性(insight) 每点 +10% 加速
+    const band = DAILY_ACTIVITIES.find((a) => a.id === "study")?.subjectExp?.find(
+      (b) => cultivator.age >= b.minAge && cultivator.age < b.maxAge
+    );
+    if (band) {
+      const gained = Math.round(band.amount * (1 + insight * 0.1));
+      const subject = band.subjects[Math.floor(Math.random() * band.subjects.length)]!;
+      const cur = json.subjectExp(cultivator.subjectExp);
+      const prev = cur[subject] ?? { exp: 0, level: 0 };
+      const exp = prev.exp + gained;
+      updateData.subjectExp = JSON.stringify({
+        ...cur,
+        [subject]: { exp, level: Math.floor(exp / 100) },
       });
     }
   }

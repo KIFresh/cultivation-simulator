@@ -60,6 +60,7 @@ vi.mock("@/lib", () => ({
   isAwakened: mockIsAwakened,
   calculateMaxStamina: mockCalculateMaxStamina,
   getLocationActionBonus: mockGetLocationActionBonus,
+  DAILY_ACTIVITIES: [],
   REALM_ORDER: ["凡人", "炼气期", "筑基期", "结丹期", "元婴期", "化神期"],
   isRealmSufficient: (realm: string, minRealm: string) => {
     const order = ["凡人", "炼气期", "筑基期", "结丹期", "元婴期", "化神期"];

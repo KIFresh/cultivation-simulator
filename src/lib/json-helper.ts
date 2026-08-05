@@ -52,8 +52,13 @@ export const json = {
     parseJsonField<unknown[]>(raw, [], "dialogueHistory"),
   attributeExp: (raw: string | null | undefined): Record<string, { exp: number; level: number }> =>
     parseJsonField<Record<string, { exp: number; level: number }>>(raw, {}, "attributeExp"),
-  subjectExp: (raw: string | null | undefined): Record<string, { exp: number; level: number }> =>
-    parseJsonField<Record<string, { exp: number; level: number }>>(raw, {}, "subjectExp"),
+  subjectExp: (raw: string | null | undefined): Record<string, { exp: number; level: number }> => {
+    // 容错：合法 JSON 但非对象（字符串/数字/数组）也回退为空对象
+    const parsed = parseJsonField<unknown>(raw, {}, "subjectExp");
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+      ? (parsed as Record<string, { exp: number; level: number }>)
+      : {};
+  },
   properties: (raw: string | null | undefined): any[] =>
     parseJsonField<any[]>(raw, [], "properties"),
 };
