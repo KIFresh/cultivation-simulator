@@ -482,7 +482,7 @@ describe("applyEffects", () => {
     );
   });
 
-  it("attrExp 正确合并到 JSON 字段", async () => {
+  it("attrExp 正确走 addAttrExp（100×level^1.5 曲线，旧存档裸数字视为 0 经验）", async () => {
     mockTx.cultivator.findUnique.mockResolvedValue({ attributeExp: '{"root":5,"spirit":3}' });
     mockTx.cultivator.update.mockResolvedValue({});
     await applyEffects(
@@ -492,9 +492,9 @@ describe("applyEffects", () => {
     );
     const updateCall = mockTx.cultivator.update.mock.calls[0][0];
     const written = JSON.parse(updateCall.data.attributeExp);
-    expect(written.root).toBe(15); // 5 + 10
-    expect(written.spirit).toBe(3); // 未变
-    expect(written.luck).toBe(5); // 新增
+    expect(written.root).toEqual({ exp: 10, level: 0 }); // 旧存档 5 视为 0 经验，+10
+    expect(written.spirit).toEqual({ exp: 0, level: 0 }); // 旧存档裸数字 → 0 经验
+    expect(written.luck).toEqual({ exp: 5, level: 0 }); // 新增
   });
 
   it("storyEntry 正确追加到 entries", async () => {

@@ -116,13 +116,31 @@ export function rollLocationEvent(
   return pool[idx] ?? null;
 }
 
-/** 把增量经验叠加进属性经验表，并按 100 经验/级折算等级。 */
-export function addAttrExp(current: AttrExpMap, delta: Record<string, number>): AttrExpMap {
-  const next: AttrExpMap = { ...current };
+/**
+ * 把增量经验叠加进属性经验表，等级按 100×level^1.5 曲线折算（升到 L 级需 100×L^1.5 经验）。
+ * 升级时反写 attributes[attr] += 升级级数；旧存档中 attributeExp 若存的是裸数字/非对象，视为 0 经验。
+ */
+export function addAttrExp(
+  current: AttrExpMap,
+  delta: Record<string, number>,
+  attributes?: Record<string, number>
+): AttrExpMap {
+  const next: AttrExpMap = {};
+  for (const [key, raw] of Object.entries(current)) {
+    const exp =
+      raw && typeof raw === "object" && typeof raw.exp === "number" && Number.isFinite(raw.exp)
+        ? raw.exp
+        : 0;
+    next[key] = { exp, level: exp > 0 ? Math.floor(Math.pow(exp / 100, 2 / 3)) : 0 };
+  }
   for (const [key, value] of Object.entries(delta)) {
     const cur = next[key] || { exp: 0, level: 0 };
     const exp = cur.exp + value;
-    next[key] = { exp, level: Math.floor(exp / 100) };
+    const level = exp > 0 ? Math.floor(Math.pow(exp / 100, 2 / 3)) : 0;
+    next[key] = { exp, level };
+    if (attributes && level > cur.level) {
+      attributes[key] = (attributes[key] || 0) + (level - cur.level);
+    }
   }
   return next;
 }

@@ -18,7 +18,8 @@
 import { z } from "zod";
 import { prisma } from "./prisma";
 import { clampGoldDelta } from "./gold";
-import { safeJsonParse } from "./json-helper";
+import { json, safeJsonParse } from "./json-helper";
+import { addAttrExp } from "./location-events";
 
 // ── 1. 效果模式匹配 ──────────────────────────────────────────────────────
 
@@ -540,26 +541,25 @@ export async function applyEffects(
       }
 
       case "attrExp": {
-        // attributeExp 是 JSON 字段，如 {"root": 15, "spirit": 10}
-        // 先读取当前值，合并后写回
+        // attributeExp 是 JSON 字段，形如 {"root": {"exp": 15, "level": 0}}
+        // 统一走 addAttrExp：100×level^1.5 曲线 + 升级反写 attributes
         const current = await tx.cultivator.findUnique({
           where: { id: ctx.cultivatorId },
-          select: { attributeExp: true },
+          select: { attributeExp: true, attributes: true },
         });
-        const currentExp: Record<string, number> = current?.attributeExp
-          ? typeof current.attributeExp === "string"
-            ? safeJsonParse(current.attributeExp, {})
-            : current.attributeExp
-          : {};
-        const merged = { ...currentExp };
-        for (const [attr, val] of Object.entries(effect.values)) {
-          if (val !== undefined) {
-            merged[attr] = (merged[attr] || 0) + val;
-          }
-        }
+        const currentExp = json.attributeExp(
+          typeof current?.attributeExp === "string" ? current.attributeExp : undefined
+        );
+        const attrs = json.attributes(
+          typeof current?.attributes === "string" ? current.attributes : undefined
+        );
+        const next = addAttrExp(currentExp, effect.values, attrs);
         await tx.cultivator.update({
           where: { id: ctx.cultivatorId },
-          data: { attributeExp: JSON.stringify(merged) },
+          data: {
+            attributeExp: JSON.stringify(next),
+            attributes: JSON.stringify(attrs),
+          },
         });
         break;
       }
