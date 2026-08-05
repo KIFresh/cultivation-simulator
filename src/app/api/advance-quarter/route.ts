@@ -147,7 +147,7 @@ async function handler(request: NextRequest) {
     warnEarly = remaining <= 10 || remaining < maxAge * 0.1;
     // 跨年属性成长：改为经验通道，不再直加 attributes
     const growthExp = calculateYearlyAttributeGrowth(oldAge, newAge, savedAttrs, currentSchoolRank);
-    nextAttrExp = addAttrExp(json.attributeExp(cultivator.attributeExp) || {}, growthExp);
+    nextAttrExp = addAttrExp(json.attributeExp(cultivator.attributeExp) || {}, growthExp, newAttributes);
 
     // ── NPC 关系（同学 + 师长） ──────────────────────
     try {

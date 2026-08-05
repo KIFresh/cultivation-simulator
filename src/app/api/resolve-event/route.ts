@@ -78,13 +78,17 @@ async function postHandler(request: NextRequest) {
     if (Object.keys(attrExpValues).length > 0) {
       const current = await tx.cultivator.findUnique({
         where: { id: cultivator.id },
-        select: { attributeExp: true },
+        select: { attributeExp: true, attributes: true },
       });
       const attrExpData = json.attributeExp(current?.attributeExp) || {};
-      const next = addAttrExp(attrExpData, attrExpValues);
+      const attrs = json.attributes(current?.attributes);
+      const next = addAttrExp(attrExpData, attrExpValues, attrs);
       await tx.cultivator.update({
         where: { id: cultivator.id },
-        data: { attributeExp: JSON.stringify(next) },
+        data: {
+          attributeExp: JSON.stringify(next),
+          attributes: JSON.stringify(attrs),
+        },
       });
     }
 

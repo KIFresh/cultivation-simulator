@@ -118,6 +118,14 @@ export function rollLocationEvent(
  * 把增量经验叠加进属性经验表，等级按 100×level^1.5 曲线折算（升到 L 级需 100×L^1.5 经验）。
  * 升级时反写 attributes[attr] += 升级级数；旧存档中 attributeExp 若存的是裸数字/非对象，视为 0 经验。
  */
+// ponytail: O(n) loop per call, fine for 6 attributes
+function levelFromExp(exp: number): number {
+  if (exp <= 0) return 0;
+  let lv = 0;
+  while (exp >= Math.ceil(100 * Math.pow(lv + 1, 1.5))) lv++;
+  return lv;
+}
+
 export function addAttrExp(
   current: AttrExpMap,
   delta: Record<string, number>,
@@ -129,12 +137,12 @@ export function addAttrExp(
       raw && typeof raw === "object" && typeof raw.exp === "number" && Number.isFinite(raw.exp)
         ? raw.exp
         : 0;
-    next[key] = { exp, level: exp > 0 ? Math.floor(Math.pow(exp / 100, 2 / 3)) : 0 };
+    next[key] = { exp, level: levelFromExp(exp) };
   }
   for (const [key, value] of Object.entries(delta)) {
     const cur = next[key] || { exp: 0, level: 0 };
     const exp = cur.exp + value;
-    const level = exp > 0 ? Math.floor(Math.pow(exp / 100, 2 / 3)) : 0;
+    const level = levelFromExp(exp);
     next[key] = { exp, level };
     if (attributes && level > cur.level) {
       attributes[key] = (attributes[key] || 0) + (level - cur.level);
