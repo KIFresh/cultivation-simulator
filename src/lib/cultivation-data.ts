@@ -461,6 +461,17 @@ export const ACTIONS: Action[] = [
     narrativeTag: "study",
   },
   {
+    id: "ASK_TEACHER",
+    name: "请教老师",
+    icon: "🙋",
+    description: "向老师请教问题，增进师长好感",
+    actionPointCost: 1,
+    baseExp: 3,
+    category: "social",
+    minAgeEarth: 6,
+    narrativeTag: "social",
+  },
+  {
     id: "TALK",
     name: "与人交谈",
     icon: "💬",

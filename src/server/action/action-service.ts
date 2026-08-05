@@ -53,6 +53,8 @@ import {
   type FamilyCareer,
 } from "@/lib/family-career";
 import { json } from "@/lib/json-helper";
+import { askTeacherQuestion, TEACHER_TYPE } from "@/lib/teacher";
+import type { NpcRelationData } from "@/lib/classmate-data";
 
 export interface ActionInput {
   actionId: string;
@@ -568,6 +570,21 @@ export async function executeAction(
           proficiency: result.newProficiency,
         },
       });
+    }
+  }
+
+  // 请教老师：随机一位师长好感 +2（设计 13.5 途径 A），无师长时不影响
+  if (actionId === "ASK_TEACHER") {
+    let relations: Record<string, NpcRelationData> = {};
+    try {
+      const raw = cultivator.npcRelations;
+      relations = typeof raw === "string" && raw ? JSON.parse(raw) : {};
+    } catch {
+      relations = {};
+    }
+    const next = askTeacherQuestion(relations, 2);
+    if (next !== relations) {
+      updateData.npcRelations = JSON.stringify(next);
     }
   }
 

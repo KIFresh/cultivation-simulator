@@ -22,7 +22,7 @@ import {
   generateClassmates,
   type NpcRelationData,
 } from "@/lib/classmate-data";
-import { shouldGenerateTeachers, generateTeachers, getTeacherRankBonus } from "@/lib/teacher";
+import { shouldGenerateTeachers, generateTeachers, getTeacherRankBonus, rewardTeachersForAchievement } from "@/lib/teacher";
 import {
   checkIsolationTrigger,
   isIsolated,
@@ -284,6 +284,13 @@ async function handler(request: NextRequest) {
         // 悟性/魅力经验走属性经验通道（升级反写属性值）
         if (Object.keys(attrExpDelta).length > 0) {
           nextAttrExp = addAttrExp(nextAttrExp || json.attributeExp(cultivator.attributeExp) || {}, attrExpDelta, newAttributes);
+        }
+        // 成绩联动（设计 13.5 途径 C）：竞赛有获奖（非"未获奖"）→ 全体任课老师好感 +10
+        const anyPrize = competitions?.some((sem) =>
+          sem.events.some((ev) => ev.prize && ev.prize.name !== "未获奖")
+        );
+        if (anyPrize) {
+          npcRelations = rewardTeachersForAchievement(npcRelations, 10);
         }
       }
       // 期末考：每年末固定产出学科经验 +10~15（随机已解锁学科）
