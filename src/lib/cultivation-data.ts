@@ -472,6 +472,83 @@ export const ACTIONS: Action[] = [
     narrativeTag: "social",
   },
   {
+    id: "CHORES",
+    name: "做家务",
+    icon: "🧹",
+    description: "帮忙做家务，锻炼心性",
+    actionPointCost: 1,
+    baseExp: 5,
+    category: "study",
+    minAgeEarth: 1,
+    narrativeTag: "chores",
+  },
+  {
+    id: "HOMEWORK",
+    name: "背课文/写作业",
+    icon: "✏️",
+    description: "背课文、写作业，巩固学业",
+    actionPointCost: 2,
+    baseExp: 8,
+    category: "study",
+    minAgeEarth: 6,
+    narrativeTag: "study",
+  },
+  {
+    id: "PINYIN",
+    name: "学拼音/识字",
+    icon: "🔤",
+    description: "学习拼音、认识汉字",
+    actionPointCost: 1,
+    baseExp: 3,
+    category: "study",
+    minAgeEarth: 3,
+    narrativeTag: "study",
+  },
+  {
+    id: "COUNTING",
+    name: "数数/算零花钱",
+    icon: "🔢",
+    description: "数数、算零花钱，练习算术",
+    actionPointCost: 1,
+    baseExp: 3,
+    category: "study",
+    minAgeEarth: 3,
+    narrativeTag: "study",
+  },
+  {
+    id: "REST",
+    name: "休息",
+    icon: "😴",
+    description: "好好休息，恢复体力",
+    actionPointCost: 0,
+    baseExp: 0,
+    category: "rest",
+    minAgeEarth: 1,
+    narrativeTag: "rest",
+  },
+  {
+    id: "FAMILY_TIME",
+    name: "陪伴家人",
+    icon: "👨‍👩‍👧",
+    description: "陪伴家人，增进亲情",
+    actionPointCost: 1,
+    baseExp: 3,
+    category: "social",
+    minAgeEarth: 1,
+    narrativeTag: "social",
+  },
+  {
+    id: "READ_ALONE",
+    name: "独处看书",
+    icon: "📚",
+    description: "独自安静看书",
+    actionPointCost: 2,
+    baseExp: 5,
+    category: "study",
+    minAgeEarth: 6,
+    narrativeTag: "study",
+  },
+  {
     id: "MAKE_FRIEND",
     name: "交朋友",
     icon: "🤝",
@@ -1276,7 +1353,6 @@ export interface Location {
   icon: string;
   description: string;
   unlockAge: number;
-  maxAge?: number;
   requireAwakened?: boolean;
   distanceFromHome: number;
   actionBonuses?: Record<string, number>;
@@ -1303,7 +1379,6 @@ export const LOCATIONS: Location[] = [
     icon: "🧸",
     description: "启蒙教育的地方",
     unlockAge: 3,
-    maxAge: 6,
     distanceFromHome: 1,
     localNPCs: ["kindergarten_teacher"],
   },
@@ -1313,7 +1388,6 @@ export const LOCATIONS: Location[] = [
     icon: "🏫",
     description: "学习知识的地方",
     unlockAge: 6,
-    maxAge: 18,
     distanceFromHome: 2,
     actionBonuses: { STUDY: 1.2 },
     localNPCs: ["classmate", "headteacher"],
@@ -1370,8 +1444,7 @@ export function getUnlockedLocations(
   return LOCATIONS.filter(
     (loc) =>
       narrativeUnlocks.includes(loc.id) ||
-      ((loc.requireAwakened ? isAwakened && age >= loc.unlockAge : age >= loc.unlockAge) &&
-        (!loc.maxAge || age <= loc.maxAge))
+      (loc.requireAwakened ? isAwakened && age >= loc.unlockAge : age >= loc.unlockAge)
   );
 }
 export function calcTravelCost(fromLocId: string, toLocId: string): number {
@@ -1391,8 +1464,6 @@ export interface TravelMode {
   staminaMult: number;
   goldPerDist: number;
   desc: string;
-  /** 需要 inventory 持有指定 itemId 才能使用（如 car） */
-  requireItem?: string;
 }
 export const TRAVEL_MODES: TravelMode[] = [
   {
@@ -1405,7 +1476,7 @@ export const TRAVEL_MODES: TravelMode[] = [
   },
   { id: "bus", name: "公交", icon: "🚌", staminaMult: 0.4, goldPerDist: 2, desc: "便宜，略费体力" },
   { id: "taxi", name: "出租车", icon: "🚕", staminaMult: 0.2, goldPerDist: 6, desc: "省体力，贵" },
-  { id: "car", name: "私家车", icon: "🚗", staminaMult: 0.3, goldPerDist: 1, desc: "自由，油费低", requireItem: "car" },
+  { id: "car", name: "私家车", icon: "🚗", staminaMult: 0.3, goldPerDist: 1, desc: "自由，油费低" },
 ];
 
 /** 按出行方式计算体力/金币消耗（service 端权威计价，client 仅预估） */

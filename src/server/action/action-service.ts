@@ -644,6 +644,35 @@ export async function executeAction(
     }
   }
 
+  // ── 家地点独特行动（设计：家地点专属，产出属性经验）──
+  if (["CHORES", "HOMEWORK", "PINYIN", "COUNTING", "FAMILY_TIME", "READ_ALONE"].includes(actionId)) {
+    const attrMap: Record<string, Record<string, number>> = {
+      CHORES: { mind: 3 },
+      HOMEWORK: { insight: 3 },
+      PINYIN: { insight: 2 },
+      COUNTING: { insight: 2 },
+      FAMILY_TIME: { charm: 3 },
+      READ_ALONE: { insight: 3 },
+    };
+    const gains = attrMap[actionId]!;
+    const before = { ...safeAttrs };
+    updateData.attributeExp = JSON.stringify(
+      addAttrExp(json.attributeExp(cultivator.attributeExp) || {}, gains, safeAttrs)
+    );
+    if (JSON.stringify(before) !== JSON.stringify(safeAttrs)) {
+      updateData.attributes = JSON.stringify(safeAttrs);
+    }
+  }
+
+  // 休息：恢复体力 min(当前+10, maxStamina)，满体力禁用
+  if (actionId === "REST") {
+    const maxStam = calculateMaxStamina(cultivator.age, safeAttrs);
+    if ((cultivator.stamina ?? 0) >= maxStam) {
+      return { status: "error", message: "体力已满，无需休息", code: 400 };
+    }
+    updateData.stamina = Math.min((cultivator.stamina ?? 0) + 10, maxStam);
+  }
+
   const createdMemoryIds: string[] = [];
   const updated = await prisma
     .$transaction(async (tx) => {
