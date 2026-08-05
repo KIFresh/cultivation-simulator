@@ -44,6 +44,8 @@ import { rollEvents } from "@/lib/world-events";
 
 import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
 import { logger } from "@/lib/logger";
+import { addAttrExp, type AttrExpMap } from "@/lib/location-events";
+import { json } from "@/lib/json-helper";
 
 async function handler(request: NextRequest) {
   // ── 鉴权 ──────────────────────────────────────────────
@@ -101,6 +103,7 @@ async function handler(request: NextRequest) {
   let remaining = 0;
   let maxAge = cultivator.maxAge || 0;
   let newAttributes = savedAttrs;
+  let nextAttrExp: AttrExpMap | null = null;
   let npcRelations: Record<string, NpcRelationData> = {};
   let cliqueKey: CliqueKey | null = null;
   let currentSavings: number | undefined;
@@ -142,7 +145,9 @@ async function handler(request: NextRequest) {
 
     remaining = maxAge - newAge;
     warnEarly = remaining <= 10 || remaining < maxAge * 0.1;
-    newAttributes = calculateYearlyAttributeGrowth(oldAge, newAge, savedAttrs, currentSchoolRank);
+    // 跨年属性成长：改为经验通道，不再直加 attributes
+    const growthExp = calculateYearlyAttributeGrowth(oldAge, newAge, savedAttrs, currentSchoolRank);
+    nextAttrExp = addAttrExp(json.attributeExp(cultivator.attributeExp) || {}, growthExp);
 
     // ── NPC 关系（同学 + 师长） ──────────────────────
     try {
@@ -373,6 +378,8 @@ async function handler(request: NextRequest) {
     }
     // 属性每年增长后持久化
     updateData.attributes = JSON.stringify(newAttributes);
+    // 年龄成长改走经验通道
+    if (nextAttrExp) updateData.attributeExp = JSON.stringify(nextAttrExp);
     // 职业变化持久化
     updateData.occupation = occupation;
     // schoolRank 持久化（Int 类型）

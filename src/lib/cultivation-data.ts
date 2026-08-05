@@ -1404,24 +1404,29 @@ export function calculateYearlyAttributeGrowth(
   currentAttributes: Record<string, number>,
   schoolRank?: SchoolRank
 ): Record<string, number> {
-  const result = { ...currentAttributes };
+  // 经验增量 = 原属性增量 × 14268/10（10 点属性 = 14268 经验）
+  const EXP_PER_ATTR_POINT = 14268 / 10;
   const multiplier = schoolRank ? (SCHOOL_RANKS[schoolRank]?.attrMultiplier ?? 1.0) : 1.0;
   const insightBonus = (currentAttributes.insight || 0) * 0.1 + 1;
-  if (newAge <= 0 || oldAge >= 18) return result;
+  if (newAge <= 0 || oldAge >= 16) return {};
   const startAge = Math.max(0, oldAge),
-    endAge = Math.min(18, newAge);
+    endAge = Math.min(16, newAge);
+  const expDelta: Record<string, number> = {};
+  // 模拟属性逐年演进，保留原「按当前属性占比分配成长」的语义
+  const sim = { ...currentAttributes };
   for (let age = startAge; age < endAge; age++) {
     let totalGrowthForYear =
       (age < 6 ? 1 / 6 : age < 12 ? 5 / 6 : 4 / 6) * multiplier * insightBonus;
     if (totalGrowthForYear <= 0) continue;
-    const totalCurrent = Object.values(result).reduce((a, b) => a + b, 0) || 1;
+    const totalCurrent = Object.values(sim).reduce((a, b) => a + b, 0) || 1;
     for (const key of ATTR_KEYS) {
-      const ratio = (result[key] || 0) / totalCurrent;
-      result[key] =
-        Math.round(((result[key] || 0) + Math.max(totalGrowthForYear * ratio, 0.05)) * 10) / 10;
+      const ratio = (sim[key] || 0) / totalCurrent;
+      const growth = Math.max(totalGrowthForYear * ratio, 0.05);
+      expDelta[key] = (expDelta[key] || 0) + growth * EXP_PER_ATTR_POINT;
+      sim[key] = Math.round(((sim[key] || 0) + growth) * 10) / 10;
     }
   }
-  return result;
+  return expDelta;
 }
 
 export function parseOccupationFromNarrative(
