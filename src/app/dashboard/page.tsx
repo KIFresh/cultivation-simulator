@@ -15,7 +15,6 @@ import { NpcChatPanel } from "@/app/dashboard/_components/npc-chat-panel";
 import { useDashboardState } from "@/app/dashboard/hooks/use-dashboard-state";
 import { useGameStore } from "@/store";
 import { useDevTools } from "@/app/dashboard/hooks/use-dashboard-dev-tools";
-import { useDataSync } from "@/app/dashboard/hooks/use-data-sync";
 import { getRootInfo, formatSpiritualRootLabel } from "@/lib/cultivation-data";
 import { mergeNpcs } from "@/lib/npc-utils";
 
@@ -93,9 +92,6 @@ export default function DashboardPage() {
     () => mergeNpcs(familyMembers ?? [], currentNPCs ?? []),
     [familyMembers, currentNPCs]
   );
-
-  // 六维+学科等级概览：与技能页同源（attributeExp + subjectExp），实时一致
-  const { skills } = useDataSync();
 
   if (loading)
     return (
@@ -247,38 +243,6 @@ export default function DashboardPage() {
             </div>
 
             <AttributeGrid attributes={attributes} />
-
-            <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--card)]/80 p-3 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] text-gray-500">技艺等级（六维 · 学科）</span>
-              </div>
-              {skills.length === 0 ? (
-                <p className="text-xs text-gray-400 text-center py-2">尚未习得任何技艺</p>
-              ) : (
-                <div className="space-y-2">
-                  {skills.map((sk) => {
-                    const percent =
-                      sk.expToNext > 0 ? Math.min(100, (sk.exp / sk.expToNext) * 100) : 0;
-                    return (
-                      <div key={sk.id}>
-                        <div className="flex items-center justify-between text-xs mb-1">
-                          <span className="text-[var(--foreground)]">{sk.name}</span>
-                          <span className="text-gray-400">
-                            Lv.{sk.level} · {sk.exp}/{sk.expToNext}
-                          </span>
-                        </div>
-                        <div className="h-1.5 bg-[var(--muted)] rounded-full overflow-hidden">
-                          <div
-                            className="h-full vermilion-progress-solid rounded-full"
-                            style={{ width: `${percent}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
 
             {(inventory || []).some((i: any) => i.itemId === "phone") && (
               <button
