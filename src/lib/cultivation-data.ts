@@ -1369,7 +1369,7 @@ export const ATTR_INFO: AttrInfo[] = [
     key: "spirit",
     icon: "✨",
     label: "灵性",
-    description: "决定灵气上限、吸收效率。影响修炼速度、法术威力",
+    description: "凡人期称「感知」：反应力与专注，影响体育协调、事件感知；觉醒后为「灵性」：决定灵气上限、吸收效率，影响修炼速度、法术威力",
   },
   {
     key: "insight",

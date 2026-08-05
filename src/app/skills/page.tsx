@@ -5,7 +5,7 @@ import TopNav from "@/components/top-nav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { getRootInfo, formatSpiritualRootLabel } from "@/lib/cultivation-data";
+import { getRootInfo, formatSpiritualRootLabel, isAwakened } from "@/lib/cultivation-data";
 
 interface TechniqueRecord {
   id: string;
@@ -41,11 +41,11 @@ interface CultivatorData {
 
 const ATTR_INFO = [
   { key: "root", label: "根骨", icon: "🦴" },
-  { key: "spirit", label: "神识", icon: "👁" },
+  { key: "spirit", label: "感知", icon: "👁" },
   { key: "insight", label: "悟性", icon: "💡" },
   { key: "luck", label: "气运", icon: "🍀" },
   { key: "charm", label: "魅力", icon: "✨" },
-  { key: "mind", label: "道心", icon: "🧘" },
+  { key: "mind", label: "心性", icon: "🧘" },
 ];
 
 const REALM_ORDER = [
@@ -59,6 +59,7 @@ export default function SkillsPage() {
   const [activeTab, setActiveTab] = useState<"功法" | "技艺">("功法");
   const [userId, setUserId] = useState<string | null>(null);
   const [cultivator, setCultivator] = useState<CultivatorData | null>(null);
+  const isAwake = cultivator ? isAwakened(cultivator.realm) : false;
 
   useEffect(() => {
     const id = localStorage.getItem("userId");
@@ -201,7 +202,9 @@ export default function SkillsPage() {
                   return (
                     <div key={attr.key} className="flex items-center gap-2">
                       <span className="text-sm w-6 text-center">{attr.icon}</span>
-                      <span className="text-xs text-[#8B7355] w-12">{attr.label}</span>
+                      <span className="text-xs text-[#8B7355] w-12">
+                        {attr.key === "spirit" && isAwake ? "灵性" : attr.label}
+                      </span>
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-0.5">
                           <span className="text-[10px] text-[#8B7355]">
