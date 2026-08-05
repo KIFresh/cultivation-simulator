@@ -160,6 +160,7 @@ ${params.cultivatorName ? `【备用名】${params.cultivatorName}` : ""}
 9. 出身选择中的家庭背景/身份标签只能作为幕后创作线索，正文、标题、summary、hint 中都不得直接复述或解释该标签
 10. 不得直接写出或概括家境结论，例如“书香门第”“商贾之家”“将门之后”“山野遗孤”“散修传人”“家境殷实”“贫寒人家”“富裕家庭”等；也不要用同义的阶层标签替代
 11. 必须通过可感知的具体细节自然侧写家庭状态，例如父母职业及工作物件、产房或住宅环境、所在街区、衣着器物、生活习惯、邻里互动和亲友反应；用场景和行动呈现，不要给家庭贴结论性标签
+12. 为当前可见行动生成候选词：为以下每个行动各生成2-3个候选词（动词开头，6-15字/个），候选词应基于当前叙事内容给出方向性提示，只覆盖当前年龄段可用的行动，作为可选字段加入输出JSON："actionOptions":{"TALK":["候选词1","候选词2"],...}，AI可以不返回该字段。行动ID：TALK/WANDER/FREE/LEARN/ASK_TEACHER/MAKE_FRIEND/CHORES/HOMEWORK/PINYIN/COUNTING/REST/FAMILY_TIME/READ_ALONE（修仙期另有MEDITATE/BREATHE/EXPLORE/STUDY/ALCHEMY/SECLUSION）
 
 输出前请自检：检查正文、suggestedName、family 三者是否一致；确认正文、标题、summary、hint 没有直接出现家庭背景标签，而是通过职业、环境、物件和日常细节呈现
 

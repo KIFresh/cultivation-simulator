@@ -14,6 +14,12 @@ import {
 } from "@/lib/narrative";
 import { logger } from "@/lib/logger";
 
+// 行动候选词生成指令：每个叙事响应为当前可见行动生成候选词。
+// actionOptions 为可选字段（AI 可能不返回，前端已有兜底）。
+const ACTION_OPTIONS_INSTRUCTION = `【行动候选词】为以下每个行动生成2-3个候选词（动词开头，6-15字/个），候选词应基于当前叙事内容给出方向性提示，且必须围绕对应行动类型生成，供玩家下一步选择。只覆盖当前角色（年龄/境界）可用的行动，填入输出JSON的actionOptions字段：{"ACTION_ID":["候选词1","候选词2","候选词3"],...}
+凡人期行动：TALK 交谈、WANDER 闲逛、FREE 自由探索、LEARN 学习、ASK_TEACHER 请教老师、MAKE_FRIEND 交朋友、CHORES 做家务、HOMEWORK 做功课、PINYIN 学拼音、COUNTING 学数数、REST 休息、FAMILY_TIME 陪伴家人、READ_ALONE 独自阅读
+修仙期额外行动：MEDITATE 打坐、BREATHE 吐纳、EXPLORE 历练、STUDY 悟道、ALCHEMY 炼丹、SECLUSION 闭关`;
+
 // ── 1. 日常修炼 ───────────────────────────────────────────────────────────
 
 export async function generateDailyCultivationNarrative(params: {
@@ -42,8 +48,9 @@ export async function generateDailyCultivationNarrative(params: {
 【今日修炼】方式：${taskNames[params.taskType] || "修炼"}${params.taskDescription ? `，描述：${params.taskDescription}` : ""}
 
 要求：150-250字，结合当前地点氛围和附近人物，体现灵根和境界特点
+${ACTION_OPTIONS_INSTRUCTION}
 
-返回JSON：{"type":"DAILY_CULTIVATION","title":"标题","narrative":"正文","mood":"静/悟/燃","hint":"提示","goldChange":0,"effects":[]}`;
+返回JSON：{"type":"DAILY_CULTIVATION","title":"标题","narrative":"正文","mood":"静/悟/燃","hint":"提示","goldChange":0,"effects":[],"actionOptions":{"ACTION_ID":["候选词1","候选词2","候选词3"],...}}`;
 
   const stateCtx = buildStateContext(params.state);
   if (stateCtx) prompt += `\n\n${stateCtx}`;
@@ -104,7 +111,8 @@ export async function generateBreakthroughNarrative(params: {
 【突破】${scene}
 
 要求：${isNewRealm ? "300-500字，天地异动，结合地点氛围" : "200-300字，修为精进，结合地点氛围"}
-返回JSON：{"type":"BREAKTHROUGH","title":"标题","narrative":"正文","mood":"燃","hint":"建议","effects":[]}`;
+${ACTION_OPTIONS_INSTRUCTION}
+返回JSON：{"type":"BREAKTHROUGH","title":"标题","narrative":"正文","mood":"燃","hint":"建议","effects":[],"actionOptions":{"ACTION_ID":["候选词1","候选词2","候选词3"],...}}`;
 
   const stateCtx = buildStateContext(params.state);
   if (stateCtx) prompt += `\n\n${stateCtx}`;
@@ -155,7 +163,8 @@ export async function generateEncounterNarrative(params: {
 【修炼者】${params.cultivatorName}，灵根${params.spiritualRoot}，境界${params.realm} ${formatRealmLevel(params.realm, params.realmLevel)}
 
 要求：200-300字，结合当前地点氛围，给出3个选项（低/中/高风险）
-返回JSON：{"type":"ENCOUNTER","title":"标题","narrative":"场景","choices":[{"text":"选项","risk":"low/medium/high","hint":"提示"}],"mood":"奇/险","summary":"30字内概述","goldChange":0,"effects":[]}`;
+${ACTION_OPTIONS_INSTRUCTION}
+返回JSON：{"type":"ENCOUNTER","title":"标题","narrative":"场景","choices":[{"text":"选项","risk":"low/medium/high","hint":"提示"}],"mood":"奇/险","summary":"30字内概述","goldChange":0,"effects":[],"actionOptions":{"ACTION_ID":["候选词1","候选词2","候选词3"],...}}`;
 
   const stateCtx = buildStateContext(params.state);
   if (stateCtx) prompt += `\n\n${stateCtx}`;
@@ -241,8 +250,8 @@ ${params.freeInput ? `玩家描述：${params.freeInput}` : ""}
 【修为增长】${params.expGained > 0 ? `+${params.expGained}` : "无变化"}
 
 要求：200-350字，注意角色年龄与境界相符
-根据当前情境，为【${params.actionName}】行动生成2-3个候选短语（动词开头，6-15字/个），用于玩家下一步选择。
-返回JSON：{"type":"ACTION","title":"标题","narrative":"正文","mood":"静/悟/燃","hint":"提示","goldChange":0,"effects":[],"actionOptions":["选项1","选项2","选项3"]}`;
+${ACTION_OPTIONS_INSTRUCTION}
+返回JSON：{"type":"ACTION","title":"标题","narrative":"正文","mood":"静/悟/燃","hint":"提示","goldChange":0,"effects":[],"actionOptions":{"ACTION_ID":["候选词1","候选词2","候选词3"],...}}`;
 
   const stateCtx = buildStateContext(params.state);
   if (stateCtx) prompt += `\n\n${stateCtx}`;
@@ -294,7 +303,8 @@ export async function generateYearAdvanceNarrative(params: {
 【${params.cultivatorName}】${params.age}岁，灵根${params.spiritualRoot}，境界${params.realm} ${formatRealmLevel(params.realm, params.realmLevel)}
 
 要求：150-200字，回顾一年经历，展望新岁
-返回JSON：{"type":"YEAR_ADVANCE","title":"一岁一礼","narrative":"正文","mood":"悟","hint":"","summary":"30字内概述","effects":[]}`;
+${ACTION_OPTIONS_INSTRUCTION}
+返回JSON：{"type":"YEAR_ADVANCE","title":"一岁一礼","narrative":"正文","mood":"悟","hint":"","summary":"30字内概述","effects":[],"actionOptions":{"ACTION_ID":["候选词1","候选词2","候选词3"],...}}`;
 
   const stateCtx = buildStateContext(params.state);
   if (stateCtx) prompt += `\n\n${stateCtx}`;

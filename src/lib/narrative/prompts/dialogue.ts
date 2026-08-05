@@ -12,6 +12,12 @@ import {
 } from "@/lib/narrative";
 import { logger } from "@/lib/logger";
 
+// 行动候选词生成指令：每个叙事响应为当前可见行动生成候选词。
+// actionOptions 为可选字段（AI 可能不返回，前端已有兜底）。
+const ACTION_OPTIONS_INSTRUCTION = `【行动候选词】为以下每个行动生成2-3个候选词（动词开头，6-15字/个），候选词应基于当前叙事内容给出方向性提示，且必须围绕对应行动类型生成，供玩家下一步选择。只覆盖当前角色（年龄/境界）可用的行动，填入输出JSON的actionOptions字段：{"ACTION_ID":["候选词1","候选词2","候选词3"],...}
+凡人期行动：TALK 交谈、WANDER 闲逛、FREE 自由探索、LEARN 学习、ASK_TEACHER 请教老师、MAKE_FRIEND 交朋友、CHORES 做家务、HOMEWORK 做功课、PINYIN 学拼音、COUNTING 学数数、REST 休息、FAMILY_TIME 陪伴家人、READ_ALONE 独自阅读
+修仙期额外行动：MEDITATE 打坐、BREATHE 吐纳、EXPLORE 历练、STUDY 悟道、ALCHEMY 炼丹、SECLUSION 闭关`;
+
 // ── 1. NPC 对话 ───────────────────────────────────────────────────────────
 
 export async function generateNPCDialogue(params: {
@@ -28,7 +34,8 @@ export async function generateNPCDialogue(params: {
 【玩家】${params.cultivatorName}，境界${params.cultivatorRealm}${params.historySummary ? `，过往：${params.historySummary}` : ""}
 
 要求：200-300字，对话贴合NPC性格，可能给指点/礼物/任务
-返回JSON：{"type":"NPC_DIALOGUE","title":"与${params.npcName}的对话","narrative":"对话内容","mood":"？","npcMood":"友善/冷淡/严厉","reward":{...}或null","summary":"30字内概述","effects":[]}`;
+${ACTION_OPTIONS_INSTRUCTION}
+返回JSON：{"type":"NPC_DIALOGUE","title":"与${params.npcName}的对话","narrative":"对话内容","mood":"？","npcMood":"友善/冷淡/严厉","reward":{...}或null","summary":"30字内概述","effects":[],"actionOptions":{"ACTION_ID":["候选词1","候选词2","候选词3"],...}}`;
 
   try {
     const text = await callAI({
@@ -86,7 +93,8 @@ export async function generateFamilyDialogue(params: {
 ${recentHistory ? `【最近对话】\n${recentHistory}` : ""}
 
 要求：50-120字，口语化，亲密度高时亲切低时冷淡
-返回JSON：{"type":"FAMILY_DIALOGUE","title":"家庭对话","narrative":"对话内容","mood":"静","intimacyDelta":-5~5,"npcMood":"开心/生气/平淡/担忧","actionHint":"NPC可能行动","summary":"30字内概述","goldChange":0,"effects":[]}`;
+${ACTION_OPTIONS_INSTRUCTION}
+返回JSON：{"type":"FAMILY_DIALOGUE","title":"家庭对话","narrative":"对话内容","mood":"静","intimacyDelta":-5~5,"npcMood":"开心/生气/平淡/担忧","actionHint":"NPC可能行动","summary":"30字内概述","goldChange":0,"effects":[],"actionOptions":{"ACTION_ID":["候选词1","候选词2","候选词3"],...}}`;
 
   const stateCtx = buildStateContext(params.state);
   if (stateCtx) prompt += `\n\n${stateCtx}`;
