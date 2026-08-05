@@ -12,8 +12,16 @@ export const TEACHER_TYPE = "teacher";
 
 /** 老师名字池（姓氏+称谓，凡人化）。纯手写常量，禁用 AI 生成。 */
 export const TEACHER_NAMES: string[] = [
-  "王导师", "李夫子", "张老师", "陈先生", "赵师母", "周教习",
-  "吴先生", "郑师傅", "孙老师", "钱夫子",
+  "王导师",
+  "李夫子",
+  "张老师",
+  "陈先生",
+  "赵师母",
+  "周教习",
+  "吴先生",
+  "郑师傅",
+  "孙老师",
+  "钱夫子",
 ];
 
 /** 生成数量常量（手拍板：1-2 名）。 */
@@ -30,12 +38,10 @@ export const TEACHER_AVATARS: string[] = ["🧑‍🏫", "👨‍🏫", "👩‍
  */
 export function shouldGenerateTeachers(
   newAge: number,
-  relations: Record<string, NpcRelationData>,
+  relations: Record<string, NpcRelationData>
 ): boolean {
   const inWindow = newAge >= 6;
-  const hasTeacher = Object.values(relations).some(
-    (r) => r && r.type === TEACHER_TYPE,
-  );
+  const hasTeacher = Object.values(relations).some((r) => r && r.type === TEACHER_TYPE);
   return inWindow && !hasTeacher;
 }
 
@@ -62,12 +68,11 @@ function randomAvatar(): string {
  */
 export function generateTeachers(
   newAge: number,
-  relations: Record<string, NpcRelationData>,
+  relations: Record<string, NpcRelationData>
 ): Record<string, NpcRelationData> {
   if (!shouldGenerateTeachers(newAge, relations)) return relations;
 
-  const count =
-    TEACHER_MIN + Math.floor(Math.random() * (TEACHER_MAX - TEACHER_MIN + 1));
+  const count = TEACHER_MIN + Math.floor(Math.random() * (TEACHER_MAX - TEACHER_MIN + 1));
   const names = shuffle(TEACHER_NAMES).slice(0, count);
 
   const next: Record<string, NpcRelationData> = { ...relations };
@@ -99,15 +104,45 @@ export const TEACHER_RANK_BONUS_THRESHOLD = 70;
  * 取所有 type:"teacher" 条目中的最高 intimacy；
  * 若 ≥ 阈值则返回 +1（封顶由调用方 clamp），否则返回 0。
  */
-export function getTeacherRankBonus(
-  relations: Record<string, NpcRelationData>,
-): number {
-  const teachers = Object.values(relations).filter(
-    (r) => r && r.type === TEACHER_TYPE,
-  );
+export function getTeacherRankBonus(relations: Record<string, NpcRelationData>): number {
+  const teachers = Object.values(relations).filter((r) => r && r.type === TEACHER_TYPE);
   if (teachers.length === 0) return 0;
-  const maxIntimacy = Math.max(
-    ...teachers.map((t) => t.intimacy || 0),
-  );
+  const maxIntimacy = Math.max(...teachers.map((t) => t.intimacy || 0));
   return maxIntimacy >= TEACHER_RANK_BONUS_THRESHOLD ? 1 : 0;
 }
+
+/**
+ * 请教问题（设计 13.5 增长途径之一）：随机一位师长好感 +少量（默认 +2）。
+ * 无师长时原样返回（幂等、不修改入参）。
+ */
+export function askTeacherQuestion(
+  relations: Record<string, NpcRelationData>,
+  amount = 2
+): Record<string, NpcRelationData> {
+  const teachers = Object.entries(relations).filter(([, r]) => r && r.type === TEACHER_TYPE);
+  if (teachers.length === 0) return relations;
+  const [name, r] = teachers[Math.floor(Math.random() * teachers.length)];
+  return { ...relations, [name]: { ...r, intimacy: (r.intimacy || 0) + amount } };
+}
+
+/**
+ * 成绩联动（设计 13.5 增长途径之一）：竞赛/期末考拿奖 → 全体任课老师好感 +（默认 +10）。
+ * 无师长时原样返回（幂等、不修改入参）。
+ */
+export function rewardTeachersForAchievement(
+  relations: Record<string, NpcRelationData>,
+  intimacyGain = 10
+): Record<string, NpcRelationData> {
+  let changed = false;
+  const next: Record<string, NpcRelationData> = {};
+  for (const [name, r] of Object.entries(relations)) {
+    if (r && r.type === TEACHER_TYPE) {
+      next[name] = { ...r, intimacy: (r.intimacy || 0) + intimacyGain };
+      changed = true;
+    } else {
+      next[name] = r;
+    }
+  }
+  return changed ? next : relations;
+}
+

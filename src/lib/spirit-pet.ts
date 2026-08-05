@@ -2,6 +2,7 @@
 // 被 src/app/api/spirit-pet/route.ts 使用。
 
 import { consumeInventoryItem, type InventoryItem } from "./inventory-utils";
+import { safeJsonParse } from "./json-helper";
 
 export type { InventoryItem };
 
@@ -21,10 +22,13 @@ export const HATCH_COST_STONE = { amount: 20 };
 export function parseSpiritPets(raw: string | null | undefined): SpiritPet[] {
   if (!raw) return [];
   try {
-    const parsed: unknown = JSON.parse(raw);
+    const parsed: unknown = safeJsonParse(raw, []);
     if (!Array.isArray(parsed)) return [];
     return parsed
-      .filter((p): p is Record<string, unknown> => !!p && typeof p === "object" && typeof (p as { id?: unknown }).id === "string")
+      .filter(
+        (p): p is Record<string, unknown> =>
+          !!p && typeof p === "object" && typeof (p as { id?: unknown }).id === "string"
+      )
       .map(normalizePet);
   } catch {
     return [];

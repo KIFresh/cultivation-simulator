@@ -8,15 +8,22 @@ import { verifySession, SESSION_COOKIE_NAME } from "@/lib/session";
  */
 export function proxy(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-  const userId = verifySession(token);
+  const sessionUserId = verifySession(token);
+  const headers = new Headers(request.headers);
+  const clientUserId = headers.get("x-user-id");
 
-  if (userId) {
-    const headers = new Headers(request.headers);
-    headers.set("x-user-id", userId);
+  if (sessionUserId) {
+    headers.set("x-user-id", sessionUserId);
     return NextResponse.next({ request: { headers } });
   }
 
-  return NextResponse.next();
+  if (clientUserId && /^[a-zA-Z0-9\-_]+$/.test(clientUserId)) {
+    // 无有效会话时，允许携带格式合法的客户端身份头继续请求（由路由层 requireCultivator 决定是否接受）。
+    return NextResponse.next({ request: { headers } });
+  }
+
+  headers.delete("x-user-id");
+  return NextResponse.next({ request: { headers } });
 }
 
 export const config = {

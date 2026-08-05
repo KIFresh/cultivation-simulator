@@ -70,7 +70,8 @@ export default function WeatherPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-[#0b1020] to-[#10202b] text-[#e3f0f5] flex flex-col items-center px-4 py-10">
-      <TopNav /><div className="w-full max-w-2xl">
+      <TopNav />
+      <div className="w-full max-w-2xl">
         <button
           onClick={() => router.push("/dreams")}
           className="text-sm text-[#5B8aa8] hover:text-[#8fc2dd] mb-6 transition-colors"
@@ -104,9 +105,7 @@ export default function WeatherPage() {
                   </p>
                 </div>
               </div>
-              <p className="leading-relaxed text-[#cfe6f0] mb-3">
-                {payload.weather.weather.desc}
-              </p>
+              <p className="leading-relaxed text-[#cfe6f0] mb-3">{payload.weather.weather.desc}</p>
               <p className="text-xs text-[#5B8aa8] border-t border-[#234155] pt-3">
                 运势 · {payload.weather.fortune.label}：{payload.weather.fortune.desc}
               </p>
@@ -127,8 +126,7 @@ export default function WeatherPage() {
             {result && (
               <div className="mt-5 rounded-xl border border-[#234155] bg-[#0f1c26]/60 p-5">
                 <p className="text-sm text-[#7fa8c0] mb-1">
-                  {ACTION_LABELS[result.action]} · 心情{" "}
-                  {result.moodEffect >= 0 ? "+" : ""}
+                  {ACTION_LABELS[result.action]} · 心情 {result.moodEffect >= 0 ? "+" : ""}
                   {result.moodEffect}
                 </p>
                 <p className="leading-relaxed text-[#dcecf4]">{result.text}</p>

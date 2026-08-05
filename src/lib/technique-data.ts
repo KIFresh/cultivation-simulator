@@ -6,7 +6,17 @@
 export type TechniqueGrade = "凡" | "黄" | "玄" | "地" | "天";
 
 /** 可装备的最低境界 */
-export type TechniqueRealm = "凡人" | "炼气期" | "筑基期" | "结丹期" | "元婴期" | "化神期" | "炼虚期" | "合体期" | "大乘期" | "渡劫期";
+export type TechniqueRealm =
+  | "凡人"
+  | "炼气期"
+  | "筑基期"
+  | "结丹期"
+  | "元婴期"
+  | "化神期"
+  | "炼虚期"
+  | "合体期"
+  | "大乘期"
+  | "渡劫期";
 
 /** 效果类型 */
 export type EffectType = "cultivationSpeed" | "breakthroughRate" | "combat" | "daily";
@@ -19,6 +29,9 @@ export interface TechniqueEffect {
   description: string; // 显示文本，如 "修炼速度 +{value}%"
 }
 
+/** 功法分类 */
+export type TechniqueCategory = "功法" | "技艺";
+
 /** 功法定义 */
 export interface Technique {
   id: string;
@@ -27,6 +40,7 @@ export interface Technique {
   description: string;
   grade: TechniqueGrade;
   realm: TechniqueRealm;
+  category: TechniqueCategory;
   maxLevel: number;
   upgradeProficiency: number[]; // [100, 300] 表示2级需100熟练度，3级需300
   effects: TechniqueEffect[];
@@ -44,6 +58,7 @@ export const TECHNIQUES: Record<string, Technique> = {
     description: "最基础的呼吸吐纳之法，引灵气入体",
     grade: "凡",
     realm: "凡人",
+    category: "功法",
     maxLevel: 3,
     upgradeProficiency: [100, 300],
     effects: [
@@ -57,6 +72,7 @@ export const TECHNIQUES: Record<string, Technique> = {
     description: "剑修入门功法，奠定剑道根基",
     grade: "黄",
     realm: "炼气期",
+    category: "功法",
     maxLevel: 3,
     upgradeProficiency: [150, 400],
     effects: [
@@ -71,6 +87,7 @@ export const TECHNIQUES: Record<string, Technique> = {
     description: "以灵力护持心脉，增强体魄",
     grade: "黄",
     realm: "炼气期",
+    category: "功法",
     maxLevel: 3,
     upgradeProficiency: [120, 350],
     effects: [
@@ -85,6 +102,7 @@ export const TECHNIQUES: Record<string, Technique> = {
     description: "加快灵气汇聚速度",
     grade: "玄",
     realm: "筑基期",
+    category: "功法",
     maxLevel: 3,
     upgradeProficiency: [200, 500],
     effects: [
@@ -99,6 +117,7 @@ export const TECHNIQUES: Record<string, Technique> = {
     description: "引北斗七星之力，剑势凌厉",
     grade: "地",
     realm: "结丹期",
+    category: "功法",
     maxLevel: 3,
     upgradeProficiency: [400, 1000],
     effects: [
@@ -113,12 +132,56 @@ export const TECHNIQUES: Record<string, Technique> = {
     description: "传说中直指大道的无上功法",
     grade: "天",
     realm: "化神期",
+    category: "功法",
     maxLevel: 3,
     upgradeProficiency: [1000, 3000],
     effects: [
       { type: "cultivationSpeed", value: 50, perLevel: 25, description: "修炼速度 +{value}%" },
       { type: "breakthroughRate", value: 10, perLevel: 5, description: "突破概率 +{value}%" },
       { type: "combat", value: 30, perLevel: 15, description: "全属性 +{value}" },
+    ],
+  },
+  // 技艺类
+  herbalism: {
+    id: "herbalism",
+    name: "采药术",
+    icon: "🌿",
+    description: "辨识灵草，采集药材的基础技艺",
+    grade: "凡",
+    realm: "凡人",
+    category: "技艺",
+    maxLevel: 3,
+    upgradeProficiency: [80, 200],
+    effects: [
+      { type: "daily", value: 5, perLevel: 3, description: "采集效率 +{value}%" },
+    ],
+  },
+  alchemy_basic: {
+    id: "alchemy_basic",
+    name: "炼丹术",
+    icon: "⚗️",
+    description: "以丹炉炼制丹药，辅助修炼",
+    grade: "黄",
+    realm: "炼气期",
+    category: "技艺",
+    maxLevel: 3,
+    upgradeProficiency: [150, 400],
+    effects: [
+      { type: "daily", value: 10, perLevel: 5, description: "炼丹成功率 +{value}%" },
+    ],
+  },
+  smithing: {
+    id: "smithing",
+    name: "锻造术",
+    icon: "🔨",
+    description: "以灵火锻造法器，打造趁手兵刃",
+    grade: "玄",
+    realm: "筑基期",
+    category: "技艺",
+    maxLevel: 3,
+    upgradeProficiency: [200, 500],
+    effects: [
+      { type: "combat", value: 8, perLevel: 4, description: "装备属性 +{value}%" },
     ],
   },
 };
@@ -134,16 +197,21 @@ export const TECHNIQUES: Record<string, Technique> = {
  * - 升到满级时 proficiency 清 0
  */
 export function calcTechniqueProficiency(
-  actionType: 'action' | 'combat' | 'study',
+  actionType: "action" | "combat" | "study",
   realmName: string
 ): number {
   // 基础熟练度：境界越高理解越快
   const baseMap: Record<string, number> = {
-    '凡人': 10, '炼气期': 14, '筑基期': 18, '结丹期': 22, '元婴期': 26, '化神期': 30,
+    凡人: 10,
+    炼气期: 14,
+    筑基期: 18,
+    结丹期: 22,
+    元婴期: 26,
+    化神期: 30,
   };
   const base = baseMap[realmName] ?? 10;
   // 战斗 ×3，修炼 ×2，日常动作 ×1
-  const multiplier = actionType === 'combat' ? 3 : actionType === 'study' ? 2 : 1;
+  const multiplier = actionType === "combat" ? 3 : actionType === "study" ? 2 : 1;
   return base * multiplier * 2; // ×2 整体提速
 }
 
@@ -219,14 +287,46 @@ export interface StudyEvent {
 }
 
 const STUDY_EVENTS: StudyEvent[] = [
-  { title: "豁然开朗", narrative: "经脉中一股暖流涌动，原本晦涩难懂的功法口诀突然变得清晰明了，多年疑惑豁然开朗。", extraProf: 15 },
-  { title: "灵气共鸣", narrative: "周围的灵气仿佛受到牵引，与体内灵力产生共鸣，功法运转速度骤然加快。", extraProf: 12 },
-  { title: "神念入微", narrative: "神识沉入功法图谱之中，竟看到了之前从未注意到的细微灵纹走向，对功法的理解更深一层。", extraProf: 10 },
-  { title: "天人感应", narrative: "冥冥中一道灵光闪过脑海，仿佛有前辈高人的修炼心得在眼前浮现，对功法的感悟突飞猛进。", extraProf: 18 },
-  { title: "心随意转", narrative: "功法运转间，忽然进入了物我两忘的境地，灵力自行动转，熟练度大幅提升。", extraProf: 14 },
-  { title: "茅塞顿开", narrative: "盘坐良久，忽然脑海中一声轻响，对功法的困惑烟消云散，取而代之的是一片清明。", extraProf: 8 },
-  { title: "经脉贯通", narrative: "一股灵力冲开了平日里难以打通的细小经脉，功法运转的路线更加通畅无阻。", extraProf: 16 },
-  { title: "异象突现", narrative: "头顶三尺之处，隐约有灵光汇聚成莲花状，这是功法修炼到一定境界的外在表现。", extraProf: 20 },
+  {
+    title: "豁然开朗",
+    narrative: "经脉中一股暖流涌动，原本晦涩难懂的功法口诀突然变得清晰明了，多年疑惑豁然开朗。",
+    extraProf: 15,
+  },
+  {
+    title: "灵气共鸣",
+    narrative: "周围的灵气仿佛受到牵引，与体内灵力产生共鸣，功法运转速度骤然加快。",
+    extraProf: 12,
+  },
+  {
+    title: "神念入微",
+    narrative: "神识沉入功法图谱之中，竟看到了之前从未注意到的细微灵纹走向，对功法的理解更深一层。",
+    extraProf: 10,
+  },
+  {
+    title: "天人感应",
+    narrative: "冥冥中一道灵光闪过脑海，仿佛有前辈高人的修炼心得在眼前浮现，对功法的感悟突飞猛进。",
+    extraProf: 18,
+  },
+  {
+    title: "心随意转",
+    narrative: "功法运转间，忽然进入了物我两忘的境地，灵力自行动转，熟练度大幅提升。",
+    extraProf: 14,
+  },
+  {
+    title: "茅塞顿开",
+    narrative: "盘坐良久，忽然脑海中一声轻响，对功法的困惑烟消云散，取而代之的是一片清明。",
+    extraProf: 8,
+  },
+  {
+    title: "经脉贯通",
+    narrative: "一股灵力冲开了平日里难以打通的细小经脉，功法运转的路线更加通畅无阻。",
+    extraProf: 16,
+  },
+  {
+    title: "异象突现",
+    narrative: "头顶三尺之处，隐约有灵光汇聚成莲花状，这是功法修炼到一定境界的外在表现。",
+    extraProf: 20,
+  },
 ];
 
 export function getDefaultStudyNarrative(techniqueName: string): string {
@@ -239,7 +339,10 @@ export function getDefaultStudyNarrative(techniqueName: string): string {
  * @param techniqueName 功法名称
  * @returns 如果触发事件返回 StudyEvent，否则返回 null
  */
-export function triggerStudyEvent(insight: number, techniqueName: string): { event: StudyEvent; narrative: string } | null {
+export function triggerStudyEvent(
+  insight: number,
+  techniqueName: string
+): { event: StudyEvent; narrative: string } | null {
   const baseChance = 0.3;
   const insightBonus = insight * 0.02;
   const totalChance = Math.min(baseChance + insightBonus, 0.95);

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireCultivator } from "@/lib/auth-helpers";
+import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
+import { logger } from "@/lib/logger";
 
 interface RealmReward {
   attr?: string;
@@ -59,110 +61,111 @@ export async function GET(request: NextRequest) {
     if ("error" in auth) return auth.error;
     const cultivator = auth.cultivator;
 
-    const accessible = REALMS.filter(
-      (r) => realmIndex(r.reqRealm) <= realmIndex(cultivator.realm),
-    );
+    const accessible = REALMS.filter((r) => realmIndex(r.reqRealm) <= realmIndex(cultivator.realm));
 
-    return NextResponse.json({ realms: accessible, unlockedLocations: cultivator.unlockedLocations });
+    return NextResponse.json({
+      realms: accessible,
+      unlockedLocations: cultivator.unlockedLocations,
+    });
   } catch (error) {
-    console.error("获取秘境失败:", error);
+    logger.error("获取秘境失败:", error);
     return NextResponse.json({ error: "获取秘境失败" }, { status: 500 });
   }
 }
 
 // POST — 探索秘境
-export async function POST(request: NextRequest) {
-  try {
-    const auth = await requireCultivator(request);
-    if ("error" in auth) return auth.error;
-    const cultivator = auth.cultivator;
+async function postHandler(request: NextRequest) {
+  const auth = await requireCultivator(request);
+  if ("error" in auth) return auth.error;
+  const cultivator = auth.cultivator;
 
-    const body = await request.json();
-    const realm = REALMS.find((r) => r.id === body?.realmId);
-    if (!realm) {
-      return NextResponse.json({ error: "未找到该秘境" }, { status: 404 });
+  const body = await parseJsonBody(request);
+  const realm = REALMS.find((r) => r.id === body?.realmId);
+  if (!realm) {
+    return NextResponse.json({ error: "未找到该秘境" }, { status: 404 });
+  }
+  if (realmIndex(realm.reqRealm) > realmIndex(cultivator.realm)) {
+    return NextResponse.json(
+      { error: "修为不足，无法进入该秘境", success: false },
+      { status: 400 }
+    );
+  }
+  if (cultivator.stamina < 10) {
+    return NextResponse.json({ error: "体力不足，无法探索", success: false }, { status: 400 });
+  }
+
+  const dangerLevel = realm.danger === "高" ? 0.4 : realm.danger === "中" ? 0.6 : 0.8;
+  const success = Math.random() < dangerLevel;
+
+  let attrs: Record<string, number> = {};
+  if (cultivator.attributes) {
+    try {
+      attrs = JSON.parse(cultivator.attributes);
+    } catch {
+      attrs = {};
     }
-    if (realmIndex(realm.reqRealm) > realmIndex(cultivator.realm)) {
-      return NextResponse.json({ error: "修为不足，无法进入该秘境", success: false }, { status: 400 });
+  }
+
+  let inventory: { itemId: string; quantity: number; equipped: boolean }[] = [];
+  if (cultivator.inventory) {
+    try {
+      inventory = JSON.parse(cultivator.inventory);
+    } catch {
+      inventory = [];
     }
-    if (cultivator.stamina < 10) {
-      return NextResponse.json({ error: "体力不足，无法探索", success: false }, { status: 400 });
+  }
+
+  let goldChange = 0;
+  let gainedAttr: { attr: string; before: number; after: number } | null = null;
+
+  if (success && realm.reward) {
+    if (realm.reward.attr && realm.reward.value) {
+      const before = attrs[realm.reward.attr] ?? 0;
+      attrs[realm.reward.attr] = before + realm.reward.value;
+      gainedAttr = { attr: realm.reward.attr, before, after: attrs[realm.reward.attr] };
     }
-
-    const dangerLevel = realm.danger === "高" ? 0.4 : realm.danger === "中" ? 0.6 : 0.8;
-    const success = Math.random() < dangerLevel;
-
-    let attrs: Record<string, number> = {};
-    if (cultivator.attributes) {
-      try {
-        attrs = JSON.parse(cultivator.attributes);
-      } catch {
-        attrs = {};
-      }
-    }
-
-    let inventory: { itemId: string; quantity: number; equipped: boolean }[] = [];
-    if (cultivator.inventory) {
-      try {
-        inventory = JSON.parse(cultivator.inventory);
-      } catch {
-        inventory = [];
-      }
-    }
-
-    let goldChange = 0;
-    let gainedAttr: { attr: string; before: number; after: number } | null = null;
-
-    if (success && realm.reward) {
-      if (realm.reward.attr && realm.reward.value) {
-        const before = attrs[realm.reward.attr] ?? 0;
-        attrs[realm.reward.attr] = before + realm.reward.value;
-        gainedAttr = { attr: realm.reward.attr, before, after: attrs[realm.reward.attr] };
-      }
-      if (realm.reward.gold) goldChange += realm.reward.gold;
-      if (realm.reward.item) {
-        const existing = inventory.find((s) => s.itemId === realm.reward.item);
-        if (existing) existing.quantity += 1;
-        else inventory.push({ itemId: realm.reward.item as string, quantity: 1, equipped: false });
-      }
-
-      await prisma.cultivator.update({
-        where: { id: cultivator.id },
-        data: {
-          stamina: cultivator.stamina - 10,
-          attributes: JSON.stringify(attrs),
-          gold: goldChange ? { increment: goldChange } : undefined,
-          inventory: JSON.stringify(inventory),
-        },
-      });
-
-      return NextResponse.json({
-        success: true,
-        realm: realm.name,
-        outcome: "success",
-        message: `你在${realm.name}中有所收获！`,
-        gainedAttr,
-        goldGained: goldChange,
-        item: realm.reward.item ?? null,
-      });
+    if (realm.reward.gold) goldChange += realm.reward.gold;
+    if (realm.reward.item) {
+      const existing = inventory.find((s) => s.itemId === realm.reward.item);
+      if (existing) existing.quantity += 1;
+      else inventory.push({ itemId: realm.reward.item as string, quantity: 1, equipped: false });
     }
 
     await prisma.cultivator.update({
       where: { id: cultivator.id },
-      data: { stamina: cultivator.stamina - 10 },
+      data: {
+        stamina: { decrement: 10 },
+        attributes: JSON.stringify(attrs),
+        gold: goldChange ? { increment: goldChange } : undefined,
+        inventory: JSON.stringify(inventory),
+      },
     });
 
     return NextResponse.json({
       success: true,
       realm: realm.name,
-      outcome: "fail",
-      message: `探索${realm.name}遭遇不测，只得空手而返。`,
-      gainedAttr: null,
-      goldGained: 0,
-      item: null,
+      outcome: "success",
+      message: `你在${realm.name}中有所收获！`,
+      gainedAttr,
+      goldGained: goldChange,
+      item: realm.reward.item ?? null,
     });
-  } catch (error) {
-    console.error("探索秘境失败:", error);
-    return NextResponse.json({ error: "探索秘境失败" }, { status: 500 });
   }
+
+  await prisma.cultivator.update({
+    where: { id: cultivator.id },
+    data: { stamina: { decrement: 10 } },
+  });
+
+  return NextResponse.json({
+    success: true,
+    realm: realm.name,
+    outcome: "fail",
+    message: `探索${realm.name}遭遇不测，只得空手而返。`,
+    gainedAttr: null,
+    goldGained: 0,
+    item: null,
+  });
 }
+
+export const POST = withApiErrorHandling(postHandler);

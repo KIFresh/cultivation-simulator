@@ -93,7 +93,7 @@ export function strictExtractJson(text: string): StrictParseResult {
  */
 export function strictExtractAndValidate<T>(
   text: string,
-  validator: (data: unknown) => { success: boolean; data?: T; errors: string[] },
+  validator: (data: unknown) => { success: boolean; data?: T; errors: string[] }
 ): { success: boolean; data?: T; errors: string[] } {
   const { result, errors: parseErrors } = strictExtractJson(text);
   if (!result) {

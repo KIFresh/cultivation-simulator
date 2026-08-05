@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireCultivator } from "@/lib/auth-helpers";
 
 /**
  * @deprecated 年度推进接口已废弃。
@@ -8,11 +9,13 @@ import { NextRequest, NextResponse } from "next/server";
  * 移除时间：下次大版本清理时删除此文件。
  */
 export async function POST(_request: NextRequest) {
+  const auth = await requireCultivator(_request);
+  if ("error" in auth) return auth.error;
   return NextResponse.json(
     {
       error: "此接口已废弃，请使用 /api/advance-quarter",
       code: "GONE_ADVANCE_YEAR",
     },
-    { status: 410 },
+    { status: 410 }
   );
 }

@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -67,3 +68,6 @@ prisma/manual-add-indexes.sql
 
 # reasonix local state
 /.reasonix/
+docs/reasonix/
+/.playwright-cli/
+/prisma/backups/

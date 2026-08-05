@@ -2,6 +2,8 @@
 // 凡人期（earth）在 6 岁边界自动获得一只种子随机宠物；之后每年成长、亲密度缓慢自然增长。
 // 宠物状态存 cultivator.pet JSON。纯逻辑零 DB。
 
+import { safeJsonParse } from "./json-helper";
+
 export type PetType = "cat" | "dog" | "rabbit" | "bird" | "turtle";
 
 export interface PetState {
@@ -24,9 +26,19 @@ export const PET_ACQUIRE_AGE = 6;
 export const PET_TYPES: { key: PetType; label: string; icon: string; flavor: string }[] = [
   { key: "cat", label: "猫", icon: "🐱", flavor: "它蜷在窗台，尾巴尖一勾一勾，像在打量你的灵气。" },
   { key: "dog", label: "狗", icon: "🐶", flavor: "它摇着尾巴绕你转圈，仿佛认定你就是全世界。" },
-  { key: "rabbit", label: "兔", icon: "🐰", flavor: "它竖着长耳啃菜叶，三瓣嘴一动一动，煞是可爱。" },
+  {
+    key: "rabbit",
+    label: "兔",
+    icon: "🐰",
+    flavor: "它竖着长耳啃菜叶，三瓣嘴一动一动，煞是可爱。",
+  },
   { key: "bird", label: "鸟", icon: "🐦", flavor: "它站在你肩头叽叽喳喳，偶尔啄一下你的耳垂。" },
-  { key: "turtle", label: "龟", icon: "🐢", flavor: "它慢吞吞爬过手心，背甲凉凉的，出奇地让人安心。" },
+  {
+    key: "turtle",
+    label: "龟",
+    icon: "🐢",
+    flavor: "它慢吞吞爬过手心，背甲凉凉的，出奇地让人安心。",
+  },
 ];
 
 const PET_NAMES: Record<PetType, string[]> = {
@@ -61,7 +73,7 @@ function mulberry32(seed: number): () => number {
 export function parsePet(s?: string | null): PetState | null {
   if (!s) return null;
   try {
-    const o = JSON.parse(s) as Partial<PetState>;
+    const o = safeJsonParse(s, {} as Record<string, unknown>) as Partial<PetState>;
     if (o && typeof o.type === "string" && typeof o.intimacy === "number") {
       return o as PetState;
     }

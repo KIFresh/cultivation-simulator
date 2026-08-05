@@ -3,6 +3,8 @@
 // 里程碑是叙事节拍，无选项；推进引擎查表、未触发过则生成，写入 milestones 字段去重。
 // 现代都市修仙风格文案（与 mortal-events / narrative 基调一致）。
 
+import { safeJsonParse } from "./json-helper";
+
 export interface MilestoneInfo {
   id: string;
   age: number; // 触发年龄（整数岁，边界季 newAge）
@@ -84,7 +86,7 @@ export const MILESTONES_BY_AGE: Record<number, MilestoneInfo> = {
 export function parseMilestones(s?: string | null): string[] {
   if (!s) return [];
   try {
-    const o = JSON.parse(s);
+    const o = safeJsonParse(s, [] as any[]);
     return Array.isArray(o) ? o.filter((x) => typeof x === "string") : [];
   } catch {
     return [];
@@ -95,10 +97,7 @@ export function parseMilestones(s?: string | null): string[] {
  * 取某年龄应触发的里程碑（已触发则跳过）。
  * 仅年龄表命中且 id 未出现在 triggeredIds 中时返回；否则 null。
  */
-export function getMilestoneForAge(
-  age: number,
-  triggeredIds: string[] = [],
-): MilestoneInfo | null {
+export function getMilestoneForAge(age: number, triggeredIds: string[] = []): MilestoneInfo | null {
   const ms = MILESTONES_BY_AGE[age];
   if (!ms) return null;
   if (triggeredIds.includes(ms.id)) return null;
@@ -106,9 +105,6 @@ export function getMilestoneForAge(
 }
 
 /** 是否应在该年龄触发里程碑（便于调用方判断，无需拿对象）。 */
-export function shouldTriggerMilestone(
-  age: number,
-  triggeredIds: string[] = [],
-): boolean {
+export function shouldTriggerMilestone(age: number, triggeredIds: string[] = []): boolean {
   return getMilestoneForAge(age, triggeredIds) !== null;
 }

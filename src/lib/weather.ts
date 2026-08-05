@@ -1,3 +1,5 @@
+import { safeJsonParse } from "./json-helper";
+
 // 天时录：天气生成（确定性）+ 外出/打坐/观云行动结算。
 // 被 src/app/weather/page.tsx 与 __tests__/weather.test.ts 使用。
 // short-video 模块复用本模块的 BoonEntry 类型。
@@ -105,9 +107,11 @@ export function generateWeather(seed: { id: string; age: number; quarter: number
 export function resolveAction(
   cultivator: { id: string; age: number; quarter: number },
   weather: WeatherResult,
-  action: WeatherAction,
+  action: WeatherAction
 ): ActionResult {
-  const rng = rngFromSeed(`act|${cultivator.id}|${cultivator.age}|${cultivator.quarter}|${weather.weather.key}|${action}`);
+  const rng = rngFromSeed(
+    `act|${cultivator.id}|${cultivator.age}|${cultivator.quarter}|${weather.weather.key}|${action}`
+  );
   let moodEffect = 0;
   let text = "";
   let boon: BoonEntry | undefined;
@@ -126,9 +130,19 @@ export function resolveAction(
       moodEffect = 1;
       text = "信步闲游，市井烟火入眼，心情微悦。";
       if (weather.isSpecial && weather.specialKey === "temper" && rng() < 0.25) {
-        boon = { ts: Date.now(), season: weather.season, title: "引雷淬体", detail: "雷声中，一丝雷气钻入经脉。" };
+        boon = {
+          ts: Date.now(),
+          season: weather.season,
+          title: "引雷淬体",
+          detail: "雷声中，一丝雷气钻入经脉。",
+        };
       } else if (weather.isSpecial && weather.specialKey === "lost" && rng() < 0.25) {
-        boon = { ts: Date.now(), season: weather.season, title: "迷路遇仙缘", detail: "雾中迷路，误入一处洞天。" };
+        boon = {
+          ts: Date.now(),
+          season: weather.season,
+          title: "迷路遇仙缘",
+          detail: "雾中迷路，误入一处洞天。",
+        };
       }
     }
   }
@@ -149,10 +163,11 @@ export function loadBoons(userId: string): BoonEntry[] {
   try {
     const raw = storage.getItem(BOON_STORAGE_PREFIX + userId);
     if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
+    const parsed = safeJsonParse(raw, [] as BoonEntry[]);
     if (!Array.isArray(parsed)) return [];
     return parsed.filter(
-      (b): b is BoonEntry => !!b && typeof b === "object" && typeof (b as { title?: unknown }).title === "string",
+      (b): b is BoonEntry =>
+        !!b && typeof b === "object" && typeof (b as { title?: unknown }).title === "string"
     );
   } catch {
     return [];

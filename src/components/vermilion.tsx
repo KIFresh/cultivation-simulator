@@ -17,22 +17,22 @@ export function VermilionShell({ children }: { children: React.ReactNode }) {
       />
       <style jsx global>{`
         :root {
-          --vermilion-main: #B83227;
-          --vermilion-dark: #7A1F18;
-          --vermilion-light: #FDF2F0;
-          --amber-gold: #D49B4B;
-          --amber-light: #FAF4EB;
-          --ink-dark: #2C1E1E;
-          --paper-bg: #FAF7F3;
-          --card-bg: #FFFFFF;
-          --border-color: #EADCD0;
+          --vermilion-main: #b83227;
+          --vermilion-dark: #7a1f18;
+          --vermilion-light: #fdf2f0;
+          --amber-gold: #d49b4b;
+          --amber-light: #faf4eb;
+          --ink-dark: #2c1e1e;
+          --paper-bg: #faf7f3;
+          --card-bg: #ffffff;
+          --border-color: #eadcd0;
         }
         body {
           background-color: var(--paper-bg);
           color: var(--ink-dark);
         }
         .font-calligraphy {
-          font-family: 'Ma Shan Zheng', 'STKaiti', 'KaiTi', '楷体', '华文行楷', cursive, serif;
+          font-family: "Ma Shan Zheng", "STKaiti", "KaiTi", "楷体", "华文行楷", cursive, serif;
         }
         .silk-card {
           background-color: var(--card-bg);
@@ -48,22 +48,38 @@ export function VermilionShell({ children }: { children: React.ReactNode }) {
           background-color: var(--vermilion-main);
         }
         @keyframes sealDrop {
-          0% { transform: scale(1.4) rotate(8deg); opacity: 0; }
-          100% { transform: scale(1) rotate(-3deg); opacity: 0.95; }
+          0% {
+            transform: scale(1.4) rotate(8deg);
+            opacity: 0;
+          }
+          100% {
+            transform: scale(1) rotate(-3deg);
+            opacity: 0.95;
+          }
         }
         .seal-mark {
           animation: sealDrop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.2) forwards;
         }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--vermilion-light); border-radius: 10px; }
+        ::-webkit-scrollbar {
+          width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+          background: var(--vermilion-light);
+          border-radius: 10px;
+        }
         .main-container {
           max-width: 860px;
           margin: 0 auto;
           padding: 1.5rem 1rem;
         }
       `}</style>
-      <main className="min-h-screen" style={{ backgroundColor: "var(--paper-bg)", color: "var(--ink-dark)" }}>
+      <main
+        className="min-h-screen"
+        style={{ backgroundColor: "var(--paper-bg)", color: "var(--ink-dark)" }}
+      >
         {children}
       </main>
     </>

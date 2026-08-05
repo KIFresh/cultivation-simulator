@@ -52,7 +52,9 @@ export default function TechniquePanel({ cultivatorId, open, onOpenChange }: Tec
 
   const getTech = (id: string) => allTech[id];
 
-  const equipped = records.filter((r) => r.equipSlot !== null).sort((a, b) => (a.equipSlot || 0) - (b.equipSlot || 0));
+  const equipped = records
+    .filter((r) => r.equipSlot !== null)
+    .sort((a, b) => (a.equipSlot || 0) - (b.equipSlot || 0));
   const unequipped = records.filter((r) => r.equipSlot === null);
 
   const handleEquip = async (techniqueId: string, slot: number) => {
@@ -99,11 +101,21 @@ export default function TechniquePanel({ cultivatorId, open, onOpenChange }: Tec
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center" onClick={() => onOpenChange(false)}>
-      <div className="bg-[#FDFBF7] w-full max-w-lg max-h-[80vh] rounded-t-2xl sm:rounded-2xl overflow-y-auto p-4 space-y-4" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center"
+      onClick={() => onOpenChange(false)}
+    >
+      <div
+        className="bg-[#FDFBF7] w-full max-w-lg max-h-[80vh] rounded-t-2xl sm:rounded-2xl overflow-y-auto p-4 space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-foreground">📖 功法 · 已装备 {equipped.length}/3</h2>
-          <button onClick={() => onOpenChange(false)} className="text-muted-foreground text-xl">✕</button>
+          <h2 className="text-lg font-bold text-foreground">
+            📖 功法 · 已装备 {equipped.length}/3
+          </h2>
+          <button onClick={() => onOpenChange(false)} className="text-muted-foreground text-xl">
+            ✕
+          </button>
         </div>
 
         {/* 装备槽位 */}
@@ -113,29 +125,53 @@ export default function TechniquePanel({ cultivatorId, open, onOpenChange }: Tec
             const record = equipped.find((r) => r.equipSlot === slot);
             const tech = record ? getTech(record.techniqueId) : null;
             return (
-              <div key={slot} className="border border-border bg-card rounded-lg p-3 flex items-center gap-3">
+              <div
+                key={slot}
+                className="border border-border bg-card rounded-lg p-3 flex items-center gap-3"
+              >
                 {tech ? (
                   <>
                     <span className="text-2xl">{tech.icon}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground">{tech.name} <span className="text-xs text-muted-foreground">Lv.{record!.level}</span></p>
+                      <p className="text-sm font-medium text-foreground">
+                        {tech.name}{" "}
+                        <span className="text-xs text-muted-foreground">Lv.{record!.level}</span>
+                      </p>
                       {tech.effects.map((e, i) => (
-                        <p key={i} className="text-xs text-muted-foreground">{getEffectText(e, record!.level)}</p>
+                        <p key={i} className="text-xs text-muted-foreground">
+                          {getEffectText(e, record!.level)}
+                        </p>
                       ))}
                       <div className="flex items-center gap-1 mt-1">
                         <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
-                          <div className="h-full bg-primary rounded-full" style={{
-                            width: `${(record!.proficiency / (tech.upgradeProficiency[record!.level - 1] || 1)) * 100}%`
-                          }} />
+                          <div
+                            className="h-full bg-primary rounded-full"
+                            style={{
+                              width: `${(record!.proficiency / (tech.upgradeProficiency[record!.level - 1] || 1)) * 100}%`,
+                            }}
+                          />
                         </div>
-                        <span className="text-[10px] text-muted-foreground">{record!.proficiency}/{tech.upgradeProficiency[record!.level - 1] || "MAX"}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {record!.proficiency}/
+                          {tech.upgradeProficiency[record!.level - 1] || "MAX"}
+                        </span>
                       </div>
                     </div>
-                    <Button size="sm" variant="outline" className="h-7 text-xs shrink-0" onClick={() => handleUnequip(slot)} disabled={loading}>卸下</Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs shrink-0"
+                      onClick={() => handleUnequip(slot)}
+                      disabled={loading}
+                    >
+                      卸下
+                    </Button>
                   </>
                 ) : (
                   <>
-                    <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">□</div>
+                    <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
+                      □
+                    </div>
                     <span className="text-sm text-muted-foreground flex-1">空槽位 {slot}</span>
                   </>
                 )}
@@ -152,18 +188,34 @@ export default function TechniquePanel({ cultivatorId, open, onOpenChange }: Tec
               const tech = getTech(r.techniqueId);
               if (!tech) return null;
               return (
-                <div key={r.id} className="border border-border bg-card rounded-lg p-3 flex items-center gap-3">
+                <div
+                  key={r.id}
+                  className="border border-border bg-card rounded-lg p-3 flex items-center gap-3"
+                >
                   <span className="text-2xl">{tech.icon}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground">{tech.name} <span className="text-xs text-muted-foreground">Lv.{r.level}</span></p>
+                    <p className="text-sm font-medium text-foreground">
+                      {tech.name}{" "}
+                      <span className="text-xs text-muted-foreground">Lv.{r.level}</span>
+                    </p>
                     <p className="text-xs text-muted-foreground">{tech.description}</p>
                     {tech.effects.map((e, i) => (
-                      <p key={i} className="text-xs text-muted-foreground">{getEffectText(e, r.level)}</p>
+                      <p key={i} className="text-xs text-muted-foreground">
+                        {getEffectText(e, r.level)}
+                      </p>
                     ))}
                   </div>
                   <div className="flex gap-1 shrink-0">
                     {[1, 2, 3].map((s) => (
-                      <Button key={s} size="sm" variant="outline" className="h-7 w-7 text-xs p-0" disabled={loading || !!equipped.find(e => e.equipSlot === s)} onClick={() => handleEquip(r.techniqueId, s)} title={`装备到槽位${s}`}>
+                      <Button
+                        key={s}
+                        size="sm"
+                        variant="outline"
+                        className="h-7 w-7 text-xs p-0"
+                        disabled={loading || !!equipped.find((e) => e.equipSlot === s)}
+                        onClick={() => handleEquip(r.techniqueId, s)}
+                        title={`装备到槽位${s}`}
+                      >
                         {s}
                       </Button>
                     ))}

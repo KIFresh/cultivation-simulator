@@ -33,9 +33,7 @@ export default function CliquePanel() {
           可前往地点
         </p>
         {locations.length === 0 ? (
-          <p className="text-xs text-muted-foreground text-center py-2">
-            暂无已解锁的地点
-          </p>
+          <p className="text-xs text-muted-foreground text-center py-2">暂无已解锁的地点</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {locations.map((loc) => {

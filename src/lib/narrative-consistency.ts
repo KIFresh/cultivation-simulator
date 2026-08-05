@@ -31,7 +31,7 @@ export interface ConsistencyReport {
 /** 检查主角姓名是否与快照一致 */
 export function checkNameConsistency(
   narrativeText: string,
-  snapshotName: string,
+  snapshotName: string
 ): ConsistencyViolation | null {
   // 允许叙文中使用全名、爱称或"我/他/她"
   const nameInText = narrativeText.includes(snapshotName);
@@ -46,12 +46,13 @@ export function checkNameConsistency(
 export function checkLocationConsistency(
   narrativeText: string,
   snapshotLocation: string,
-  snapshotLocationId: string,
+  snapshotLocationId: string
 ): ConsistencyViolation | null {
   // 检查叙文中是否提到了与快照地点明显不符的地点名
-  const forbiddenLocations = ["学校", "家", "野外", "洞府", "坊市", "市区", "幼儿园"]
-    .filter((loc) => loc !== snapshotLocation);
-  
+  const forbiddenLocations = ["学校", "家", "野外", "洞府", "坊市", "市区", "幼儿园"].filter(
+    (loc) => loc !== snapshotLocation
+  );
+
   for (const loc of forbiddenLocations) {
     if (narrativeText.includes(loc)) {
       // 如果是否定上下文（"不在学校"、"没去学校"），不算违规
@@ -72,17 +73,17 @@ export function checkLocationConsistency(
 }
 
 /** 检查年龄一致性 */
-export function checkAgeConsistency(
-  age: number,
-  snapshotAge: number,
-): ConsistencyViolation | null {
+export function checkAgeConsistency(age: number, snapshotAge: number): ConsistencyViolation | null {
   // 出生叙事：年龄应为 0 或 1
   if (age <= 1 && snapshotAge === 1) return null; // 出生场景
   return null;
 }
 
 /** 检查 body.xxxId 未传入 */
-export function checkClientOverride(body: Record<string, unknown>, field: string): ConsistencyViolation | null {
+export function checkClientOverride(
+  body: Record<string, unknown>,
+  field: string
+): ConsistencyViolation | null {
   if (body[field] !== undefined) {
     return {
       field,
@@ -102,7 +103,7 @@ export function checkBirthConsistency(
     suggestedName?: string;
     family?: BirthFamilyMember[];
   },
-  snapshot: NarrativeStateSnapshot,
+  snapshot: NarrativeStateSnapshot
 ): ConsistencyViolation[] {
   const violations: ConsistencyViolation[] = [];
   const name = narrative.suggestedName || snapshot.name;
@@ -167,12 +168,16 @@ export function runConsistencyChecks(
     family?: BirthFamilyMember[];
   },
   snapshot: NarrativeStateSnapshot,
-  requestBody: Record<string, unknown>,
+  requestBody: Record<string, unknown>
 ): ConsistencyReport {
   const violations: ConsistencyViolation[] = [];
 
   // 1. 地点一致性
-  const locIssue = checkLocationConsistency(narrative.narrative, snapshot.location, snapshot.locationId);
+  const locIssue = checkLocationConsistency(
+    narrative.narrative,
+    snapshot.location,
+    snapshot.locationId
+  );
   if (locIssue) violations.push(locIssue);
 
   // 2. 出生叙事一致性

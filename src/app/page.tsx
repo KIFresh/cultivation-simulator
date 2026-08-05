@@ -16,6 +16,7 @@ export default function Home() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [userName, setUserName] = useState("");
   const [birthStream, setBirthStream] = useState("");
+  const [quickCreating, setQuickCreating] = useState(false);
   const { enabled, mounted } = useDevModeEnabled();
 
   useEffect(() => {
@@ -28,8 +29,8 @@ export default function Home() {
         setUserName(cachedName);
       } else {
         fetch("/api/cultivator?userId=" + uid)
-          .then(r => r.json())
-          .then(data => {
+          .then((r) => r.json())
+          .then((data) => {
             if (data.user?.name) {
               setUserName(data.user.name);
               localStorage.setItem("userDisplayName", data.user.name);
@@ -40,92 +41,189 @@ export default function Home() {
     }
   }, []);
 
-
   const handleQuickCreate = async () => {
-    // 随机出生资质
-    const births = [{id:"waste",p:5},{id:"mortal",p:8},{id:"elite",p:11},{id:"prodigy",p:14},{id:"monster",p:17},{id:"reborn",p:21},{id:"chosen",p:25}];
-    const birth = births[Math.floor(Math.random() * births.length)];
-    // 随机身份背景
-    const identities = [{id:"orphan",c:0},{id:"scholar",c:2},{id:"merchant",c:3},{id:"general",c:4},{id:"sect",c:5}];
-    const identity = identities[Math.floor(Math.random() * identities.length)];
-    // 随机灵根
-    const els = ["金","木","水","火","土"]; const qs = ["上品","中品","下品"];
-    const root = Math.random() > 0.1 ? `${els[Math.floor(Math.random()*5)]}_${qs[Math.floor(Math.random()*3)]}` : "chaos";
-    // 随机天赋（在剩余预算内选取）
-    const talents = [{id:"protagonist",c:5},{id:"sword",c:4},{id:"pill",c:3},{id:"array",c:3},{id:"forge",c:3},{id:"treasure",c:4},{id:"body",c:2},{id:"mind",c:2}];
-    let budget = birth.p - identity.c - 2;
-    const selectedTalentIds: string[] = [];
-    for (const t of talents.sort(() => Math.random() - 0.5)) {
-      if (t.c <= budget) { selectedTalentIds.push(t.id); budget -= t.c; }
-    }
-    // 平均分配剩余属性点
-    const attrKeys = ["root","spirit","insight","luck","charm","mind"];
-    const attr: Record<string, number> = {};
-    const base = Math.floor(budget / 6);
-    const rem = budget % 6;
-    attrKeys.forEach((k, i) => { attr[k] = base + (i < rem ? 1 : 0); });
-    // 生成家庭
-    // 家庭由出生叙事生成并服务端落库，不预先创建随机家庭
-    // 快速生成 = 一键造一个与正常流程创建无异的全新角色。
-    // cs_session 是 HttpOnly cookie，前端 JS 无法清除；先调登出接口让服务端清掉旧会话，
-    // 保证后端按「全新用户」建号，而不是撞上已有修炼者返回 409。
-    await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
-    // 创建角色
-    const res = await fetch("/api/cultivator", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userName: `dev_${Date.now()}`, cultivatorName: "未命名", spiritualRoot: root, worldId: "earth", attributes: attr, gender: Math.random() > 0.5 ? "男" : "女" }) });
-    const data = await res.json();
-    if (!data.user) { toast.error("生成失败"); return; }
-    localStorage.setItem("userId", data.user.id);
-    localStorage.setItem("userDisplayName", data.user.name);
-    // attributes 已通过 API 写入 DB
-    // 生成出生叙事（由叙事决定家庭构成）
-    const identityName = { orphan:"山野遗孤", scholar:"书香门第", merchant:"商贾之子", general:"将门之后", sect:"散修传人" }[identity.id];
-    const birthBody = { userId: data.user.id, type: "BIRTH", worldName: "地球", identityName, age: 1, worldId: "earth" };
-    let lastBirthPayload: { params: unknown; gameEventId?: string | null } | undefined;
-    const genNarrative = async (): Promise<boolean> => {
-      const showRetry = () =>
-        new Promise<boolean>((resolve) => {
-          toast.error("出生叙事生成失败，请点击重试", {
-            action: { label: "重试", onClick: () => resolve(genNarrative()) },
+    if (quickCreating) return;
+    setQuickCreating(true);
+    try {
+      // 随机出生资质
+      const births = [
+        { id: "waste", p: 5 },
+        { id: "mortal", p: 8 },
+        { id: "elite", p: 11 },
+        { id: "prodigy", p: 14 },
+        { id: "monster", p: 17 },
+        { id: "reborn", p: 21 },
+        { id: "chosen", p: 25 },
+      ];
+      const birth = births[Math.floor(Math.random() * births.length)];
+      // 随机身份背景
+      const identities = [
+        { id: "orphan", c: 0 },
+        { id: "scholar", c: 2 },
+        { id: "merchant", c: 3 },
+        { id: "general", c: 4 },
+        { id: "sect", c: 5 },
+      ];
+      const identity = identities[Math.floor(Math.random() * identities.length)];
+      // 随机灵根
+      const els = ["金", "木", "水", "火", "土"];
+      const qs = ["上品", "中品", "下品"];
+      const root =
+        Math.random() > 0.1
+          ? `${els[Math.floor(Math.random() * 5)]}_${qs[Math.floor(Math.random() * 3)]}`
+          : "chaos";
+      // 随机天赋（在剩余预算内选取）
+      const talents = [
+        { id: "protagonist", c: 5 },
+        { id: "sword", c: 4 },
+        { id: "pill", c: 3 },
+        { id: "array", c: 3 },
+        { id: "forge", c: 3 },
+        { id: "treasure", c: 4 },
+        { id: "body", c: 2 },
+        { id: "mind", c: 2 },
+      ];
+      let budget = birth.p - identity.c - 2;
+      const selectedTalentIds: string[] = [];
+      for (const t of talents.sort(() => Math.random() - 0.5)) {
+        if (t.c <= budget) {
+          selectedTalentIds.push(t.id);
+          budget -= t.c;
+        }
+      }
+      // 平均分配剩余属性点
+      const attrKeys = ["root", "spirit", "insight", "luck", "charm", "mind"];
+      const attr: Record<string, number> = {};
+      const base = Math.floor(budget / 6);
+      const rem = budget % 6;
+      attrKeys.forEach((k, i) => {
+        attr[k] = base + (i < rem ? 1 : 0);
+      });
+      // 生成家庭
+      // 家庭由出生叙事生成并服务端落库，不预先创建随机家庭
+      // 快速生成 = 一键造一个与正常流程创建无异的全新角色。
+      // cs_session 是 HttpOnly cookie，前端 JS 无法清除；先调登出接口让服务端清掉旧会话，
+      // 保证后端按「全新用户」建号，而不是撞上已有修炼者返回 409。
+      await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+      // 创建角色
+      const res = await fetch("/api/cultivator", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userName: `dev_${Date.now()}`,
+          cultivatorName: "未命名",
+          spiritualRoot: root,
+          worldId: "earth",
+          attributes: attr,
+          gender: Math.random() > 0.5 ? "男" : "女",
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.user) {
+        throw new Error(data?.error || `角色生成失败（${res.status}）`);
+      }
+      if (!data.user.id) {
+        throw new Error("角色创建成功，但未返回用户 ID");
+      }
+      localStorage.setItem("userId", data.user.id);
+      localStorage.setItem("userDisplayName", data.user.name);
+      // attributes 已通过 API 写入 DB
+      // 生成出生叙事（由叙事决定家庭构成）
+      const identityName = {
+        orphan: "山野遗孤",
+        scholar: "书香门第",
+        merchant: "商贾之子",
+        general: "将门之后",
+        sect: "散修传人",
+      }[identity.id];
+      const birthBody = {
+        userId: data.user.id,
+        type: "BIRTH",
+        worldName: "地球",
+        identityName,
+        age: 1,
+        worldId: "earth",
+      };
+      let lastBirthPayload: { params: unknown; gameEventId?: string | null } | undefined;
+      const genNarrative = async (): Promise<boolean> => {
+        const showRetry = (message = "出生叙事生成失败，请稍后重试", requestId?: string) => {
+          // 角色已创建成功；重试必须复用这名角色，不能再次调用快速生成。
+          const diagnostic = requestId ? `${message}（请求 ID：${requestId}）` : message;
+          toast.error("出生叙事生成失败", {
+            description: diagnostic,
+            action: {
+              label: "重试叙事",
+              onClick: async () => {
+                setQuickCreating(true);
+                try {
+                  if (await genNarrative()) router.push("/dashboard");
+                } finally {
+                  setQuickCreating(false);
+                }
+              },
+            },
             duration: 10000,
           });
-        });
-      try {
-        let birthData: any = null;
-        let birthName: string | undefined;
-        if (lastBirthPayload) {
-          const r = await fetch("/api/narrative/retry", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ type: "BIRTH", params: lastBirthPayload.params, gameEventId: lastBirthPayload.gameEventId ?? undefined }),
-          });
-          birthData = await r.json().catch(() => null);
-          birthName = birthData?.narrative?.characterName;
-        } else {
-          const sr = await fetchStreamNarrative("/api/narrative?stream=true", birthBody, {
-            onChunk: (text: string) => setBirthStream((prev) => cleanNarrativeStream(prev + text)),
-          });
-          if (sr?.narrativeError) {
-            setBirthStream("");
-            lastBirthPayload = { params: sr.narrativeError.params, gameEventId: sr.narrativeError.gameEventId };
-            return showRetry();
+          return Promise.resolve(false);
+        };
+        try {
+          let birthData: any = null;
+          let birthName: string | undefined;
+          if (lastBirthPayload) {
+            const r = await fetch("/api/narrative/retry", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "x-user-id": data.user.id },
+              body: JSON.stringify({
+                type: "BIRTH",
+                params: lastBirthPayload.params,
+                gameEventId: lastBirthPayload.gameEventId ?? undefined,
+              }),
+            });
+            birthData = await r.json().catch(() => null);
+            birthName = birthData?.narrative?.characterName;
+          } else {
+            const sr = await fetchStreamNarrative("/api/narrative?stream=true", birthBody, {
+              onChunk: (text: string) =>
+                setBirthStream((prev) => cleanNarrativeStream(prev + text)),
+              headers: { "x-user-id": data.user.id },
+              signal: AbortSignal.timeout(30000),
+            });
+            if (sr?.narrativeError) {
+              setBirthStream("");
+              lastBirthPayload = {
+                params: sr.narrativeError.params,
+                gameEventId: sr.narrativeError.gameEventId,
+              };
+              return showRetry(sr.narrativeError.message, sr.narrativeError.requestId);
+            }
+            birthData = sr.narrative;
+            birthName = sr.characterName || sr.narrative?.characterName;
           }
-          birthData = sr.narrative;
-          birthName = sr.characterName || sr.narrative?.characterName;
-        }
-        if (birthData?.narrativeError) {
-          lastBirthPayload = { params: birthData.narrativeError.params, gameEventId: birthData.narrativeError.gameEventId };
+          if (birthData?.narrativeError) {
+            lastBirthPayload = {
+              params: birthData.narrativeError.params,
+              gameEventId: birthData.narrativeError.gameEventId,
+            };
+            return showRetry(birthData.narrativeError.message, birthData.narrativeError.requestId);
+          }
+          if (birthName && birthName.length >= 2 && birthName.length <= 10) {
+            localStorage.setItem("characterName", birthName);
+          }
+          setBirthStream("");
+          return true;
+        } catch {
+          setBirthStream("");
           return showRetry();
         }
-        if (birthName && birthName.length >= 2 && birthName.length <= 10) {
-          localStorage.setItem("characterName", birthName);
-        }
-        setBirthStream("");
-        return true;
-      } catch {
-        setBirthStream("");
-        return showRetry();
+      };
+      if (await genNarrative()) {
+        router.push("/dashboard");
       }
-    };
-    if (await genNarrative()) { router.push("/dashboard"); }
+    } catch {
+      toast.error("快速生成失败，请检查网络或服务配置");
+    } finally {
+      setQuickCreating(false);
+    }
   };
 
   const handleReset = async () => {
@@ -159,20 +257,29 @@ export default function Home() {
   };
 
   return (
-    <div
-      className="min-h-screen bg-[#FDFBF7] text-[#2C2C2C] relative overflow-x-hidden selection:bg-[#8F9A8A] selection:text-white"
-    >
+    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] relative overflow-x-hidden selection:bg-[var(--muted-foreground)] selection:text-[var(--background)]">
       {mounted && enabled && devMode && (
         <div className="fixed top-0 left-0 right-0 bg-orange-500 text-white text-xs text-center py-1 z-50 flex items-center justify-center gap-4">
           <span>DEV MODE</span>
-          <button onClick={handleQuickCreate} className="underline hover:no-underline">快速生成</button>
-          <button onClick={handleReset} className="underline hover:no-underline">重置数据</button>
-          <button onClick={handleExitDev} className="underline hover:no-underline">退出</button>
+          <button
+            onClick={handleQuickCreate}
+            disabled={quickCreating}
+            className="underline hover:no-underline disabled:opacity-60"
+          >
+            {quickCreating ? "生成中…" : "快速生成"}
+          </button>
+          <button onClick={handleReset} className="underline hover:no-underline">
+            重置数据
+          </button>
+          <button onClick={handleExitDev} className="underline hover:no-underline">
+            退出
+          </button>
         </div>
       )}
       {/* 局部内联动画样式 */}
-      <style dangerouslySetInnerHTML={{
-        __html: `
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
           .fade-in-up {
             opacity: 0;
             transform: translateY(30px);
@@ -187,26 +294,27 @@ export default function Home() {
               transform: translateY(0);
             }
           }
-        `
-      }} />
+        `,
+        }}
+      />
 
       {/* 装饰性背景：水墨晕染与祥云纹理 */}
       <div className="fixed inset-0 pointer-events-none z-0 opacity-40">
         {/* 左下角黛绿光晕 */}
-        <div className="absolute bottom-[-20%] left-[-10%] w-[40rem] h-[40rem] bg-[#8F9A8A] rounded-full blur-[120px] opacity-20"></div>
+        <div className="absolute bottom-[-20%] left-[-10%] w-[40rem] h-[40rem] bg-[var(--muted-foreground)] rounded-full blur-[120px] opacity-20"></div>
         {/* 右上角淡墨光晕 */}
-        <div className="absolute top-[-10%] right-[-5%] w-96 h-96 bg-[#2C2C2C] rounded-full blur-[100px] opacity-10"></div>
+        <div className="absolute top-[-10%] right-[-5%] w-96 h-96 bg-[var(--foreground)] rounded-full blur-[100px] opacity-10"></div>
 
         {/* 极简祥云 SVG 装饰 */}
         <svg
-          className="absolute top-12 right-12 text-[#8F9A8A] opacity-30 w-48 h-48"
+          className="absolute top-12 right-12 text-[var(--muted-foreground)] opacity-30 w-48 h-48"
           viewBox="0 0 100 100"
           fill="currentColor"
         >
           <path d="M70,45 A15,15 0 0,0 55,30 A20,20 0 0,0 20,40 A15,15 0 0,0 20,70 L70,70 A15,15 0 0,0 70,45 Z" />
         </svg>
         <svg
-          className="absolute bottom-32 left-12 text-[#8F9A8A] opacity-20 w-32 h-32 transform rotate-180"
+          className="absolute bottom-32 left-12 text-[var(--muted-foreground)] opacity-20 w-32 h-32 transform rotate-180"
           viewBox="0 0 100 100"
           fill="currentColor"
         >
@@ -219,7 +327,8 @@ export default function Home() {
           <div className="border border-border bg-card rounded-xl p-4 shadow-sm mb-4">
             <h3 className="font-bold text-foreground text-base">🍃 降生纪实</h3>
             <p className="text-foreground text-sm leading-relaxed whitespace-pre-wrap">
-              {birthStream}<span className="animate-pulse">▍</span>
+              {birthStream}
+              <span className="animate-pulse">▍</span>
             </p>
           </div>
         )}
@@ -227,18 +336,16 @@ export default function Home() {
         <nav className="flex justify-between items-center py-8 fade-in-up">
           <div className="flex items-center gap-3">
             {/* 模拟古风印章 */}
-            <div className="w-10 h-10 bg-[#8B2626] text-[#FDFBF7] flex flex-col items-center justify-center font-bold text-xs rounded-sm border-2 border-[#8B2626] transform -rotate-3 shadow-sm">
+            <div className="w-10 h-10 bg-[var(--destructive)] text-[var(--background)] flex flex-col items-center justify-center font-bold text-xs rounded-sm border-2 border-[var(--destructive)] transform -rotate-3 shadow-sm">
               <span className="leading-none">无</span>
               <span className="leading-none mt-1">尽</span>
             </div>
-            <span className="text-2xl font-black tracking-[0.2em] text-[#2C2C2C]">
-              无尽仙途
-            </span>
+            <span className="text-2xl font-black tracking-[0.2em] text-[var(--foreground)]">无尽仙途</span>
           </div>
           <div className="flex gap-8 items-center">
             <button
               onClick={() => setSettingsOpen(true)}
-              className="text-[#5C5C5C] hover:text-[#8B2626] transition-colors"
+              className="text-[var(--muted-foreground)] hover:text-[var(--destructive)] transition-colors"
               title="设置"
             >
               <Settings className="w-5 h-5" />
@@ -246,11 +353,11 @@ export default function Home() {
             {/* 对接 Next.js 路由的登录入口 */}
             {loggedIn ? (
               <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-[#5C5C5C]" />
-                <span className="text-[#5C5C5C] text-sm font-medium">{userName}</span>
+                <User className="w-4 h-4 text-[var(--muted-foreground)]" />
+                <span className="text-[var(--muted-foreground)] text-sm font-medium">{userName}</span>
                 <button
                   onClick={handleLogout}
-                  className="text-[#5C5C5C] hover:text-[#8B2626] transition-colors"
+                  className="text-[var(--muted-foreground)] hover:text-[var(--destructive)] transition-colors"
                   title="退出登录"
                 >
                   <LogOut className="w-3 h-3" />
@@ -259,12 +366,12 @@ export default function Home() {
             ) : (
               <Link
                 href="/login"
-                className="text-[#5C5C5C] hover:text-[#8B2626] transition-colors tracking-widest font-medium text-sm"
+                className="text-[var(--muted-foreground)] hover:text-[var(--destructive)] transition-colors tracking-widest font-medium text-sm"
               >
                 叩问仙门
               </Link>
             )}
-            <button className="px-6 py-2 border border-[#2C2C2C] text-[#2C2C2C] hover:bg-[#2C2C2C] hover:text-[#FDFBF7] transition-all duration-300 rounded-sm tracking-widest font-medium text-sm">
+            <button className="px-6 py-2 border border-[var(--foreground)] text-[var(--foreground)] hover:bg-[var(--foreground)] hover:text-[var(--background)] transition-all duration-300 rounded-sm tracking-widest font-medium text-sm">
               结缘预约
             </button>
           </div>
@@ -273,34 +380,36 @@ export default function Home() {
         {/* Hero 主视觉区域 */}
         <main className="mt-24 flex flex-col items-center text-center fade-in-up delay-200">
           <div className="mb-8 flex items-center justify-center gap-4">
-            <span className="h-[1px] w-12 bg-[#8F9A8A] opacity-60"></span>
-            <span className="text-[#8F9A8A] tracking-[0.4em] text-sm font-medium">
+            <span className="h-[1px] w-12 bg-[var(--muted-foreground)] opacity-60"></span>
+            <span className="text-[var(--muted-foreground)] tracking-[0.4em] text-sm font-medium">
               贰零贰陆 · 飞升之卷
             </span>
-            <span className="h-[1px] w-12 bg-[#8F9A8A] opacity-60"></span>
+            <span className="h-[1px] w-12 bg-[var(--muted-foreground)] opacity-60"></span>
           </div>
 
-          <h1 className="text-5xl md:text-7xl font-black text-[#2C2C2C] mb-10 leading-tight flex flex-col items-center tracking-widest">
+          <h1 className="text-5xl md:text-7xl font-black text-[var(--foreground)] mb-10 leading-tight flex flex-col items-center tracking-widest">
             <span className="mb-4">凡尘一念，</span>
             <span className="relative">
               可达天听。
-              <span className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 w-16 h-1 bg-[#8B2626]"></span>
+              <span className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 w-16 h-1 bg-[var(--destructive)]"></span>
             </span>
           </h1>
 
-          <p className="text-lg md:text-xl text-[#5C5C5C] max-w-2xl leading-loose mb-16 tracking-wide">
-            回归文字的本源，于素笺之上勾勒大道轮廓。<br />
-            在这里，没有繁复的霓虹，唯有清风明月，与你长生久视的执念。<br />
+          <p className="text-lg md:text-xl text-[var(--muted-foreground)] max-w-2xl leading-loose mb-16 tracking-wide">
+            回归文字的本源，于素笺之上勾勒大道轮廓。
+            <br />
+            在这里，没有繁复的霓虹，唯有清风明月，与你长生久视的执念。
+            <br />
             修仙，修的是心，亦是命。
           </p>
 
           {/* 水墨风格按钮，对接 Next.js 路由的创建角色/主页入口 */}
           <Link
             href={loggedIn ? "/dashboard" : "/login"}
-            className="relative group px-14 py-4 bg-transparent border-2 border-[#2C2C2C] text-[#2C2C2C] font-bold text-lg tracking-[0.3em] overflow-hidden transition-all duration-300 rounded-sm inline-block"
+            className="relative group px-14 py-4 bg-transparent border-2 border-[var(--foreground)] text-[var(--foreground)] font-bold text-lg tracking-[0.3em] overflow-hidden transition-all duration-300 rounded-sm inline-block"
           >
-            <div className="absolute inset-0 bg-[#2C2C2C] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-500 ease-in-out z-0"></div>
-            <span className="relative z-10 group-hover:text-[#FDFBF7] transition-colors duration-500 flex items-center gap-2">
+            <div className="absolute inset-0 bg-[var(--foreground)] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-500 ease-in-out z-0"></div>
+            <span className="relative z-10 group-hover:text-[var(--background)] transition-colors duration-500 flex items-center gap-2">
               叩问仙门
               <svg
                 className="w-5 h-5 transform group-hover:translate-x-2 transition-transform"
@@ -322,10 +431,10 @@ export default function Home() {
         {/* 游戏特色展示区 */}
         <div className="mt-40 grid grid-cols-1 md:grid-cols-3 gap-8 pb-32 fade-in-up delay-400">
           {/* 特色卡片 1 */}
-          <div className="group flex flex-col items-center text-center p-10 bg-[#F5F2E9] border border-[#E5E0D0] rounded-sm shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] relative hover:-translate-y-2 transition-all duration-500 cursor-default">
-            <div className="absolute top-0 left-0 w-full h-1 bg-[#8F9A8A] transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left"></div>
+          <div className="group flex flex-col items-center text-center p-10 bg-[var(--card)] border border-[var(--border)] rounded-sm shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] relative hover:-translate-y-2 transition-all duration-500 cursor-default">
+            <div className="absolute top-0 left-0 w-full h-1 bg-[var(--muted-foreground)] transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left"></div>
             <svg
-              className="w-14 h-14 mb-8 text-[#5C5C5C] group-hover:text-[#8F9A8A] transition-colors duration-500"
+              className="w-14 h-14 mb-8 text-[var(--muted-foreground)] group-hover:text-[var(--muted-foreground)] transition-colors duration-500"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -334,19 +443,17 @@ export default function Home() {
               <path d="M2 20L12 4L22 20Z" strokeLinejoin="round" />
               <path d="M12 20L18 10" strokeLinejoin="round" />
             </svg>
-            <h3 className="text-2xl font-bold text-[#2C2C2C] mb-4 tracking-widest">
-              寻道山海
-            </h3>
-            <p className="text-[#5C5C5C] leading-loose text-sm">
+            <h3 className="text-2xl font-bold text-[var(--foreground)] mb-4 tracking-widest">寻道山海</h3>
+            <p className="text-[var(--muted-foreground)] leading-loose text-sm">
               纵情大千世界，遍历奇山异水。机缘与斗争并存，你的因果，由此牵绊。
             </p>
           </div>
 
           {/* 特色卡片 2 */}
-          <div className="group flex flex-col items-center text-center p-10 bg-[#F5F2E9] border border-[#E5E0D0] rounded-sm shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] relative hover:-translate-y-2 transition-all duration-500 cursor-default md:translate-y-8">
-            <div className="absolute top-0 left-0 w-full h-1 bg-[#8B2626] transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left"></div>
+          <div className="group flex flex-col items-center text-center p-10 bg-[var(--card)] border border-[var(--border)] rounded-sm shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] relative hover:-translate-y-2 transition-all duration-500 cursor-default md:translate-y-8">
+            <div className="absolute top-0 left-0 w-full h-1 bg-[var(--destructive)] transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left"></div>
             <svg
-              className="w-14 h-14 mb-8 text-[#5C5C5C] group-hover:text-[#8B2626] transition-colors duration-500"
+              className="w-14 h-14 mb-8 text-[var(--muted-foreground)] group-hover:text-[var(--destructive)] transition-colors duration-500"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -359,21 +466,19 @@ export default function Home() {
                 opacity="0.2"
               />
               <circle cx="12" cy="6" r="1.5" fill="currentColor" />
-              <circle cx="12" cy="18" r="1.5" fill="#FDFBF7" />
+              <circle cx="12" cy="18" r="1.5" fill="var(--background)" />
             </svg>
-            <h3 className="text-2xl font-bold text-[#2C2C2C] mb-4 tracking-widest">
-              破劫飞升
-            </h3>
-            <p className="text-[#5C5C5C] leading-loose text-sm">
+            <h3 className="text-2xl font-bold text-[var(--foreground)] mb-4 tracking-widest">破劫飞升</h3>
+            <p className="text-[var(--muted-foreground)] leading-loose text-sm">
               体悟天地法则，历经九重天劫。从凡胎肉体至大罗金仙，步步惊心。
             </p>
           </div>
 
           {/* 特色卡片 3 */}
-          <div className="group flex flex-col items-center text-center p-10 bg-[#F5F2E9] border border-[#E5E0D0] rounded-sm shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] relative hover:-translate-y-2 transition-all duration-500 cursor-default">
-            <div className="absolute top-0 left-0 w-full h-1 bg-[#2C2C2C] transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left"></div>
+          <div className="group flex flex-col items-center text-center p-10 bg-[var(--card)] border border-[var(--border)] rounded-sm shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] relative hover:-translate-y-2 transition-all duration-500 cursor-default">
+            <div className="absolute top-0 left-0 w-full h-1 bg-[var(--foreground)] transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left"></div>
             <svg
-              className="w-14 h-14 mb-8 text-[#5C5C5C] group-hover:text-[#2C2C2C] transition-colors duration-500"
+              className="w-14 h-14 mb-8 text-[var(--muted-foreground)] group-hover:text-[var(--foreground)] transition-colors duration-500"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -384,16 +489,18 @@ export default function Home() {
               <path d="M9 7h6" strokeLinecap="round" />
               <path d="M9 11h8" strokeLinecap="round" />
             </svg>
-            <h3 className="text-2xl font-bold text-[#2C2C2C] mb-4 tracking-widest">
-              万卷归宗
-            </h3>
-            <p className="text-[#5C5C5C] leading-loose text-sm">
+            <h3 className="text-2xl font-bold text-[var(--foreground)] mb-4 tracking-widest">万卷归宗</h3>
+            <p className="text-[var(--muted-foreground)] leading-loose text-sm">
               博览上古残卷，融汇百家之长。不拘一格，自成一派，缔造你的专属功法。
             </p>
           </div>
         </div>
       </div>
-      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} onDevModeChange={setDevMode} />
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        onDevModeChange={setDevMode}
+      />
     </div>
   );
 }

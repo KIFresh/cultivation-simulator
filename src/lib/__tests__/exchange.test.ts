@@ -83,7 +83,12 @@ describe("跨阶段货币兑换 — 入参校验", () => {
   });
 
   it("无效灵石品级报错", () => {
-    const r = computeExchange("goldToStone", "none" as Exclude<ExchangeDirection, never> extends never ? never : any, 1, HAS);
+    const r = computeExchange(
+      "goldToStone",
+      "none" as Exclude<ExchangeDirection, never> extends never ? never : any,
+      1,
+      HAS
+    );
     expect(r.ok).toBe(false);
     expect(r.error).toContain("无效的灵石品级");
   });

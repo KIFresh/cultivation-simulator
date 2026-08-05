@@ -9,9 +9,14 @@ import { toast } from "sonner";
 
 export default function DevPage() {
   const router = useRouter();
-  const [dbStatus, setDbStatus] = useState<{ status: string; db: string; latencyMs?: number } | null>(null);
+  const [dbStatus, setDbStatus] = useState<{
+    status: string;
+    db: string;
+    latencyMs?: number;
+  } | null>(null);
   const [localData, setLocalData] = useState<Record<string, string>>({});
   const [showValues, setShowValues] = useState(false);
+  const [quickCreating, setQuickCreating] = useState(false);
 
   useEffect(() => {
     // 检查 dev mode
@@ -34,64 +39,135 @@ export default function DevPage() {
   }, [router]);
 
   const handleQuickCreate = async () => {
+    if (quickCreating) return;
+    setQuickCreating(true);
+    try {
     // 随机出生资质
-    const births = [{id:"waste",p:5},{id:"mortal",p:8},{id:"elite",p:11},{id:"prodigy",p:14},{id:"monster",p:17},{id:"reborn",p:21},{id:"chosen",p:25}];
+    const births = [
+      { id: "waste", p: 5 },
+      { id: "mortal", p: 8 },
+      { id: "elite", p: 11 },
+      { id: "prodigy", p: 14 },
+      { id: "monster", p: 17 },
+      { id: "reborn", p: 21 },
+      { id: "chosen", p: 25 },
+    ];
     const birth = births[Math.floor(Math.random() * births.length)];
     // 随机身份背景
-    const identities = [{id:"orphan",c:0},{id:"scholar",c:2},{id:"merchant",c:3},{id:"general",c:4},{id:"sect",c:5}];
+    const identities = [
+      { id: "orphan", c: 0 },
+      { id: "scholar", c: 2 },
+      { id: "merchant", c: 3 },
+      { id: "general", c: 4 },
+      { id: "sect", c: 5 },
+    ];
     const identity = identities[Math.floor(Math.random() * identities.length)];
     // 随机灵根
-    const els = ["金","木","水","火","土"]; const qs = ["上品","中品","下品"];
-    const root = Math.random() > 0.1 ? `${els[Math.floor(Math.random()*5)]}_${qs[Math.floor(Math.random()*3)]}` : "chaos";
+    const els = ["金", "木", "水", "火", "土"];
+    const qs = ["上品", "中品", "下品"];
+    const root =
+      Math.random() > 0.1
+        ? `${els[Math.floor(Math.random() * 5)]}_${qs[Math.floor(Math.random() * 3)]}`
+        : "chaos";
     // 随机天赋（在剩余预算内选取）
-    const talents = [{id:"protagonist",c:5},{id:"sword",c:4},{id:"pill",c:3},{id:"array",c:3},{id:"forge",c:3},{id:"treasure",c:4},{id:"body",c:2},{id:"mind",c:2}];
+    const talents = [
+      { id: "protagonist", c: 5 },
+      { id: "sword", c: 4 },
+      { id: "pill", c: 3 },
+      { id: "array", c: 3 },
+      { id: "forge", c: 3 },
+      { id: "treasure", c: 4 },
+      { id: "body", c: 2 },
+      { id: "mind", c: 2 },
+    ];
     let budget = birth.p - identity.c - 2;
     const selectedTalentIds: string[] = [];
     for (const t of talents.sort(() => Math.random() - 0.5)) {
-      if (t.c <= budget) { selectedTalentIds.push(t.id); budget -= t.c; }
+      if (t.c <= budget) {
+        selectedTalentIds.push(t.id);
+        budget -= t.c;
+      }
     }
     // 平均分配剩余属性点
-    const attrKeys = ["root","spirit","insight","luck","charm","mind"];
+    const attrKeys = ["root", "spirit", "insight", "luck", "charm", "mind"];
     const attr: Record<string, number> = {};
     const base = Math.floor(budget / 6);
     const rem = budget % 6;
-    attrKeys.forEach((k, i) => { attr[k] = base + (i < rem ? 1 : 0); });
+    attrKeys.forEach((k, i) => {
+      attr[k] = base + (i < rem ? 1 : 0);
+    });
     // 家庭由出生叙事生成，不预创建
     // 创建角色
-    const res = await fetch("/api/cultivator", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userName: `dev_${Date.now()}`, cultivatorName: `测试_${Date.now()}`, spiritualRoot: root, worldId: "earth" }) });
+    const res = await fetch("/api/cultivator", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userName: `dev_${Date.now()}`,
+        cultivatorName: `测试_${Date.now()}`,
+        spiritualRoot: root,
+        worldId: "earth",
+        attributes: attr,
+        gender: Math.random() > 0.5 ? "男" : "女",
+      }),
+    });
     const data = await res.json();
-    if (!data.user) { toast.error("生成失败"); return; }
+    if (!data.user) {
+      toast.error("生成失败");
+      return;
+    }
     localStorage.setItem("userId", data.user.id);
     localStorage.setItem("cultivatorName", data.user.cultivator.name);
     localStorage.setItem("attributes", JSON.stringify(attr));
     // 生成出生叙事（失败时弹重试按钮，不跳转）
-    const identityName = { orphan:"山野遗孤", scholar:"书香门第", merchant:"商贾之子", general:"将门之后", sect:"散修传人" }[identity.id];
+    const identityName = {
+      orphan: "山野遗孤",
+      scholar: "书香门第",
+      merchant: "商贾之子",
+      general: "将门之后",
+      sect: "散修传人",
+    }[identity.id];
     const genNarrative = async (): Promise<boolean> => {
       try {
         const r = await fetch("/api/narrative", {
-          method: "POST", headers: { "Content-Type": "application/json", "x-user-id": data.user.id },
-          body: JSON.stringify({ type: "BIRTH", worldName: "地球", identityName, age: 1, worldId: "earth" }),
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-user-id": data.user.id },
+          body: JSON.stringify({
+            type: "BIRTH",
+            worldName: "地球",
+            identityName,
+            age: 1,
+            worldId: "earth",
+          }),
         });
-        if (!r.ok) { const ed = await r.json().catch(() => ({})); throw new Error(ed.error || "出生叙事生成失败"); }
+        if (!r.ok) {
+          const ed = await r.json().catch(() => ({}));
+          throw new Error(ed.error || "出生叙事生成失败");
+        }
         return true;
-      } catch (err) {
-        console.error("出生叙事生成失败:", err);
+      } catch {
         return new Promise((resolve) => {
-          toast.error(`出生叙事生成失败: ${(err as Error).message}`, {
+          toast.error("出生叙事生成失败，请重试", {
             action: { label: "重试", onClick: () => resolve(genNarrative()) },
             duration: 10000,
           });
         });
       }
     };
-    if (await genNarrative()) { window.location.href = "/dashboard"; }
+    if (await genNarrative()) {
+      window.location.href = "/dashboard";
+    }
+    } finally {
+      setQuickCreating(false);
+    }
   };
 
   const handleReset = async () => {
     if (!window.confirm("确定要重置所有数据吗？此操作不可恢复")) return;
     localStorage.clear();
     // DELETE API 可能不存在，容错
-    try { await fetch("/api/cultivator", { method: "DELETE" }); } catch {}
+    try {
+      await fetch("/api/cultivator", { method: "DELETE" });
+    } catch {}
     toast.success("数据已重置");
     window.location.href = "/";
   };
@@ -124,35 +200,56 @@ export default function DevPage() {
         <div className="flex items-center justify-between pt-2">
           <button
             onClick={() => router.push("/dashboard")}
-            className="flex items-center gap-1 text-sm text-[#7A1F18] hover:text-[#B83227] transition-colors"
+            className="flex items-center gap-1 text-sm text-[var(--primary)] hover:text-[var(--destructive)] transition-colors"
           >
             <Home className="w-4 h-4" /> 返回
           </button>
-          <span className="text-xs font-bold text-[#B83227] bg-[#FDF2F0] px-2 py-0.5 rounded border border-[#B83227]/30">
+          <span className="text-xs font-bold text-[var(--destructive)] bg-[var(--muted)] px-2 py-0.5 rounded border border-[var(--destructive)]/30">
             DEV MODE
           </span>
         </div>
 
-        <h1 className="font-calligraphy text-2xl font-bold text-[#7A1F18] flex items-center gap-2">
-          <Wrench className="w-6 h-6 text-[#D49B4B]" /> 调试面板
+        <h1 className="font-calligraphy text-2xl font-bold text-[var(--primary)] flex items-center gap-2">
+          <Wrench className="w-6 h-6 text-[var(--ring)]" /> 调试面板
         </h1>
 
         {/* 快速操作 */}
         <div className="silk-card rounded-3xl p-6">
-          <h3 className="text-sm font-bold text-[#2C1E1E] flex items-center gap-2 pb-3 mb-3 border-b border-[#EADCD0]">
-            <Sparkles className="w-4 h-4 text-[#D49B4B]" /> 快速操作
+          <h3 className="text-sm font-bold text-[var(--foreground)] flex items-center gap-2 pb-3 mb-3 border-b border-[var(--border)]">
+            <Sparkles className="w-4 h-4 text-[var(--ring)]" /> 快速操作
           </h3>
           <div className="flex flex-wrap gap-2">
-            <button onClick={handleQuickCreate} className="px-4 py-2 rounded-xl bg-[#B83227] hover:bg-[#7A1F18] text-white text-sm font-medium transition-colors flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5" /> 快速生成角色
+            <button
+              onClick={handleQuickCreate}
+              disabled={quickCreating}
+              className="px-4 py-2 rounded-xl bg-[var(--destructive)] hover:bg-[var(--primary)] disabled:opacity-70 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors flex items-center gap-1.5"
+            >
+              {quickCreating ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" /> 生成中…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5" /> 快速生成角色
+                </>
+              )}
             </button>
-            <button onClick={handleReset} className="px-4 py-2 rounded-xl bg-red-50 text-red-600 border border-red-200 hover:bg-red-600 hover:text-white text-sm font-medium transition-colors flex items-center gap-1.5">
+            <button
+              onClick={handleReset}
+              className="px-4 py-2 rounded-xl bg-red-50 text-red-600 border border-red-200 hover:bg-red-600 hover:text-white text-sm font-medium transition-colors flex items-center gap-1.5"
+            >
               <Trash2 className="w-3.5 h-3.5" /> 重置所有数据
             </button>
-            <button onClick={handleClearLocal} className="px-4 py-2 rounded-xl bg-white text-[#B83227] border border-[#B83227]/30 hover:bg-[#FDF2F0] text-sm font-medium transition-colors flex items-center gap-1.5">
+            <button
+              onClick={handleClearLocal}
+              className="px-4 py-2 rounded-xl bg-[var(--card)] text-[var(--destructive)] border border-[var(--destructive)]/30 hover:bg-[var(--muted)] text-sm font-medium transition-colors flex items-center gap-1.5"
+            >
               <Trash2 className="w-3.5 h-3.5" /> 清空 localStorage
             </button>
-            <button onClick={handleRefresh} className="px-4 py-2 rounded-xl bg-white text-[#B83227] border border-[#B83227]/30 hover:bg-[#FDF2F0] text-sm font-medium transition-colors flex items-center gap-1.5">
+            <button
+              onClick={handleRefresh}
+              className="px-4 py-2 rounded-xl bg-[var(--card)] text-[var(--destructive)] border border-[var(--destructive)]/30 hover:bg-[var(--muted)] text-sm font-medium transition-colors flex items-center gap-1.5"
+            >
               <RefreshCw className="w-3.5 h-3.5" /> 刷新
             </button>
           </div>
@@ -160,14 +257,20 @@ export default function DevPage() {
 
         {/* 数据库状态 */}
         <div className="silk-card rounded-3xl p-6">
-          <h3 className="text-sm font-bold text-[#2C1E1E] flex items-center gap-2 pb-3 mb-3 border-b border-[#EADCD0]">
+          <h3 className="text-sm font-bold text-[var(--foreground)] flex items-center gap-2 pb-3 mb-3 border-b border-[var(--border)]">
             <Database className="w-4 h-4 text-blue-500" /> 数据库状态
           </h3>
           {dbStatus ? (
             <div className="text-xs space-y-1 text-gray-500">
               <p>
                 状态：{" "}
-                <span className={dbStatus.status === "ok" ? "text-emerald-600 font-medium" : "text-red-600 font-medium"}>
+                <span
+                  className={
+                    dbStatus.status === "ok"
+                      ? "text-emerald-600 font-medium"
+                      : "text-red-600 font-medium"
+                  }
+                >
                   {dbStatus.status === "ok" ? "✅ 正常" : "❌ 异常"}
                 </span>
               </p>
@@ -181,11 +284,14 @@ export default function DevPage() {
 
         {/* localStorage 数据 */}
         <div className="silk-card rounded-3xl p-6">
-          <h3 className="text-sm font-bold text-[#2C1E1E] flex items-center gap-2 justify-between pb-3 mb-3 border-b border-[#EADCD0]">
+          <h3 className="text-sm font-bold text-[var(--foreground)] flex items-center gap-2 justify-between pb-3 mb-3 border-b border-[var(--border)]">
             <span className="flex items-center gap-2">
               <Database className="w-4 h-4 text-emerald-600" /> localStorage
             </span>
-            <button onClick={() => setShowValues(!showValues)} className="text-gray-400 hover:text-[#2C1E1E] transition-colors">
+            <button
+              onClick={() => setShowValues(!showValues)}
+              className="text-gray-400 hover:text-[var(--foreground)] transition-colors"
+            >
               {showValues ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
             </button>
           </h3>
@@ -194,8 +300,11 @@ export default function DevPage() {
           ) : (
             <div className="text-xs space-y-1 max-h-60 overflow-y-auto">
               {Object.entries(localData).map(([key, value]) => (
-                <div key={key} className="flex gap-2 border-b border-[#EADCD0]/50 pb-1 last:border-0">
-                  <span className="font-medium text-[#2C1E1E] shrink-0 w-28 truncate">{key}</span>
+                <div
+                  key={key}
+                  className="flex gap-2 border-b border-[var(--border)]/50 pb-1 last:border-0"
+                >
+                  <span className="font-medium text-[var(--foreground)] shrink-0 w-28 truncate">{key}</span>
                   <span className="text-gray-500 truncate">
                     {showValues ? value : value.length > 50 ? `${value.slice(0, 50)}...` : value}
                   </span>

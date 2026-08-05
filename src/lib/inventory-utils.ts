@@ -2,6 +2,7 @@
 // 复用 cultivation-data 中已定义的 InventoryItem 类型，避免重复声明。
 
 import type { InventoryItem } from "./cultivation-data";
+import { safeJsonParse } from "./json-helper";
 
 export type { InventoryItem };
 
@@ -9,22 +10,24 @@ export type { InventoryItem };
 export function parseInventory(raw: string | null | undefined): InventoryItem[] {
   if (!raw) return [];
   try {
-    const parsed: unknown = JSON.parse(raw);
+    const parsed: unknown = safeJsonParse(raw, []);
     if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter(isInventoryItemLike)
-      .map((it) => ({
-        itemId: it.itemId,
-        quantity: Number(it.quantity) || 0,
-        equipped: Boolean(it.equipped),
-      }));
+    return parsed.filter(isInventoryItemLike).map((it) => ({
+      itemId: it.itemId,
+      quantity: Number(it.quantity) || 0,
+      equipped: Boolean(it.equipped),
+    }));
   } catch {
     return [];
   }
 }
 
-function isInventoryItemLike(v: unknown): v is { itemId: string; quantity: number; equipped: boolean } {
-  return typeof v === "object" && v !== null && typeof (v as { itemId?: unknown }).itemId === "string";
+function isInventoryItemLike(
+  v: unknown
+): v is { itemId: string; quantity: number; equipped: boolean } {
+  return (
+    typeof v === "object" && v !== null && typeof (v as { itemId?: unknown }).itemId === "string"
+  );
 }
 
 export function hasItemById(inv: InventoryItem[], itemId: string): boolean {
@@ -37,7 +40,7 @@ export function getItemById(inv: InventoryItem[], itemId: string): InventoryItem
 
 /** 解析属性对象（接受 JSON 字符串或已解析对象）。 */
 export function parseAttributes(
-  raw: string | null | undefined | Record<string, number>,
+  raw: string | null | undefined | Record<string, number>
 ): Record<string, number> {
   if (!raw) return {};
   if (typeof raw === "object" && !Array.isArray(raw)) {
@@ -45,7 +48,7 @@ export function parseAttributes(
   }
   if (typeof raw === "string") {
     try {
-      const parsed: unknown = JSON.parse(raw);
+      const parsed: unknown = safeJsonParse(raw, {});
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
         return coerceRecord(parsed as Record<string, unknown>);
       }
@@ -72,7 +75,7 @@ function coerceRecord(raw: Record<string, unknown>): Record<string, number> {
 export function consumeInventoryItem(
   inv: InventoryItem[],
   itemId: string,
-  qty: number,
+  qty: number
 ): InventoryItem[] | null {
   const target = inv.find((i) => i.itemId === itemId);
   if (!target || target.quantity < qty) return null;
@@ -86,4 +89,24 @@ export function consumeInventoryItem(
     if (remaining > 0) next.push({ ...i, quantity: remaining });
   }
   return next;
+}
+
+/**
+ * 将一组可能重复的 itemId 合并到背包中。
+ * 同 itemId 累加 quantity，不修改原输入数组。
+ */
+export function mergeInventoryItems(
+  inventory: InventoryItem[],
+  itemIds: string[]
+): InventoryItem[] {
+  const result = inventory.map((i) => ({ ...i }));
+  for (const itemId of itemIds) {
+    const existing = result.find((i) => i.itemId === itemId);
+    if (existing) {
+      existing.quantity += 1;
+    } else {
+      result.push({ itemId, quantity: 1, equipped: false });
+    }
+  }
+  return result;
 }

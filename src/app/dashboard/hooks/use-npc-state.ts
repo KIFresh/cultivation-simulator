@@ -2,31 +2,35 @@
 
 import { useState, useCallback } from "react";
 import type { CultivatorData } from "../types";
+import type { NPC } from "@/lib/cultivation-data";
 
 const STREAM_SPEED = 25;
 
+type NpcChatMessage = { role: string; content: string };
+type SyncData = Record<string, unknown>;
+
 export interface NpcChatState {
-  npcChat: any;
+  npcChat: NPC | null;
   npcMessage: string;
-  npcChatHistory: any[];
-  setNpcChat: (chat: any) => void;
+  npcChatHistory: NpcChatMessage[];
+  setNpcChat: (chat: NPC | null) => void;
   setNpcMessage: (msg: string) => void;
-  setNpcChatHistory: (history: any[]) => void;
+  setNpcChatHistory: (history: NpcChatMessage[]) => void;
   resetNpcChat: () => void;
   sendNpcMessage: (
     msg: string,
-    npcChat: any,
-    history: any[],
+    npcChat: NPC,
+    history: NpcChatMessage[],
     userId: string | null,
     cultivator: CultivatorData | null,
-    onDataSync: (data: any) => void
-  ) => Promise<void>;
+    onDataSync: (data: SyncData) => void
+  ) => Promise<SyncData | undefined>;
 }
 
-export function useNpcChat(onDataSync: (data: any) => void): NpcChatState {
-  const [npcChat, setNpcChat] = useState<any>(null);
+export function useNpcChat(onDataSync: (data: SyncData) => void): NpcChatState {
+  const [npcChat, setNpcChat] = useState<NPC | null>(null);
   const [npcMessage, setNpcMessage] = useState("");
-  const [npcChatHistory, setNpcChatHistory] = useState<any[]>([]);
+  const [npcChatHistory, setNpcChatHistory] = useState<NpcChatMessage[]>([]);
 
   const resetNpcChat = useCallback(() => {
     setNpcChat(null);
@@ -37,14 +41,14 @@ export function useNpcChat(onDataSync: (data: any) => void): NpcChatState {
   const sendNpcMessage = useCallback(
     async (
       msg: string,
-      chat: any,
-      history: any[],
+      chat: NPC,
+      history: NpcChatMessage[],
       userId: string | null,
       cultivator: CultivatorData | null,
-      sync: (data: any) => void
+      sync: (data: SyncData) => void
     ) => {
       if (!userId || !cultivator || !chat) return;
-      if (cultivator.stamina < 2) {
+      if (cultivator.stamina < 1) {
         return;
       }
       const res = await fetch(`/api/npc-chat`, {
@@ -57,7 +61,10 @@ export function useNpcChat(onDataSync: (data: any) => void): NpcChatState {
           history: [...history, { role: "player", content: msg }],
         }),
       });
-      const data = await res.json();
+      const data = (await res.json()) as SyncData;
+      if (!res.ok) {
+        return data;
+      }
       if (data.cultivator) sync({ cultivator: data.cultivator, syncFull: true });
       if (data.goldChanged) return;
       if (data.itemChanged) return;

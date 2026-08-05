@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NextRequest } from 'next/server';
-import { GET, POST } from '../encounter/route';
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { NextRequest } from "next/server";
+import { GET, POST } from "../encounter/route";
 
 const mockPrisma = vi.hoisted(() => ({
   user: { findUnique: vi.fn() },
@@ -18,76 +18,124 @@ const mockEncounterData = vi.hoisted(() => ({
     cultivationExp: stats.cultivationExp + 10,
     totalExp: stats.totalExp + 10,
     stamina: stats.stamina,
-    message: '奖励已发放',
+    message: "奖励已发放",
     specialItems: [],
   })),
   ENCOUNTER_POOL: [
-    { id: 'e1', title: '悬崖遇仙', narrative: '…', choices: [
-      { riskLevel: 'low', text: '谨慎', hint: '安全', rewards: [{ type: 'cultivationExp', value: 10, label: '+10修炼值' }], successNarrative: '…' },
-      { riskLevel: 'high', text: '冒险', hint: '高回报', rewards: [{ type: 'cultivationExp', value: 50, label: '+50修炼值' }], successNarrative: '…' },
-    ] },
+    {
+      id: "e1",
+      title: "悬崖遇仙",
+      narrative: "…",
+      choices: [
+        {
+          riskLevel: "low",
+          text: "谨慎",
+          hint: "安全",
+          rewards: [{ type: "cultivationExp", value: 10, label: "+10修炼值" }],
+          successNarrative: "…",
+        },
+        {
+          riskLevel: "high",
+          text: "冒险",
+          hint: "高回报",
+          rewards: [{ type: "cultivationExp", value: 50, label: "+50修炼值" }],
+          successNarrative: "…",
+        },
+      ],
+    },
   ],
 }));
 
-vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }));
-vi.mock('@/lib/encounter-data', () => mockEncounterData);
-vi.mock('@/lib/cultivation-data', () => ({
-  REALMS: [{ name: '凡人' }, { name: '炼气期' }],
+vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
+vi.mock("@/lib/encounter-data", () => mockEncounterData);
+vi.mock("@/lib/cultivation-data", () => ({
+  REALMS: [{ name: "凡人" }, { name: "炼气期" }],
   getItemById: vi.fn(() => null),
 }));
 
+const VALID_CUID = "c123456789012345678901234";
+
 const makeCultivator = (overrides: any = {}) => ({
-  id: 'c1', userId: 'u1', name: '测试', spiritualRoot: '火灵根',
-  realm: '炼气期', realmLevel: 1, cultivationExp: 100, totalExp: 200,
-  stamina: 50, gold: 100, inventory: '[]', age: 18, location: 'home',
-  storyEntries: '[]', breakthroughBuff: 0, maxAge: null, bonusAge: 0,
-  breakthroughCount: 0, reincarnationCount: 0, injuryDebuff: 0,
-  mindDemon: 0, talents: null, inheritedTalent: null, inheritedItems: null,
-  attributes: null, ...overrides,
+  id: "c1",
+  userId: VALID_CUID,
+  name: "测试",
+  spiritualRoot: "火灵根",
+  realm: "炼气期",
+  realmLevel: 1,
+  cultivationExp: 100,
+  totalExp: 200,
+  stamina: 50,
+  gold: 100,
+  inventory: "[]",
+  age: 18,
+  location: "home",
+  storyEntries: "[]",
+  breakthroughBuff: 0,
+  maxAge: null,
+  bonusAge: 0,
+  breakthroughCount: 0,
+  reincarnationCount: 0,
+  injuryDebuff: 0,
+  mindDemon: 0,
+  talents: null,
+  inheritedTalent: null,
+  inheritedItems: null,
+  attributes: null,
+  ...overrides,
 });
 
-const makeRequest = (url: string, body?: any): NextRequest => ({
-  url,
-  nextUrl: { searchParams: new URL(url).searchParams },
-  json: async () => body,
-}) as unknown as NextRequest;
+const makeRequest = (url: string, body?: any, headers?: Record<string, string>): NextRequest =>
+  ({
+    url,
+    nextUrl: { searchParams: new URL(url).searchParams },
+    json: async () => body,
+    headers: new Map(
+      Object.entries({
+        "x-user-id": headers?.["x-user-id"] ?? new URL(url).searchParams.get("userId") ?? "",
+      })
+    ) as unknown as Headers,
+  }) as unknown as NextRequest;
 
-describe('Encounter API - GET', () => {
+describe("Encounter API - GET", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', cultivator: makeCultivator() });
+    mockPrisma.user.findUnique.mockResolvedValue({ id: "u1", cultivator: makeCultivator() });
     mockPrisma.gameEvent.count.mockResolvedValue(0);
-    mockPrisma.gameEvent.create.mockResolvedValue({ id: 'evt1' });
+    mockPrisma.gameEvent.create.mockResolvedValue({ id: "evt1" });
     mockEncounterData.pickRandomEncounter.mockReturnValue({
-      id: 'e1', title: '悬崖遇仙', narrative: '…',
-      choices: [{ riskLevel: 'low', text: '谨慎', hint: '安全', rewards: [] }],
+      id: "e1",
+      title: "悬崖遇仙",
+      narrative: "…",
+      choices: [{ riskLevel: "low", text: "谨慎", hint: "安全", rewards: [] }],
     });
   });
 
-  it('缺少 userId 返回 400', async () => {
-    const res = await GET(makeRequest('http://localhost/api/encounter'));
+  it("缺少 userId 返回 401", async () => {
+    const res = await GET(makeRequest("http://localhost/api/encounter"));
     const d = await res.json();
-    expect(res.status).toBe(400);
-    expect(d.error).toBe('缺少 userId');
+    expect(res.status).toBe(401);
+    expect(d.error).toBe("未登录或会话无效");
   });
 
-  it('无 cultivator 返回 400', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', cultivator: null });
-    const res = await GET(makeRequest('http://localhost/api/encounter?userId=u1'));
-    expect(res.status).toBe(400);
+  it("无 cultivator 返回 404", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ id: VALID_CUID, cultivator: null });
+    const res = await GET(makeRequest("http://localhost/api/encounter?userId=" + VALID_CUID));
+    expect(res.status).toBe(404);
   });
 
-  it('手动探索超过 3 次返回未触发', async () => {
+  it("手动探索超过 3 次返回未触发", async () => {
     mockPrisma.gameEvent.count.mockResolvedValue(3);
-    const res = await GET(makeRequest('http://localhost/api/encounter?userId=u1&source=manual'));
+    const res = await GET(
+      makeRequest("http://localhost/api/encounter?userId=" + VALID_CUID + "&source=manual")
+    );
     const d = await res.json();
     expect(d.triggered).toBe(false);
-    expect(d.reason).toContain('机缘已尽');
+    expect(d.reason).toContain("机缘已尽");
   });
 
-  it('shouldTriggerEncounter 返回 false 时未触发', async () => {
+  it("shouldTriggerEncounter 返回 false 时未触发", async () => {
     mockEncounterData.shouldTriggerEncounter.mockReturnValue(false);
-    const res = await GET(makeRequest('http://localhost/api/encounter?userId=u1'));
+    const res = await GET(makeRequest("http://localhost/api/encounter?userId=" + VALID_CUID));
     const d = await res.json();
     expect(d.triggered).toBe(false);
     // 恢复默认实现
@@ -95,59 +143,86 @@ describe('Encounter API - GET', () => {
     mockEncounterData.shouldTriggerEncounter.mockImplementation(() => true);
   });
 
-  it('成功触发奇遇返回 eventId', async () => {
-    const res = await GET(makeRequest('http://localhost/api/encounter?userId=u1'));
+  it("成功触发奇遇返回 eventId", async () => {
+    const res = await GET(makeRequest("http://localhost/api/encounter?userId=" + VALID_CUID));
     const d = await res.json();
     expect(d.triggered).toBe(true);
-    expect(d.eventId).toBe('evt1');
+    expect(d.eventId).toBe("evt1");
     expect(d.encounter).toBeDefined();
   });
 });
 
-describe('Encounter API - POST', () => {
+describe("Encounter API - POST", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     const c = makeCultivator();
+    mockPrisma.user.findUnique.mockResolvedValue({ id: VALID_CUID, cultivator: c });
     mockPrisma.gameEvent.findUnique.mockResolvedValue({
-      id: 'evt1', cultivatorId: 'c1', type: 'ENCOUNTER',
-      title: '悬崖遇仙', chosenOption: null,
-      reward: JSON.stringify({ encounterId: 'e1' }),
+      id: "evt1",
+      cultivatorId: "c1",
+      type: "ENCOUNTER",
+      title: "悬崖遇仙",
+      chosenOption: null,
+      reward: JSON.stringify({ encounterId: "e1" }),
     });
     mockPrisma.cultivator.findUnique.mockResolvedValue(c);
     mockPrisma.$transaction.mockImplementation(async (txn: any) => {
-      if (typeof txn === 'function') {
+      if (typeof txn === "function") {
         return txn({
           cultivator: { update: vi.fn((a: any) => ({ ...c, ...a.data })) },
-          gameEvent: { update: vi.fn((a: any) => ({ id: 'evt1', ...a.data })) },
+          gameEvent: { update: vi.fn((a: any) => ({ id: "evt1", ...a.data })) },
         });
       }
-      return [c, { id: 'evt1' }];
+      return [c, { id: "evt1" }];
     });
   });
 
-  it('缺少必填参数返回 400', async () => {
-    const res = await POST(makeRequest('http://localhost', { userId: 'u1' }));
+  it("缺少必填参数返回 400", async () => {
+    const res = await POST(
+      makeRequest("http://localhost", { userId: VALID_CUID }, { "x-user-id": VALID_CUID })
+    );
     expect(res.status).toBe(400);
   });
 
-  it('无效选项索引返回 400', async () => {
-    const res = await POST(makeRequest('http://localhost', { eventId: 'evt1', userId: 'u1', choiceIndex: 5 }));
+  it("无效选项索引返回 400", async () => {
+    const res = await POST(
+      makeRequest(
+        "http://localhost",
+        { eventId: "evt1", userId: VALID_CUID, choiceIndex: 5 },
+        { "x-user-id": VALID_CUID }
+      )
+    );
     expect(res.status).toBe(400);
   });
 
-  it('已结算奇遇返回 400', async () => {
+  it("已结算奇遇返回 400", async () => {
     mockPrisma.gameEvent.findUnique.mockResolvedValue({
-      id: 'evt1', cultivatorId: 'c1', type: 'ENCOUNTER', chosenOption: 0,
+      id: "evt1",
+      cultivatorId: "c1",
+      type: "ENCOUNTER",
+      chosenOption: 0,
     });
-    const res = await POST(makeRequest('http://localhost', { eventId: 'evt1', userId: 'u1', choiceIndex: 0 }));
+    const res = await POST(
+      makeRequest(
+        "http://localhost",
+        { eventId: "evt1", userId: VALID_CUID, choiceIndex: 0 },
+        { "x-user-id": VALID_CUID }
+      )
+    );
     expect(res.status).toBe(400);
   });
 
-  it('成功选择低风险选项', async () => {
-    const res = await POST(makeRequest('http://localhost', { eventId: 'evt1', userId: 'u1', choiceIndex: 0 }));
+  it("成功选择低风险选项", async () => {
+    const res = await POST(
+      makeRequest(
+        "http://localhost",
+        { eventId: "evt1", userId: VALID_CUID, choiceIndex: 0 },
+        { "x-user-id": VALID_CUID }
+      )
+    );
     const d = await res.json();
     expect(res.status).toBe(200);
     expect(d.success).toBe(true);
-    expect(d.choice.riskLevel).toBe('low');
+    expect(d.choice.riskLevel).toBe("low");
   });
 });

@@ -52,7 +52,7 @@ export function techniqueIdFromName(name: string): string {
 
 export function checkFragmentSynthesis(
   inventory: InventoryItem[],
-  ownedTechniqueIds: string[],
+  ownedTechniqueIds: string[]
 ): CheckFragmentResult {
   const owned = new Set(ownedTechniqueIds);
   const details: SynthesisDetail[] = [];

@@ -5,45 +5,133 @@
 export type SpiritualRoot = "杂灵根" | "四灵根" | "三灵根" | "双灵根" | "异灵根" | "天灵根";
 
 export interface SpiritualRootInfo {
-  name: string; description: string; rarity: number;
-  speedBonus: number; color: string; element: string; quality?: string;
+  name: string;
+  description: string;
+  rarity: number;
+  speedBonus: number;
+  color: string;
+  element: string;
+  quality?: string;
 }
 
 const OLD_ROOTS: Record<string, SpiritualRootInfo> = {
-  "杂灵根": { name: "杂灵根", description: "五行俱全却无一突出，修炼速度最为缓慢", rarity: 1, speedBonus: 1.0, color: "#8B7355", element: "五行俱全" },
-  "四灵根": { name: "四灵根", description: "四属性灵根，修炼速度稍快", rarity: 2, speedBonus: 1.1, color: "#6B8E6B", element: "四属性" },
-  "三灵根": { name: "三灵根", description: "三种属性灵根，修炼速度中等", rarity: 2, speedBonus: 1.2, color: "#4A90D9", element: "三属性" },
-  "双灵根": { name: "双灵根", description: "两种属性相辅相成", rarity: 3, speedBonus: 1.3, color: "#9B59B6", element: "双属性" },
-  "异灵根": { name: "异灵根", description: "雷、冰、风等变异属性", rarity: 4, speedBonus: 1.4, color: "#E74C3C", element: "变异属性" },
-  "天灵根": { name: "天灵根", description: "单一纯属性灵根，天道垂青", rarity: 5, speedBonus: 1.5, color: "#F1C40F", element: "单一纯属性" },
+  杂灵根: {
+    name: "杂灵根",
+    description: "五行俱全却无一突出，修炼速度最为缓慢",
+    rarity: 1,
+    speedBonus: 1.0,
+    color: "#8B7355",
+    element: "五行俱全",
+  },
+  四灵根: {
+    name: "四灵根",
+    description: "四属性灵根，修炼速度稍快",
+    rarity: 2,
+    speedBonus: 1.1,
+    color: "#6B8E6B",
+    element: "四属性",
+  },
+  三灵根: {
+    name: "三灵根",
+    description: "三种属性灵根，修炼速度中等",
+    rarity: 2,
+    speedBonus: 1.2,
+    color: "#4A90D9",
+    element: "三属性",
+  },
+  双灵根: {
+    name: "双灵根",
+    description: "两种属性相辅相成",
+    rarity: 3,
+    speedBonus: 1.3,
+    color: "#9B59B6",
+    element: "双属性",
+  },
+  异灵根: {
+    name: "异灵根",
+    description: "雷、冰、风等变异属性",
+    rarity: 4,
+    speedBonus: 1.4,
+    color: "#E74C3C",
+    element: "变异属性",
+  },
+  天灵根: {
+    name: "天灵根",
+    description: "单一纯属性灵根，天道垂青",
+    rarity: 5,
+    speedBonus: 1.5,
+    color: "#F1C40F",
+    element: "单一纯属性",
+  },
 };
 
 const ELEMENT_MAP: Record<string, { icon: string; color: string }> = {
-  "金": { icon: "🔱", color: "#FFD700" }, "木": { icon: "🌿", color: "#4CAF50" },
-  "水": { icon: "💧", color: "#2196F3" }, "火": { icon: "🔥", color: "#FF5722" }, "土": { icon: "⛰️", color: "#8D6E63" },
+  金: { icon: "🔱", color: "#FFD700" },
+  木: { icon: "🌿", color: "#4CAF50" },
+  水: { icon: "💧", color: "#2196F3" },
+  火: { icon: "🔥", color: "#FF5722" },
+  土: { icon: "⛰️", color: "#8D6E63" },
 };
 const QUALITY_MAP: Record<string, { multiplier: number; rarity: number }> = {
-  "上品": { multiplier: 1.6, rarity: 5 }, "中品": { multiplier: 1.3, rarity: 3 }, "下品": { multiplier: 1.0, rarity: 2 },
+  上品: { multiplier: 1.6, rarity: 5 },
+  中品: { multiplier: 1.3, rarity: 3 },
+  下品: { multiplier: 1.0, rarity: 2 },
 };
-const NEW_ROOT_MAP: Record<string, { element: string; quality: string; multiplier: number; color: string }> = {};
+const NEW_ROOT_MAP: Record<
+  string,
+  { element: string; quality: string; multiplier: number; color: string }
+> = {};
 for (const [el, info] of Object.entries(ELEMENT_MAP)) {
   for (const [q, qInfo] of Object.entries(QUALITY_MAP)) {
-    NEW_ROOT_MAP[`${el}_${q}`] = { element: el, quality: q, multiplier: qInfo.multiplier, color: info.color };
+    NEW_ROOT_MAP[`${el}_${q}`] = {
+      element: el,
+      quality: q,
+      multiplier: qInfo.multiplier,
+      color: info.color,
+    };
   }
 }
-NEW_ROOT_MAP["chaos"] = { element: "五行杂灵根", quality: "凡品", multiplier: 0.2, color: "#607D8B" };
+NEW_ROOT_MAP["chaos"] = {
+  element: "五行杂灵根",
+  quality: "凡品",
+  multiplier: 0.2,
+  color: "#607D8B",
+};
 
-export const SPIRITUAL_ROOTS: Record<string, SpiritualRootInfo> = new Proxy({} as Record<string, SpiritualRootInfo>, {
-  get(_, key: string) {
-    if (OLD_ROOTS[key]) return OLD_ROOTS[key];
-    const n = NEW_ROOT_MAP[key];
-    if (n) return { name: key === "chaos" ? n.element : key, description: `${n.element} · ${n.quality}，修炼速度 ${n.multiplier}x`, rarity: QUALITY_MAP[n.quality]?.rarity ?? 1, speedBonus: n.multiplier, color: n.color, element: n.element, quality: n.quality };
-    return undefined;
-  },
-});
+export const SPIRITUAL_ROOTS: Record<string, SpiritualRootInfo> = new Proxy(
+  {} as Record<string, SpiritualRootInfo>,
+  {
+    get(_, key: string) {
+      if (OLD_ROOTS[key]) return OLD_ROOTS[key];
+      const n = NEW_ROOT_MAP[key];
+      if (n)
+        return {
+          name: key === "chaos" ? n.element : key,
+          description: `${n.element} · ${n.quality}，修炼速度 ${n.multiplier}x`,
+          rarity: QUALITY_MAP[n.quality]?.rarity ?? 1,
+          speedBonus: n.multiplier,
+          color: n.color,
+          element: n.element,
+          quality: n.quality,
+        };
+      return undefined;
+    },
+  }
+);
 
-export function getRootInfo(rootKey: string, talents?: string[], reincarnationCount = 0): SpiritualRootInfo {
-  const info = SPIRITUAL_ROOTS[rootKey] || { name: rootKey, description: "", rarity: 1, speedBonus: 1.0, color: "#8B7355", element: "未知" };
+export function getRootInfo(
+  rootKey: string,
+  talents?: string[],
+  reincarnationCount = 0
+): SpiritualRootInfo {
+  const info = SPIRITUAL_ROOTS[rootKey] || {
+    name: rootKey,
+    description: "",
+    rarity: 1,
+    speedBonus: 1.0,
+    color: "#8B7355",
+    element: "未知",
+  };
   // 前世记忆天赋：每世 +10% 修炼速度
   if (talents?.includes("前世记忆") && reincarnationCount > 0) {
     const bonus = 1 + reincarnationCount * 0.1;
@@ -52,24 +140,110 @@ export function getRootInfo(rootKey: string, talents?: string[], reincarnationCo
   return info;
 }
 
+export function formatSpiritualRootLabel(rootKey: string, info?: SpiritualRootInfo, realm?: string): string {
+  const rootInfo = info ?? getRootInfo(rootKey);
+  if (rootKey === "chaos") {
+    return realm === MORTAL_REALM ? "杂灵根 · 未觉醒" : "杂灵根";
+  }
+  // 新格式: 木_中品 → 木灵根 · 中品
+  const match = rootKey.match(/^(金|木|水|火|土)_(上品|中品|下品)$/);
+  if (match) {
+    const base = `${match[1]}灵根 · ${match[2]}`;
+    return realm === MORTAL_REALM ? `${base} · 未觉醒` : base;
+  }
+  return realm === MORTAL_REALM ? `${rootInfo.name} · 未觉醒` : rootInfo.name;
+}
+
 // ============================================================
 // 修炼境界
 // ============================================================
 export const MORTAL_REALM = "凡人";
-export function isAwakened(realm: string): boolean { return realm !== MORTAL_REALM; }
+export function isAwakened(realm: string): boolean {
+  return realm !== MORTAL_REALM;
+}
 
-export interface Realm { name: string; levels: number; expRequired: number; expIncrement: number; lifespan: string; description: string; }
+export interface Realm {
+  name: string;
+  levels: number;
+  expRequired: number;
+  expIncrement: number;
+  lifespan: string;
+  description: string;
+}
 
 export const REALMS: Realm[] = [
-  { name: "炼气期", levels: 13, expRequired: 50, expIncrement: 10, lifespan: "百岁", description: "引天地灵气入体，踏上修仙之路" },
-  { name: "筑基期", levels: 3, expRequired: 600, expIncrement: 300, lifespan: "二百余岁", description: "筑就道基，仙凡有别" },
-  { name: "结丹期", levels: 3, expRequired: 1500, expIncrement: 700, lifespan: "五百余岁", description: "凝结金丹，法力大增" },
-  { name: "元婴期", levels: 3, expRequired: 3500, expIncrement: 1500, lifespan: "千余岁", description: "碎丹成婴，元神初成" },
-  { name: "化神期", levels: 3, expRequired: 8000, expIncrement: 3500, lifespan: "两千余岁", description: "元婴化神，人界巅峰" },
-  { name: "炼虚期", levels: 3, expRequired: 18000, expIncrement: 8000, lifespan: "五千余岁", description: "炼神还虚，可飞升灵界" },
-  { name: "合体期", levels: 3, expRequired: 40000, expIncrement: 18000, lifespan: "万余岁", description: "法体合一" },
-  { name: "大乘期", levels: 3, expRequired: 90000, expIncrement: 40000, lifespan: "数万岁", description: "大道初成，万法归一" },
-  { name: "渡劫期", levels: 1, expRequired: 500000, expIncrement: 0, lifespan: "与天地同寿", description: "渡过天劫，飞升仙界" },
+  {
+    name: "炼气期",
+    levels: 13,
+    expRequired: 50,
+    expIncrement: 10,
+    lifespan: "百岁",
+    description: "引天地灵气入体，踏上修仙之路",
+  },
+  {
+    name: "筑基期",
+    levels: 3,
+    expRequired: 600,
+    expIncrement: 300,
+    lifespan: "二百余岁",
+    description: "筑就道基，仙凡有别",
+  },
+  {
+    name: "结丹期",
+    levels: 3,
+    expRequired: 1500,
+    expIncrement: 700,
+    lifespan: "五百余岁",
+    description: "凝结金丹，法力大增",
+  },
+  {
+    name: "元婴期",
+    levels: 3,
+    expRequired: 3500,
+    expIncrement: 1500,
+    lifespan: "千余岁",
+    description: "碎丹成婴，元神初成",
+  },
+  {
+    name: "化神期",
+    levels: 3,
+    expRequired: 8000,
+    expIncrement: 3500,
+    lifespan: "两千余岁",
+    description: "元婴化神，人界巅峰",
+  },
+  {
+    name: "炼虚期",
+    levels: 3,
+    expRequired: 18000,
+    expIncrement: 8000,
+    lifespan: "五千余岁",
+    description: "炼神还虚，可飞升灵界",
+  },
+  {
+    name: "合体期",
+    levels: 3,
+    expRequired: 40000,
+    expIncrement: 18000,
+    lifespan: "万余岁",
+    description: "法体合一",
+  },
+  {
+    name: "大乘期",
+    levels: 3,
+    expRequired: 90000,
+    expIncrement: 40000,
+    lifespan: "数万岁",
+    description: "大道初成，万法归一",
+  },
+  {
+    name: "渡劫期",
+    levels: 1,
+    expRequired: 500000,
+    expIncrement: 0,
+    lifespan: "与天地同寿",
+    description: "渡过天劫，飞升仙界",
+  },
 ];
 
 export const REALM_ORDER = ["凡人", ...REALMS.map((r) => r.name)];
@@ -83,23 +257,23 @@ export function getRealmIndex(realm: string): number {
 export function isRealmSufficient(realm: string, minRealm: string): boolean {
   const idx = getRealmIndex(realm);
   const minIdx = getRealmIndex(minRealm);
-  if (minIdx < 0) return true;   // 未知门槛，保守放行
-  if (idx < 0) return false;     // 未知当前境界，保守拒绝
+  if (minIdx < 0) return true; // 未知门槛，保守放行
+  if (idx < 0) return false; // 未知当前境界，保守拒绝
   return idx >= minIdx;
 }
 
 /** 各境界基础寿元（年） */
 const BASE_LIFESPAN: Record<string, number> = {
-  "凡人": 80,
-  "炼气期": 100,
-  "筑基期": 200,
-  "结丹期": 500,
-  "元婴期": 1000,
-  "化神期": 2000,
-  "炼虚期": 5000,
-  "合体期": 10000,
-  "大乘期": 50000,
-  "渡劫期": 999999,
+  凡人: 80,
+  炼气期: 100,
+  筑基期: 200,
+  结丹期: 500,
+  元婴期: 1000,
+  化神期: 2000,
+  炼虚期: 5000,
+  合体期: 10000,
+  大乘期: 50000,
+  渡劫期: 999999,
 };
 
 /** 计算修炼者的最大寿元 */
@@ -115,14 +289,30 @@ export function calculateMaxAge(
 }
 
 const LEVEL_LABELS: Record<number, string> = { 1: "初期", 2: "中期", 3: "后期" };
-const LIANQI_LABELS: Record<number, string> = { 1:"第一层",2:"第二层",3:"第三层",4:"第四层",5:"第五层",6:"第六层",7:"第七层",8:"第八层",9:"第九层",10:"第十层",11:"第十一层",12:"第十二层",13:"第十三层" };
+const LIANQI_LABELS: Record<number, string> = {
+  1: "第一层",
+  2: "第二层",
+  3: "第三层",
+  4: "第四层",
+  5: "第五层",
+  6: "第六层",
+  7: "第七层",
+  8: "第八层",
+  9: "第九层",
+  10: "第十层",
+  11: "第十一层",
+  12: "第十二层",
+  13: "第十三层",
+};
 
 export function formatRealmLevel(realmName: string, level: number): string {
   if (realmName === MORTAL_REALM) return "";
   if (realmName === "炼气期") return LIANQI_LABELS[level] ?? `第${level}层`;
   return LEVEL_LABELS[level] ?? `第${level}期`;
 }
-export function getCurrentRealm(realmName: string): Realm | undefined { return realmName === MORTAL_REALM ? undefined : REALMS.find((r) => r.name === realmName); }
+export function getCurrentRealm(realmName: string): Realm | undefined {
+  return realmName === MORTAL_REALM ? undefined : REALMS.find((r) => r.name === realmName);
+}
 export function getNextRealm(realmName: string): Realm | undefined {
   if (realmName === MORTAL_REALM) return REALMS[0];
   const idx = REALMS.findIndex((r) => r.name === realmName);
@@ -133,12 +323,18 @@ export function getRequiredExp(realmName: string, realmLevel: number): number {
   const realm = getCurrentRealm(realmName);
   return realm ? realm.expRequired + (realmLevel - 1) * realm.expIncrement : 100;
 }
-export function canBreakthrough(realmName: string, realmLevel: number, cultivationExp: number, _spiritualRoot: string, breakthroughBuff = 0): boolean {
+export function canBreakthrough(
+  realmName: string,
+  realmLevel: number,
+  cultivationExp: number,
+  _spiritualRoot: string,
+  breakthroughBuff = 0
+): boolean {
   if (realmName === MORTAL_REALM) return false;
   const realm = getCurrentRealm(realmName);
   if (!realm) return false;
   const required = getRequiredExp(realmName, realmLevel);
-  const threshold = Math.max(1, required - Math.floor(required * breakthroughBuff / 100));
+  const threshold = Math.max(1, required - Math.floor((required * breakthroughBuff) / 100));
   if (realmLevel >= realm.levels) {
     const nextRealm = getNextRealm(realmName);
     if (!nextRealm) return false;
@@ -146,13 +342,19 @@ export function canBreakthrough(realmName: string, realmLevel: number, cultivati
   }
   return cultivationExp >= threshold;
 }
-export function performBreakthrough(realmName: string, realmLevel: number, cultivationExp: number, breakthroughBuff = 0): { newRealm: string; newLevel: number; newExp: number } | null {
+export function performBreakthrough(
+  realmName: string,
+  realmLevel: number,
+  cultivationExp: number,
+  breakthroughBuff = 0
+): { newRealm: string; newLevel: number; newExp: number } | null {
   if (realmName === MORTAL_REALM) return null;
   const realm = getCurrentRealm(realmName);
   if (!realm) return null;
   const required = getRequiredExp(realmName, realmLevel);
-  const threshold = Math.max(1, required - Math.floor(required * breakthroughBuff / 100));
-  if (realmLevel < realm.levels) return { newRealm: realmName, newLevel: realmLevel + 1, newExp: cultivationExp - threshold };
+  const threshold = Math.max(1, required - Math.floor((required * breakthroughBuff) / 100));
+  if (realmLevel < realm.levels)
+    return { newRealm: realmName, newLevel: realmLevel + 1, newExp: cultivationExp - threshold };
   const nextRealm = getNextRealm(realmName);
   if (!nextRealm) return null;
   return { newRealm: nextRealm.name, newLevel: 1, newExp: cultivationExp - threshold };
@@ -161,43 +363,309 @@ export function performBreakthrough(realmName: string, realmLevel: number, culti
 // ============================================================
 // 行动体系
 // ============================================================
-export interface Action { id: string; name: string; icon: string; description: string; actionPointCost: number; baseExp: number; category: "cultivate" | "explore" | "social" | "rest" | "free"; minAgeEarth: number; narrativeTag: string; minRealm?: string; }
+export interface Action {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  actionPointCost: number;
+  baseExp: number;
+  category: "cultivate" | "explore" | "social" | "rest" | "free" | "study";
+  minAgeEarth: number;
+  narrativeTag: string;
+  minRealm?: string;
+}
 
 export const ACTIONS: Action[] = [
-  { id: "MEDITATE", name: "打坐修炼", icon: "🧘", description: "盘膝而坐，引天地灵气入体", actionPointCost: 5, baseExp: 30, category: "cultivate", minAgeEarth: 16, narrativeTag: "cultivate", minRealm: "炼气期" },
-  { id: "BREATHE", name: "吐纳练气", icon: "🌬️", description: "调整呼吸，以气引气", actionPointCost: 3, baseExp: 15, category: "cultivate", minAgeEarth: 16, narrativeTag: "cultivate", minRealm: "炼气期" },
-  { id: "EXPLORE", name: "外出历练", icon: "⚔️", description: "踏出洞府，探索未知之地", actionPointCost: 8, baseExp: 40, category: "explore", minAgeEarth: 16, narrativeTag: "explore", minRealm: "炼气期" },
-  { id: "ALCHEMY", name: "炼丹制药", icon: "🔥", description: "采集灵草，开炉炼丹", actionPointCost: 6, baseExp: 25, category: "cultivate", minAgeEarth: 16, narrativeTag: "cultivate", minRealm: "筑基期" },
-  { id: "STUDY", name: "研读功法", icon: "📖", description: "翻阅古籍，参悟功法奥义", actionPointCost: 3, baseExp: 20, category: "cultivate", minAgeEarth: 16, narrativeTag: "study", minRealm: "筑基期" },
-  { id: "SECLUSION", name: "洞府闭关", icon: "🏔️", description: "封闭洞府，潜心苦修", actionPointCost: 10, baseExp: 60, category: "cultivate", minAgeEarth: 16, narrativeTag: "cultivate", minRealm: "筑基期" },
-  { id: "TALK", name: "与人交谈", icon: "💬", description: "与身边的人交谈", actionPointCost: 2, baseExp: 5, category: "social", minAgeEarth: 1, narrativeTag: "social" },
-  { id: "WANDER", name: "四处闲逛", icon: "🚶", description: "随意走走", actionPointCost: 2, baseExp: 3, category: "explore", minAgeEarth: 1, narrativeTag: "wander" },
-  { id: "FREE", name: "自由探索", icon: "✨", description: "随心所欲，自由行动", actionPointCost: 2, baseExp: 10, category: "free", minAgeEarth: 1, narrativeTag: "free" },
-  { id: "SPIRIT_SENSE", name: "神识探宝", icon: "🔮", description: "释放神识探测周围宝物", actionPointCost: 8, baseExp: 50, category: "explore", minAgeEarth: 16, narrativeTag: "cultivate", minRealm: "结丹期" },
+  {
+    id: "MEDITATE",
+    name: "打坐修炼",
+    icon: "🧘",
+    description: "盘膝而坐，引天地灵气入体",
+    actionPointCost: 5,
+    baseExp: 30,
+    category: "cultivate",
+    minAgeEarth: 16,
+    narrativeTag: "cultivate",
+    minRealm: "炼气期",
+  },
+  {
+    id: "BREATHE",
+    name: "吐纳练气",
+    icon: "🌬️",
+    description: "调整呼吸，以气引气",
+    actionPointCost: 3,
+    baseExp: 15,
+    category: "cultivate",
+    minAgeEarth: 16,
+    narrativeTag: "cultivate",
+    minRealm: "炼气期",
+  },
+  {
+    id: "EXPLORE",
+    name: "外出历练",
+    icon: "⚔️",
+    description: "踏出洞府，探索未知之地",
+    actionPointCost: 8,
+    baseExp: 40,
+    category: "explore",
+    minAgeEarth: 16,
+    narrativeTag: "explore",
+    minRealm: "炼气期",
+  },
+  {
+    id: "ALCHEMY",
+    name: "炼丹制药",
+    icon: "🔥",
+    description: "采集灵草，开炉炼丹",
+    actionPointCost: 6,
+    baseExp: 25,
+    category: "cultivate",
+    minAgeEarth: 16,
+    narrativeTag: "cultivate",
+    minRealm: "筑基期",
+  },
+  {
+    id: "STUDY",
+    name: "研读功法",
+    icon: "📖",
+    description: "翻阅古籍，参悟功法奥义",
+    actionPointCost: 3,
+    baseExp: 20,
+    category: "cultivate",
+    minAgeEarth: 16,
+    narrativeTag: "study",
+    minRealm: "筑基期",
+  },
+  {
+    id: "SECLUSION",
+    name: "洞府闭关",
+    icon: "🏔️",
+    description: "封闭洞府，潜心苦修",
+    actionPointCost: 10,
+    baseExp: 60,
+    category: "cultivate",
+    minAgeEarth: 16,
+    narrativeTag: "cultivate",
+    minRealm: "筑基期",
+  },
+  {
+    id: "LEARN",
+    name: "上课学习",
+    icon: "📖",
+    description: "认真听课，学习知识",
+    actionPointCost: 3,
+    baseExp: 10,
+    category: "study",
+    minAgeEarth: 6,
+    narrativeTag: "study",
+  },
+  {
+    id: "ASK_TEACHER",
+    name: "请教老师",
+    icon: "🙋",
+    description: "向老师请教问题，增进师长好感",
+    actionPointCost: 1,
+    baseExp: 3,
+    category: "social",
+    minAgeEarth: 6,
+    narrativeTag: "social",
+  },
+  {
+    id: "CHORES",
+    name: "做家务",
+    icon: "🧹",
+    description: "帮忙做家务，锻炼心性",
+    actionPointCost: 1,
+    baseExp: 5,
+    category: "study",
+    minAgeEarth: 5,
+    narrativeTag: "chores",
+  },
+  {
+    id: "HOMEWORK",
+    name: "背课文/写作业",
+    icon: "✏️",
+    description: "背课文、写作业，巩固学业",
+    actionPointCost: 2,
+    baseExp: 8,
+    category: "study",
+    minAgeEarth: 6,
+    narrativeTag: "study",
+  },
+  {
+    id: "PINYIN",
+    name: "学拼音/识字",
+    icon: "🔤",
+    description: "学习拼音、认识汉字",
+    actionPointCost: 1,
+    baseExp: 3,
+    category: "study",
+    minAgeEarth: 3,
+    narrativeTag: "study",
+  },
+  {
+    id: "COUNTING",
+    name: "数数/算零花钱",
+    icon: "🔢",
+    description: "数数、算零花钱，练习算术",
+    actionPointCost: 1,
+    baseExp: 3,
+    category: "study",
+    minAgeEarth: 3,
+    narrativeTag: "study",
+  },
+  {
+    id: "READ_ALONE",
+    name: "独处看书",
+    icon: "📚",
+    description: "独自安静看书",
+    actionPointCost: 2,
+    baseExp: 5,
+    category: "study",
+    minAgeEarth: 6,
+    narrativeTag: "study",
+  },
+  {
+    id: "CRAWL",
+    name: "爬行学步",
+    icon: "👶",
+    description: "爬来爬去，学习走路",
+    actionPointCost: 1,
+    baseExp: 3,
+    category: "explore",
+    minAgeEarth: 1,
+    narrativeTag: "growth",
+  },
+  {
+    id: "BABBLE",
+    name: "咿呀学语",
+    icon: "🗣️",
+    description: "咿咿呀呀学说话",
+    actionPointCost: 1,
+    baseExp: 3,
+    category: "social",
+    minAgeEarth: 1,
+    narrativeTag: "growth",
+  },
+  {
+    id: "PLAY_TOYS",
+    name: "玩玩具",
+    icon: "🧸",
+    description: "搭积木、玩玩具",
+    actionPointCost: 1,
+    baseExp: 3,
+    category: "free",
+    minAgeEarth: 1,
+    narrativeTag: "play",
+  },
+  {
+    id: "LULLABY",
+    name: "听摇篮曲",
+    icon: "🎵",
+    description: "听妈妈唱摇篮曲哄睡",
+    actionPointCost: 1,
+    baseExp: 3,
+    category: "rest",
+    minAgeEarth: 1,
+    narrativeTag: "rest",
+  },
+  {
+    id: "MAKE_FRIEND",
+    name: "交朋友",
+    icon: "🤝",
+    description: "主动结交朋友，看魅力成败",
+    actionPointCost: 2,
+    baseExp: 5,
+    category: "social",
+    minAgeEarth: 6,
+    narrativeTag: "social",
+  },
+  {
+    id: "TALK",
+    name: "与人交谈",
+    icon: "💬",
+    description: "与身边的人交谈",
+    actionPointCost: 2,
+    baseExp: 5,
+    category: "social",
+    minAgeEarth: 1,
+    narrativeTag: "social",
+  },
+  {
+    id: "WANDER",
+    name: "四处闲逛",
+    icon: "🚶",
+    description: "随意走走",
+    actionPointCost: 2,
+    baseExp: 3,
+    category: "explore",
+    minAgeEarth: 1,
+    narrativeTag: "wander",
+  },
+  {
+    id: "FREE",
+    name: "自由探索",
+    icon: "✨",
+    description: "随心所欲，自由行动",
+    actionPointCost: 2,
+    baseExp: 10,
+    category: "free",
+    minAgeEarth: 1,
+    narrativeTag: "free",
+  },
+  {
+    id: "SPIRIT_SENSE",
+    name: "神识探宝",
+    icon: "🔮",
+    description: "释放神识探测周围宝物",
+    actionPointCost: 8,
+    baseExp: 50,
+    category: "explore",
+    minAgeEarth: 16,
+    narrativeTag: "cultivate",
+    minRealm: "结丹期",
+  },
 ];
 
-export function getAvailableActions(worldId: string, age: number, realm: string, locationId?: string): Action[] {
+export function getAvailableActions(
+  worldId: string,
+  age: number,
+  realm: string,
+  locationId?: string
+): Action[] {
   if (worldId !== "earth") return ACTIONS;
   const realmIndex = getRealmIndex(realm);
   if (realmIndex < 0) {
     // 未知/无效境界：保守返回仅按年龄过滤的基础行动，避免越权
     return ACTIONS.filter((a) => age >= a.minAgeEarth && !a.minRealm);
   }
-  return ACTIONS.filter((a) => age >= a.minAgeEarth && (a.minRealm ? getRealmIndex(a.minRealm) <= realmIndex : true));
+  return ACTIONS.filter(
+    (a) => age >= a.minAgeEarth && (a.minRealm ? getRealmIndex(a.minRealm) <= realmIndex : true)
+  );
 }
 
 /** 带锁定信息的行动列表：年龄、地点符合但境界不足的行动仍返回，标注 locked 状态 */
-export function getActionsWithLockInfo(worldId: string, age: number, realm: string, locationId?: string): (Action & { locked?: boolean; requiredRealm?: string; lockReason?: string })[] {
+export function getActionsWithLockInfo(
+  worldId: string,
+  age: number,
+  realm: string,
+  locationId?: string
+): (Action & { locked?: boolean; requiredRealm?: string; lockReason?: string })[] {
   if (worldId !== "earth") return ACTIONS.map((a) => ({ ...a }));
   const realmIndex = getRealmIndex(realm);
   return ACTIONS.filter((a) => age >= a.minAgeEarth).map((a) => {
     if (!a.minRealm) return { ...a }; // 无境界门槛
-    if (realmIndex < 0) return { ...a, locked: true, requiredRealm: a.minRealm, lockReason: `未知境界` };
-    if (getRealmIndex(a.minRealm) > realmIndex) return { ...a, locked: true, requiredRealm: a.minRealm, lockReason: `需要 ${a.minRealm}` };
+    if (realmIndex < 0)
+      return { ...a, locked: true, requiredRealm: a.minRealm, lockReason: `未知境界` };
+    if (getRealmIndex(a.minRealm) > realmIndex)
+      return { ...a, locked: true, requiredRealm: a.minRealm, lockReason: `需要 ${a.minRealm}` };
     return { ...a };
   });
 }
-export function getActionById(actionId: string): Action | undefined { return ACTIONS.find((a) => a.id === actionId); }
+export function getActionById(actionId: string): Action | undefined {
+  return ACTIONS.find((a) => a.id === actionId);
+}
 
 /** 获取地点对某类行动的加成倍数 */
 export function getLocationActionBonus(locationId: string, actionId: string): number {
@@ -208,7 +676,16 @@ export function getLocationActionBonus(locationId: string, actionId: string): nu
   return loc.actionBonuses[actionId] || loc.actionBonuses[action.category] || 1;
 }
 
-export function calculateActionExp(actionId: string, spiritualRoot: string, attributes?: Record<string, number>, talents?: string[], reincarnationCount?: number, techniqueBonuses?: Record<string, number>, locationBonus = 1, injuryDebuff = 0): number {
+export function calculateActionExp(
+  actionId: string,
+  spiritualRoot: string,
+  attributes?: Record<string, number>,
+  talents?: string[],
+  reincarnationCount?: number,
+  techniqueBonuses?: Record<string, number>,
+  locationBonus = 1,
+  injuryDebuff = 0
+): number {
   const action = ACTIONS.find((a) => a.id === actionId);
   if (!action) return 5;
   const base = action.baseExp * getRootInfo(spiritualRoot, talents, reincarnationCount).speedBonus;
@@ -222,7 +699,15 @@ export function calculateActionExp(actionId: string, spiritualRoot: string, attr
 // ============================================================
 // 物品系统
 // ============================================================
-export type ItemCategory = "weapon" | "armor" | "accessory" | "pill" | "material" | "talisman" | "treasure" | "technique_jade";
+export type ItemCategory =
+  | "weapon"
+  | "armor"
+  | "accessory"
+  | "pill"
+  | "material"
+  | "talisman"
+  | "treasure"
+  | "technique_jade";
 
 export interface ItemEffect {
   type: "recoverStamina" | "addExp" | "boostAttr" | "tempBuff" | "learnTechnique";
@@ -231,39 +716,238 @@ export interface ItemEffect {
   targetAttr?: string;
 }
 
-export interface Item { id: string; name: string; icon: string; category: ItemCategory; description: string; effect?: string; combatValue?: number; useEffect?: ItemEffect; useLabel?: string; }
-export interface InventoryItem { itemId: string; quantity: number; equipped: boolean; }
+export interface Item {
+  id: string;
+  name: string;
+  icon: string;
+  category: ItemCategory;
+  description: string;
+  effect?: string;
+  combatValue?: number;
+  useEffect?: ItemEffect;
+  useLabel?: string;
+}
+export interface InventoryItem {
+  itemId: string;
+  quantity: number;
+  equipped: boolean;
+}
 
 export const ITEMS: Record<string, Item> = {
-  wooden_sword: { id: "wooden_sword", name: "木剑", icon: "🗡️", category: "weapon", description: "一柄普通的桃木剑", effect: "攻击+2", combatValue: 5 },
-  iron_sword: { id: "iron_sword", name: "铁剑", icon: "⚔️", category: "weapon", description: "精铁打造的利剑", effect: "攻击+5", combatValue: 8 },
-  spirit_sword: { id: "spirit_sword", name: "灵剑", icon: "🔮", category: "weapon", description: "刻有灵纹的法剑", effect: "攻击+10", combatValue: 15 },
-  cloth_armor: { id: "cloth_armor", name: "布衣", icon: "👘", category: "armor", description: "粗布外衣", effect: "防御+1", combatValue: 3 },
-  leather_armor: { id: "leather_armor", name: "皮甲", icon: "🛡️", category: "armor", description: "兽皮轻甲", effect: "防御+3", combatValue: 5 },
-  spirit_robe: { id: "spirit_robe", name: "法袍", icon: "🧙", category: "armor", description: "刻有灵纹的道袍", effect: "防御+6", combatValue: 8 },
-  jade_pendant: { id: "jade_pendant", name: "玉佩", icon: "💚", category: "accessory", description: "温润的古玉", effect: "灵性+2", combatValue: 3 },
-  spirit_beads: { id: "spirit_beads", name: "灵珠手串", icon: "📿", category: "accessory", description: "十二颗聚灵珠", effect: "修炼速度+10%", combatValue: 5 },
-  storage_ring: { id: "storage_ring", name: "储物戒", icon: "💍", category: "accessory", description: "内含空间的戒指", effect: "背包+20格" },
-  qi_pill: { id: "qi_pill", name: "益气丹", icon: "💊", category: "pill", description: "补充灵气的基础丹药", effect: "修炼值+20", useEffect: { type: "addExp", value: 20, duration: "instant" }, useLabel: "服用" },
-  bone_pill: { id: "bone_pill", name: "锻骨丹", icon: "🧪", category: "pill", description: "淬炼筋骨的上品丹药", effect: "根骨+1", useEffect: { type: "boostAttr", value: 1, duration: "permanent", targetAttr: "root" }, useLabel: "服用" },
-  breakthrough_pill: { id: "breakthrough_pill", name: "破境丹", icon: "💎", category: "pill", description: "辅助突破瓶颈", effect: "突破概率+15%", useEffect: { type: "tempBuff", value: 30, duration: "permanent" }, useLabel: "服用" },
-  spirit_grass: { id: "spirit_grass", name: "灵草", icon: "🌿", category: "material", description: "蕴含灵气的草药", effect: "炼丹材料" },
-  spirit_stone: { id: "spirit_stone", name: "灵石", icon: "🪨", category: "material", description: "修仙界通用货币", effect: "交易用" },
-  spirit_wood: { id: "spirit_wood", name: "灵木", icon: "🪵", category: "material", description: "蕴含灵气的木材", effect: "炼器材料" },
-  demon_core: { id: "demon_core", name: "妖丹", icon: "🔴", category: "material", description: "妖兽内丹", effect: "炼丹材料" },
-  talisman_shield: { id: "talisman_shield", name: "护身符", icon: "🪄", category: "talisman", description: "抵挡一次致命攻击", effect: "免死一次", useEffect: { type: "tempBuff", value: 50, duration: "permanent" }, useLabel: "祭炼" },
-  talisman_fire: { id: "talisman_fire", name: "火符", icon: "🔥", category: "talisman", description: "释放一次火球术", effect: "攻击+20" },
-  talisman_heal: { id: "talisman_heal", name: "愈灵符", icon: "💚", category: "talisman", description: "恢复伤势的灵符", effect: "回复50%状态" },
-  ancient_tome: { id: "ancient_tome", name: "古功法卷", icon: "📜", category: "treasure", description: "失传功法的古卷", effect: "领悟新功法" },
-  compass: { id: "compass", name: "寻宝罗盘", icon: "🧭", category: "treasure", description: "感应宝物气息", effect: "探索宝物" },
-  jade_slip: { id: "jade_slip", name: "玉简", icon: "📏", category: "treasure", description: "前辈修炼心得", effect: "悟性+3" },
-  phone: { id: "phone", name: "智能手机", icon: "📱", category: "treasure", description: "一部智能手机，可以安装各种APP", effect: "解锁手机界面" },
+  wooden_sword: {
+    id: "wooden_sword",
+    name: "木剑",
+    icon: "🗡️",
+    category: "weapon",
+    description: "一柄普通的桃木剑",
+    effect: "攻击+2",
+    combatValue: 5,
+  },
+  iron_sword: {
+    id: "iron_sword",
+    name: "铁剑",
+    icon: "⚔️",
+    category: "weapon",
+    description: "精铁打造的利剑",
+    effect: "攻击+5",
+    combatValue: 8,
+  },
+  spirit_sword: {
+    id: "spirit_sword",
+    name: "灵剑",
+    icon: "🔮",
+    category: "weapon",
+    description: "刻有灵纹的法剑",
+    effect: "攻击+10",
+    combatValue: 15,
+  },
+  cloth_armor: {
+    id: "cloth_armor",
+    name: "布衣",
+    icon: "👘",
+    category: "armor",
+    description: "粗布外衣",
+    effect: "防御+1",
+    combatValue: 3,
+  },
+  leather_armor: {
+    id: "leather_armor",
+    name: "皮甲",
+    icon: "🛡️",
+    category: "armor",
+    description: "兽皮轻甲",
+    effect: "防御+3",
+    combatValue: 5,
+  },
+  spirit_robe: {
+    id: "spirit_robe",
+    name: "法袍",
+    icon: "🧙",
+    category: "armor",
+    description: "刻有灵纹的道袍",
+    effect: "防御+6",
+    combatValue: 8,
+  },
+  jade_pendant: {
+    id: "jade_pendant",
+    name: "玉佩",
+    icon: "💚",
+    category: "accessory",
+    description: "温润的古玉",
+    effect: "灵性+2",
+    combatValue: 3,
+  },
+  spirit_beads: {
+    id: "spirit_beads",
+    name: "灵珠手串",
+    icon: "📿",
+    category: "accessory",
+    description: "十二颗聚灵珠",
+    effect: "修炼速度+10%",
+    combatValue: 5,
+  },
+  storage_ring: {
+    id: "storage_ring",
+    name: "储物戒",
+    icon: "💍",
+    category: "accessory",
+    description: "内含空间的戒指",
+    effect: "背包+20格",
+  },
+  qi_pill: {
+    id: "qi_pill",
+    name: "益气丹",
+    icon: "💊",
+    category: "pill",
+    description: "补充灵气的基础丹药",
+    effect: "修炼值+20",
+    useEffect: { type: "addExp", value: 20, duration: "instant" },
+    useLabel: "服用",
+  },
+  bone_pill: {
+    id: "bone_pill",
+    name: "锻骨丹",
+    icon: "🧪",
+    category: "pill",
+    description: "淬炼筋骨的上品丹药",
+    effect: "根骨+1",
+    useEffect: { type: "boostAttr", value: 1, duration: "permanent", targetAttr: "root" },
+    useLabel: "服用",
+  },
+  breakthrough_pill: {
+    id: "breakthrough_pill",
+    name: "破境丹",
+    icon: "💎",
+    category: "pill",
+    description: "辅助突破瓶颈",
+    effect: "突破概率+15%",
+    useEffect: { type: "tempBuff", value: 30, duration: "permanent" },
+    useLabel: "服用",
+  },
+  spirit_grass: {
+    id: "spirit_grass",
+    name: "灵草",
+    icon: "🌿",
+    category: "material",
+    description: "蕴含灵气的草药",
+    effect: "炼丹材料",
+  },
+  spirit_stone: {
+    id: "spirit_stone",
+    name: "灵石",
+    icon: "🪨",
+    category: "material",
+    description: "修仙界通用货币",
+    effect: "交易用",
+  },
+  spirit_wood: {
+    id: "spirit_wood",
+    name: "灵木",
+    icon: "🪵",
+    category: "material",
+    description: "蕴含灵气的木材",
+    effect: "炼器材料",
+  },
+  demon_core: {
+    id: "demon_core",
+    name: "妖丹",
+    icon: "🔴",
+    category: "material",
+    description: "妖兽内丹",
+    effect: "炼丹材料",
+  },
+  talisman_shield: {
+    id: "talisman_shield",
+    name: "护身符",
+    icon: "🪄",
+    category: "talisman",
+    description: "抵挡一次致命攻击",
+    effect: "免死一次",
+    useEffect: { type: "tempBuff", value: 50, duration: "permanent" },
+    useLabel: "祭炼",
+  },
+  talisman_fire: {
+    id: "talisman_fire",
+    name: "火符",
+    icon: "🔥",
+    category: "talisman",
+    description: "释放一次火球术",
+    effect: "攻击+20",
+  },
+  talisman_heal: {
+    id: "talisman_heal",
+    name: "愈灵符",
+    icon: "💚",
+    category: "talisman",
+    description: "恢复伤势的灵符",
+    effect: "回复50%状态",
+  },
+  ancient_tome: {
+    id: "ancient_tome",
+    name: "古功法卷",
+    icon: "📜",
+    category: "treasure",
+    description: "失传功法的古卷",
+    effect: "领悟新功法",
+  },
+  compass: {
+    id: "compass",
+    name: "寻宝罗盘",
+    icon: "🧭",
+    category: "treasure",
+    description: "感应宝物气息",
+    effect: "探索宝物",
+  },
+  jade_slip: {
+    id: "jade_slip",
+    name: "玉简",
+    icon: "📏",
+    category: "treasure",
+    description: "前辈修炼心得",
+    effect: "悟性+3",
+  },
+  phone: {
+    id: "phone",
+    name: "智能手机",
+    icon: "📱",
+    category: "treasure",
+    description: "一部智能手机，可以安装各种APP",
+    effect: "解锁手机界面",
+  },
 };
 
-export function getStarterInventory(): InventoryItem[] { return []; }
-export function getItemById(itemId: string): Item | undefined { return ITEMS[itemId]; }
-export function getEquippedItems(inventory: InventoryItem[]): InventoryItem[] { return inventory.filter((i) => i.equipped); }
-export function getBackpackItems(inventory: InventoryItem[]): InventoryItem[] { return inventory.filter((i) => !i.equipped); }
+export function getStarterInventory(): InventoryItem[] {
+  return [];
+}
+export function getItemById(itemId: string): Item | undefined {
+  return ITEMS[itemId];
+}
+export function getEquippedItems(inventory: InventoryItem[]): InventoryItem[] {
+  return inventory.filter((i) => i.equipped);
+}
+export function getBackpackItems(inventory: InventoryItem[]): InventoryItem[] {
+  return inventory.filter((i) => !i.equipped);
+}
 
 // ============================================================
 // 商店系统
@@ -306,7 +990,13 @@ export function getShopItems(realm?: string): (ShopItem & { item: Item })[] {
 }
 // 学校系统
 // ============================================================
-export interface SchoolStage { name: string; ageStart: number; ageEnd: number; years: number; examAge: number; }
+export interface SchoolStage {
+  name: string;
+  ageStart: number;
+  ageEnd: number;
+  years: number;
+  examAge: number;
+}
 export const SCHOOL_STAGES: SchoolStage[] = [
   { name: "幼儿园", ageStart: 3, ageEnd: 6, years: 3, examAge: 6 },
   { name: "小学", ageStart: 6, ageEnd: 12, years: 6, examAge: 12 },
@@ -315,17 +1005,25 @@ export const SCHOOL_STAGES: SchoolStage[] = [
   { name: "大学", ageStart: 18, ageEnd: 22, years: 4, examAge: -1 },
 ];
 export type SchoolRank = "普通" | "重点" | "名校";
-export interface SchoolInfo { rank: SchoolRank; name: string; attrMultiplier: number; }
+export interface SchoolInfo {
+  rank: SchoolRank;
+  name: string;
+  attrMultiplier: number;
+}
 export const SCHOOL_RANKS: Record<SchoolRank, SchoolInfo> = {
-  "普通": { rank: "普通", name: "普通学校", attrMultiplier: 1.0 },
-  "重点": { rank: "重点", name: "重点学校", attrMultiplier: 1.5 },
-  "名校": { rank: "名校", name: "名校学府", attrMultiplier: 2.0 },
+  普通: { rank: "普通", name: "普通学校", attrMultiplier: 1.0 },
+  重点: { rank: "重点", name: "重点学校", attrMultiplier: 1.25 },
+  名校: { rank: "名校", name: "名校学府", attrMultiplier: 1.5 },
 };
 export function getSchoolStage(age: number): SchoolStage | null {
-  for (const s of SCHOOL_STAGES) { if (age >= s.ageStart && age < s.ageEnd) return s; }
+  for (const s of SCHOOL_STAGES) {
+    if (age >= s.ageStart && age < s.ageEnd) return s;
+  }
   return null;
 }
-export function getSchoolGrade(age: number, stage: SchoolStage): number { return age - stage.ageStart + 1; }
+export function getSchoolGrade(age: number, stage: SchoolStage): number {
+  return age - stage.ageStart + 1;
+}
 export function getDefaultOccupation(age: number): string {
   if (age < 3) return "婴儿";
   if (age < 22) return "学生";
@@ -336,58 +1034,440 @@ export function getDefaultOccupation(age: number): string {
 // 突破动画 & NPC
 // ============================================================
 export const BREAKTHROUGH_ANIMATIONS: Record<string, string> = {
-  "炼气期": "灵气如潮，涌入体内，丹田之中渐渐凝聚出一缕真气……",
-  "筑基期": "道基初成！周身经脉贯通，灵力如江河奔涌！",
-  "结丹期": "金丹凝结！一枚灿若星辰的金丹在丹田中缓缓旋转……",
-  "元婴期": "元婴出世！金丹碎裂，元婴破丹而出，仰天长啸！",
-  "化神期": "化神之境！元婴与天地共鸣，举手投足间引动法则之力！",
-  "炼虚期": "破碎虚空！空间在眼前扭曲，飞升之路已在脚下展开！",
-  "合体期": "法体合一！肉身与元神完美融合，天地为之变色！",
-  "大乘期": "大道初成！万千法则尽在掌握，一念山河倒转！",
-  "渡劫期": "天劫降临！九天神雷轰然而下，渡过此劫飞升仙界！",
+  炼气期: "灵气如潮，涌入体内，丹田之中渐渐凝聚出一缕真气……",
+  筑基期: "道基初成！周身经脉贯通，灵力如江河奔涌！",
+  结丹期: "金丹凝结！一枚灿若星辰的金丹在丹田中缓缓旋转……",
+  元婴期: "元婴出世！金丹碎裂，元婴破丹而出，仰天长啸！",
+  化神期: "化神之境！元婴与天地共鸣，举手投足间引动法则之力！",
+  炼虚期: "破碎虚空！空间在眼前扭曲，飞升之路已在脚下展开！",
+  合体期: "法体合一！肉身与元神完美融合，天地为之变色！",
+  大乘期: "大道初成！万千法则尽在掌握，一念山河倒转！",
+  渡劫期: "天劫降临！九天神雷轰然而下，渡过此劫飞升仙界！",
 };
 
-export interface NPC { name: string; title: string; realm: string; personality: string; greeting: string; avatar: string; locationId: string; }
+export interface NPC {
+  name: string;
+  title: string;
+  realm: string;
+  personality: string;
+  greeting: string;
+  avatar: string;
+  locationId: string;
+}
+export interface FamilyMember {
+  id?: string;
+  name: string;
+  relation: string;
+  alive: boolean;
+  age?: number;
+  intimacy?: number;
+}
 export const NPCS: NPC[] = [
-  { name: "韩立", title: "韩老魔", realm: "大乘期", personality: "谨慎低调", greeting: "在下韩立，一介散修。", avatar: "🧘", locationId: "wild" },
-  { name: "南宫婉", title: "南宫仙子", realm: "化神期", personality: "清冷孤傲", greeting: "修仙之路漫漫，能在此相遇也算有缘。", avatar: "🌸", locationId: "cave" },
-  { name: "墨彩环", title: "墨府千金", realm: "筑基期", personality: "活泼灵动", greeting: "道友道友！你是从哪里来的？", avatar: "🦋", locationId: "school" },
-  { name: "银月", title: "银月妖女", realm: "化神期", personality: "妖媚狡黠", greeting: "呵呵，又一个来送死的？", avatar: "🌙", locationId: "downtown" },
-  { name: "大衍神君", title: "大衍老人", realm: "大乘期", personality: "神秘莫测", greeting: "老夫观你根骨……有几分意思。", avatar: "🔮", locationId: "market" },
-  { name: "紫灵", title: "紫灵仙子", realm: "元婴期", personality: "温婉大方", greeting: "修仙之道，贵在坚持。", avatar: "💜", locationId: "home" },
+  {
+    name: "父亲",
+    title: "家长",
+    realm: "凡人",
+    personality: "严厉",
+    greeting: "别光想着玩，把学业放在第一位。",
+    avatar: "👨‍👦",
+    locationId: "home",
+  },
+  {
+    name: "母亲",
+    title: "家长",
+    realm: "凡人",
+    personality: "温柔",
+    greeting: "今天在学校过得怎么样？",
+    avatar: "👩‍👦",
+    locationId: "home",
+  },
+  {
+    name: "班主任",
+    title: "老师",
+    realm: "凡人",
+    personality: "认真负责",
+    greeting: "最近上课要认真听讲。",
+    avatar: "🏫",
+    locationId: "school",
+  },
+  {
+    name: "同学",
+    title: "同学",
+    realm: "凡人",
+    personality: "活泼好动",
+    greeting: "放学一起走吧！",
+    avatar: "🎒",
+    locationId: "school",
+  },
+  {
+    name: "韩立",
+    title: "韩老魔",
+    realm: "大乘期",
+    personality: "谨慎低调",
+    greeting: "在下韩立，一介散修。",
+    avatar: "🧘",
+    locationId: "wild",
+  },
+  {
+    name: "南宫婉",
+    title: "南宫仙子",
+    realm: "化神期",
+    personality: "清冷孤傲",
+    greeting: "修仙之路漫漫，能在此相遇也算有缘。",
+    avatar: "🌸",
+    locationId: "cave",
+  },
+  {
+    name: "墨彩环",
+    title: "墨府千金",
+    realm: "筑基期",
+    personality: "活泼灵动",
+    greeting: "道友道友！你是从哪里来的？",
+    avatar: "🦋",
+    locationId: "school",
+  },
+  {
+    name: "银月",
+    title: "银月妖女",
+    realm: "化神期",
+    personality: "妖媚狡黠",
+    greeting: "呵呵，又一个来送死的？",
+    avatar: "🌙",
+    locationId: "downtown",
+  },
+  {
+    name: "大衍神君",
+    title: "大衍老人",
+    realm: "大乘期",
+    personality: "神秘莫测",
+    greeting: "老夫观你根骨……有几分意思。",
+    avatar: "🔮",
+    locationId: "market",
+  },
+  {
+    name: "坊市商人",
+    title: "商人",
+    realm: "凡人",
+    personality: "精明",
+    greeting: "客官，看看新到的货？",
+    avatar: "🧮",
+    locationId: "market",
+  },
+  {
+    name: "炼丹师",
+    title: "炼丹师",
+    realm: "凡人",
+    personality: "沉稳",
+    greeting: "炼丹需要耐心，你要学吗？",
+    avatar: "🧪",
+    locationId: "market",
+  },
+  {
+    name: "街边小贩",
+    title: "小贩",
+    realm: "凡人",
+    personality: "热情",
+    greeting: "热乎的包子，来一份？",
+    avatar: "🥟",
+    locationId: "downtown",
+  },
+  {
+    name: "幼儿园老师",
+    title: "老师",
+    realm: "凡人",
+    personality: "亲切",
+    greeting: "今天要乖乖听故事哦。",
+    avatar: "🧸",
+    locationId: "kindergarten",
+  },
 ];
+
+const TOKEN_NPC_MAP: Record<string, (loc: string) => NPC | null> = {
+  father: (loc) =>
+    loc === "home"
+      ? {
+          name: "父亲",
+          title: "家长",
+          realm: "凡人",
+          personality: "严厉",
+          greeting: "别光想着玩，把学业放在第一位。",
+          avatar: "👨‍👦",
+          locationId: loc,
+        }
+      : null,
+  mother: (loc) =>
+    loc === "home"
+      ? {
+          name: "母亲",
+          title: "家长",
+          realm: "凡人",
+          personality: "温柔",
+          greeting: "今天在学校过得怎么样？",
+          avatar: "👩‍👦",
+          locationId: loc,
+        }
+      : null,
+  kindergarten_teacher: (loc) =>
+    loc === "kindergarten"
+      ? {
+          name: "幼儿园老师",
+          title: "老师",
+          realm: "凡人",
+          personality: "亲切",
+          greeting: "今天要乖乖听故事哦。",
+          avatar: "🧸",
+          locationId: loc,
+        }
+      : null,
+  headteacher: (loc) =>
+    loc === "school"
+      ? {
+          name: "班主任",
+          title: "老师",
+          realm: "凡人",
+          personality: "认真负责",
+          greeting: "最近上课要认真听讲。",
+          avatar: "🏫",
+          locationId: loc,
+        }
+      : null,
+  classmate: (loc) =>
+    loc === "school"
+      ? {
+          name: "同学",
+          title: "同学",
+          realm: "凡人",
+          personality: "活泼好动",
+          greeting: "放学一起走吧！",
+          avatar: "🎒",
+          locationId: loc,
+        }
+      : null,
+  merchant: (loc) =>
+    loc === "market"
+      ? {
+          name: "坊市商人",
+          title: "商人",
+          realm: "凡人",
+          personality: "精明",
+          greeting: "客官，看看新到的货？",
+          avatar: "🧮",
+          locationId: loc,
+        }
+      : null,
+  alchemist: (loc) =>
+    loc === "market"
+      ? {
+          name: "炼丹师",
+          title: "炼丹师",
+          realm: "凡人",
+          personality: "沉稳",
+          greeting: "炼丹需要耐心，你要学吗？",
+          avatar: "🧪",
+          locationId: loc,
+        }
+      : null,
+  street_vendor: (loc) =>
+    loc === "downtown"
+      ? {
+          name: "街边小贩",
+          title: "小贩",
+          realm: "凡人",
+          personality: "热情",
+          greeting: "热乎的包子，来一份？",
+          avatar: "🥟",
+          locationId: loc,
+        }
+      : null,
+};
+
+function token_to_npc(locationId: string, token: string): NPC | null {
+  const fn = TOKEN_NPC_MAP[token];
+  if (!fn) return null;
+  return fn(locationId);
+}
 
 /** 获取某地点的 NPC 列表 */
 export function getNPCsAtLocation(locationId: string): NPC[] {
-  return NPCS.filter((n) => n.locationId === locationId);
+  const locationNPCs = (LOCATIONS.find((l) => l.id === locationId)?.localNPCs ?? [])
+    .map((token) => token_to_npc(locationId, token))
+    .filter((n): n is NPC => !!n);
+  const byName = new Map<string, NPC>();
+  for (const n of locationNPCs) byName.set(n.name, n);
+  for (const n of NPCS.filter((n) => n.locationId === locationId)) byName.set(n.name, n);
+  return Array.from(byName.values());
 }
-export function calculateSchoolRank(age: number, attributes: Record<string, number>, teacherBonus?: number): SchoolRank {
-  const baseScore = (attributes.insight || 0) * 3 + (attributes.mind || 0) * 2 + (attributes.root || 0) + (attributes.spirit || 0) + (attributes.luck || 0) * 1.5 + (attributes.charm || 0) * 0.5;
+/** @deprecated 旧升学公式（属性+师长加权，设计 13.3 废弃），改用 calculateSchoolRankFromSubjects。 */
+export function calculateSchoolRank(
+  age: number,
+  attributes: Record<string, number>,
+  teacherBonus?: number
+): SchoolRank {
+  const baseScore =
+    (attributes.insight || 0) * 3 +
+    (attributes.mind || 0) * 2 +
+    (attributes.root || 0) +
+    (attributes.spirit || 0) +
+    (attributes.luck || 0) * 1.5 +
+    (attributes.charm || 0) * 0.5;
   const score = baseScore + (teacherBonus ?? 0) * 10;
   const threshold = 15 * Math.min(1, age / 18);
   if (score >= threshold * 2) return "名校";
   if (score >= threshold) return "重点";
   return "普通";
 }
+/**
+ * 升学节点分档阈值（设计 13.3）：key = 节点年龄，名校/重点 学科加权平均线。
+ * 6 岁幼升小不分档；12 小升初 / 15 中考 / 18 高考 分档判定。
+ */
+export const SCHOOL_RANK_THRESHOLDS: Record<number, { elite: number; key: number }> = {
+  12: { elite: 6.0, key: 4.0 },
+  15: { elite: 6.5, key: 4.5 },
+  18: { elite: 7.0, key: 5.0 },
+};
+
+/** 主科（加权 ×3）：语文/数学/英语。 */
+const MAIN_SUBJECTS = new Set(["math", "chinese", "english"]);
+/** 副科（加权 ×1）：体育/历史/物理/化学。 */
+const SUB_SUBJECTS = new Set(["pe", "history", "physics", "chemistry"]);
+
+/**
+ * 升学判定（设计 13.3，替代已废弃的 calculateSchoolRank）：
+ * 学科加权平均 = Σ(主科×3 + 副科×1 的学科等级) / 权重和，只算已解锁学科（subjectExp 中存在的键）；
+ * 师长好感修正：最高师长好感达阈值时加权平均 +0.5（由调用方换算传入）。
+ * thresholds 缺省为高考档（18 岁）。
+ */
+export function calculateSchoolRankFromSubjects(
+  subjectExp: Record<string, { exp: number; level: number }>,
+  teacherBonus = 0,
+  thresholds: { elite: number; key: number } = SCHOOL_RANK_THRESHOLDS[18]
+): SchoolRank {
+  let weightedSum = 0;
+  let weightTotal = 0;
+  for (const [key, val] of Object.entries(subjectExp)) {
+    if (!val || typeof val.level !== "number") continue;
+    const weight = MAIN_SUBJECTS.has(key) ? 3 : SUB_SUBJECTS.has(key) ? 1 : 0;
+    if (weight === 0) continue; // 未知/未解锁学科不计入
+    weightedSum += weight * val.level;
+    weightTotal += weight;
+  }
+  if (weightTotal === 0) return "普通";
+  const avg = weightedSum / weightTotal + teacherBonus;
+  if (avg >= thresholds.elite) return "名校";
+  if (avg >= thresholds.key) return "重点";
+  return "普通";
+}
+
 export function getSchoolName(stage: SchoolStage, rank: SchoolRank): string {
-  return { "普通": `${stage.name}（普通学区）`, "重点": `${stage.name}（重点学区）`, "名校": `市${stage.name === "大学" ? "名牌大学" : "第一${stage.name}"}` }[rank];
+  return {
+    普通: `${stage.name}（普通学区）`,
+    重点: `${stage.name}（重点学区）`,
+    名校: `市${stage.name === "大学" ? "名牌大学" : "第一${stage.name}"}`,
+  }[rank];
 }
 
 // ============================================================
 // 地点系统
 // ============================================================
-export interface Location { id: string; name: string; icon: string; description: string; unlockAge: number; requireAwakened?: boolean; distanceFromHome: number; actionBonuses?: Record<string, number>; staminaRecovery?: number; shopItems?: string[]; encounterPool?: string[]; localNPCs?: string[]; }
+export interface Location {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  unlockAge: number;
+  requireAwakened?: boolean;
+  distanceFromHome: number;
+  actionBonuses?: Record<string, number>;
+  staminaRecovery?: number;
+  shopItems?: string[];
+  encounterPool?: string[];
+  localNPCs?: string[];
+}
 export const LOCATIONS: Location[] = [
-  { id: "home", name: "家", icon: "🏠", description: "温馨的家", unlockAge: 0, distanceFromHome: 0, staminaRecovery: 3, shopItems: [], localNPCs: [] },
-  { id: "kindergarten", name: "幼儿园", icon: "🧸", description: "启蒙教育的地方", unlockAge: 3, distanceFromHome: 1, localNPCs: ["teacher"] },
-  { id: "school", name: "学校", icon: "🏫", description: "学习知识的地方", unlockAge: 6, distanceFromHome: 2, actionBonuses: { "STUDY": 1.2 }, localNPCs: ["classmate"] },
-  { id: "downtown", name: "市区", icon: "🏙️", description: "繁华的城市中心", unlockAge: 12, distanceFromHome: 4, shopItems: ["phone", "talisman_shield"], localNPCs: ["street_vendor"] },
-  { id: "wild", name: "野外", icon: "🌲", description: "灵气充盈的野外", unlockAge: 16, distanceFromHome: 8, requireAwakened: true, actionBonuses: { "EXPLORE": 1.3, "MEDITATE": 1.2 }, encounterPool: ["ancient_cave", "treasure_hunt"] },
-  { id: "cave", name: "洞府", icon: "🏔️", description: "闭关修炼的洞府", unlockAge: 16, distanceFromHome: 6, requireAwakened: true, actionBonuses: { "SECLUSION": 1.5, "MEDITATE": 1.3 }, staminaRecovery: 5 },
-  { id: "market", name: "坊市", icon: "🏪", description: "修仙者交易市场", unlockAge: 17, distanceFromHome: 5, requireAwakened: true, shopItems: ["spirit_sword", "breakthrough_pill", "spirit_beads"], localNPCs: ["merchant", "alchemist"] },
+  {
+    id: "home",
+    name: "家",
+    icon: "🏠",
+    description: "温馨的家",
+    unlockAge: 0,
+    distanceFromHome: 0,
+    staminaRecovery: 3,
+    shopItems: [],
+    localNPCs: ["father", "mother"],
+  },
+  {
+    id: "kindergarten",
+    name: "幼儿园",
+    icon: "🧸",
+    description: "启蒙教育的地方",
+    unlockAge: 3,
+    distanceFromHome: 1,
+    localNPCs: ["kindergarten_teacher"],
+  },
+  {
+    id: "school",
+    name: "学校",
+    icon: "🏫",
+    description: "学习知识的地方",
+    unlockAge: 6,
+    distanceFromHome: 2,
+    actionBonuses: { STUDY: 1.2 },
+    localNPCs: ["classmate", "headteacher"],
+  },
+  {
+    id: "downtown",
+    name: "市区",
+    icon: "🏙️",
+    description: "繁华的城市中心",
+    unlockAge: 12,
+    distanceFromHome: 4,
+    shopItems: ["phone", "talisman_shield"],
+    localNPCs: ["street_vendor"],
+  },
+  {
+    id: "wild",
+    name: "野外",
+    icon: "🌲",
+    description: "灵气充盈的野外",
+    unlockAge: 16,
+    distanceFromHome: 8,
+    requireAwakened: true,
+    actionBonuses: { EXPLORE: 1.3, MEDITATE: 1.2 },
+    encounterPool: ["ancient_cave", "treasure_hunt"],
+  },
+  {
+    id: "cave",
+    name: "洞府",
+    icon: "🏔️",
+    description: "闭关修炼的洞府",
+    unlockAge: 16,
+    distanceFromHome: 6,
+    requireAwakened: true,
+    actionBonuses: { SECLUSION: 1.5, MEDITATE: 1.3 },
+    staminaRecovery: 5,
+  },
+  {
+    id: "market",
+    name: "坊市",
+    icon: "🏪",
+    description: "修仙者交易市场",
+    unlockAge: 17,
+    distanceFromHome: 5,
+    requireAwakened: true,
+    shopItems: ["spirit_sword", "breakthrough_pill", "spirit_beads"],
+    localNPCs: ["merchant", "alchemist"],
+  },
 ];
-export function getUnlockedLocations(age: number, isAwakened: boolean, narrativeUnlocks: string[] = []): Location[] {
-  return LOCATIONS.filter((loc) => narrativeUnlocks.includes(loc.id) || (loc.requireAwakened ? isAwakened && age >= loc.unlockAge : age >= loc.unlockAge));
+export function getUnlockedLocations(
+  age: number,
+  isAwakened: boolean,
+  narrativeUnlocks: string[] = []
+): Location[] {
+  return LOCATIONS.filter(
+    (loc) =>
+      narrativeUnlocks.includes(loc.id) ||
+      (loc.requireAwakened ? isAwakened && age >= loc.unlockAge : age >= loc.unlockAge)
+  );
 }
 export function calcTravelCost(fromLocId: string, toLocId: string): number {
   const from = LOCATIONS.find((l) => l.id === fromLocId);
@@ -399,16 +1479,34 @@ export function calcTravelCost(fromLocId: string, toLocId: string): number {
 // 出行方式
 // ============================================================
 export type TravelModeId = "walk" | "bus" | "taxi" | "car";
-export interface TravelMode { id: TravelModeId; name: string; icon: string; staminaMult: number; goldPerDist: number; desc: string; }
+export interface TravelMode {
+  id: TravelModeId;
+  name: string;
+  icon: string;
+  staminaMult: number;
+  goldPerDist: number;
+  desc: string;
+}
 export const TRAVEL_MODES: TravelMode[] = [
-  { id: "walk", name: "步行", icon: "🚶", staminaMult: 1, goldPerDist: 0, desc: "不耗金币，费体力" },
+  {
+    id: "walk",
+    name: "步行",
+    icon: "🚶",
+    staminaMult: 1,
+    goldPerDist: 0,
+    desc: "不耗金币，费体力",
+  },
   { id: "bus", name: "公交", icon: "🚌", staminaMult: 0.4, goldPerDist: 2, desc: "便宜，略费体力" },
   { id: "taxi", name: "出租车", icon: "🚕", staminaMult: 0.2, goldPerDist: 6, desc: "省体力，贵" },
   { id: "car", name: "私家车", icon: "🚗", staminaMult: 0.3, goldPerDist: 1, desc: "自由，油费低" },
 ];
 
 /** 按出行方式计算体力/金币消耗（service 端权威计价，client 仅预估） */
-export function calcTravelCostByMode(fromLocId: string, toLocId: string, mode: TravelModeId): { staminaCost: number; goldCost: number } {
+export function calcTravelCostByMode(
+  fromLocId: string,
+  toLocId: string,
+  mode: TravelModeId
+): { staminaCost: number; goldCost: number } {
   const base = calcTravelCost(fromLocId, toLocId);
   const m = TRAVEL_MODES.find((x) => x.id === mode) || TRAVEL_MODES[0];
   const staminaCost = Math.max(1, Math.round(base * m.staminaMult));
@@ -429,38 +1527,108 @@ export function calculateMaxStamina(age: number, attributes?: Record<string, num
 // ============================================================
 // 属性系统
 // ============================================================
-export interface AttrInfo { key: string; icon: string; label: string; description: string; }
+export interface AttrInfo {
+  key: string;
+  icon: string;
+  label: string;
+  description: string;
+}
 export const ATTR_INFO: AttrInfo[] = [
-  { key: "root", icon: "🦴", label: "根骨", description: "决定气血上限、恢复速度、寿命上限。影响炼体修行、抗打击能力" },
-  { key: "spirit", icon: "✨", label: "灵性", description: "决定灵气上限、吸收效率。影响修炼速度、法术威力" },
-  { key: "insight", icon: "🧠", label: "悟性", description: "决定神识上限、学习效率。影响功法领悟、技能掌握速度" },
-  { key: "luck", icon: "🍀", label: "气运", description: "决定各种概率、物品掉落品质。影响天材地宝获取、贵人相助" },
-  { key: "charm", icon: "💫", label: "魅力", description: "决定初始好感度、社交加成。影响NPC互动、门派声望获取" },
-  { key: "mind", icon: "💎", label: "心性", description: "决定心魔抗性、意志力。影响走火入魔抵抗、关键抉择" },
+  {
+    key: "root",
+    icon: "🦴",
+    label: "根骨",
+    description: "决定气血上限、恢复速度、寿命上限。影响炼体修行、抗打击能力",
+  },
+  {
+    key: "spirit",
+    icon: "✨",
+    label: "灵性",
+    description: "凡人期称「感知」：反应力与专注，影响体育协调、事件感知；觉醒后为「灵性」：决定灵气上限、吸收效率，影响修炼速度、法术威力",
+  },
+  {
+    key: "insight",
+    icon: "🧠",
+    label: "悟性",
+    description: "决定神识上限、学习效率。影响功法领悟、技能掌握速度",
+  },
+  {
+    key: "luck",
+    icon: "🍀",
+    label: "气运",
+    description: "决定各种概率、物品掉落品质。影响天材地宝获取、贵人相助",
+  },
+  {
+    key: "charm",
+    icon: "💫",
+    label: "魅力",
+    description: "决定初始好感度、社交加成。影响NPC互动、门派声望获取",
+  },
+  {
+    key: "mind",
+    icon: "💎",
+    label: "心性",
+    description: "决定心魔抗性、意志力。影响走火入魔抵抗、关键抉择",
+  },
 ];
 
 const ATTR_KEYS = ["root", "spirit", "insight", "luck", "charm", "mind"] as const;
-export function calculateYearlyAttributeGrowth(oldAge: number, newAge: number, currentAttributes: Record<string, number>, schoolRank?: SchoolRank): Record<string, number> {
-  const result = { ...currentAttributes };
+export function calculateYearlyAttributeGrowth(
+  oldAge: number,
+  newAge: number,
+  currentAttributes: Record<string, number>,
+  schoolRank?: SchoolRank
+): Record<string, number> {
+  // 经验增量 = 原属性增量 × 14268/10（10 点属性 = 14268 经验）
+  const EXP_PER_ATTR_POINT = 14268 / 10;
   const multiplier = schoolRank ? (SCHOOL_RANKS[schoolRank]?.attrMultiplier ?? 1.0) : 1.0;
   const insightBonus = (currentAttributes.insight || 0) * 0.1 + 1;
-  if (newAge <= 0 || oldAge >= 18) return result;
-  const startAge = Math.max(0, oldAge), endAge = Math.min(18, newAge);
+  if (newAge <= 0 || oldAge >= 16) return {};
+  const startAge = Math.max(0, oldAge),
+    endAge = Math.min(16, newAge);
+  const expDelta: Record<string, number> = {};
+  // 模拟属性逐年演进，保留原「按当前属性占比分配成长」的语义
+  const sim = { ...currentAttributes };
   for (let age = startAge; age < endAge; age++) {
-    let totalGrowthForYear = (age < 6 ? 1 / 6 : age < 12 ? 5 / 6 : 4 / 6) * multiplier * insightBonus;
+    let totalGrowthForYear =
+      (age < 6 ? 1 / 6 : age < 12 ? 5 / 6 : 4 / 6) * multiplier * insightBonus;
     if (totalGrowthForYear <= 0) continue;
-    const totalCurrent = Object.values(result).reduce((a, b) => a + b, 0) || 1;
+    const totalCurrent = Object.values(sim).reduce((a, b) => a + b, 0) || 1;
     for (const key of ATTR_KEYS) {
-      const ratio = (result[key] || 0) / totalCurrent;
-      result[key] = Math.round(((result[key] || 0) + Math.max(totalGrowthForYear * ratio, 0.05)) * 10) / 10;
+      const ratio = (sim[key] || 0) / totalCurrent;
+      const growth = Math.max(totalGrowthForYear * ratio, 0.05);
+      expDelta[key] = (expDelta[key] || 0) + growth * EXP_PER_ATTR_POINT;
+      sim[key] = Math.round(((sim[key] || 0) + growth) * 10) / 10;
     }
   }
-  return result;
+  return expDelta;
 }
 
-export function parseOccupationFromNarrative(narrative: string, currentOccupation: string): string | null {
-  const keywords: [string, string][] = [["辍学","辍学"],["退学","辍学"],["毕业","毕业生"],["工作","上班族"],["打工","打工者"],["经商","商人"],["开店","商人"],["拜师","弟子"],["入门","弟子"],["宗门","弟子"],["炼丹","炼丹师"],["炼器","炼器师"],["医师","医师"],["教书","教书先生"],["从军","军人"],["入伍","军人"]];
-  for (const [kw, occ] of keywords) { if (narrative.includes(kw)) return occ; }
+export function parseOccupationFromNarrative(
+  narrative: string,
+  currentOccupation: string
+): string | null {
+  const keywords: [string, string][] = [
+    ["辍学", "辍学"],
+    ["退学", "辍学"],
+    ["毕业", "毕业生"],
+    ["工作", "上班族"],
+    ["打工", "打工者"],
+    ["经商", "商人"],
+    ["开店", "商人"],
+    ["拜师", "弟子"],
+    ["入门", "弟子"],
+    ["宗门", "弟子"],
+    ["炼丹", "炼丹师"],
+    ["炼器", "炼器师"],
+    ["医师", "医师"],
+    ["教书", "教书先生"],
+    ["从军", "军人"],
+    ["入伍", "军人"],
+  ];
+  for (const [kw, occ] of keywords) {
+    if (narrative.includes(kw)) return occ;
+  }
   return null;
 }
 
@@ -468,39 +1636,154 @@ export function parseOccupationFromNarrative(narrative: string, currentOccupatio
 // 日常活动系统
 // ============================================================
 
+/** 学科经验产出档位：minAge <= 年龄 < maxAge 时，从 subjects 随机取一门 +amount。 */
+export interface SubjectExpBand {
+  minAge: number;
+  maxAge: number;
+  subjects: string[];
+  amount: number;
+}
+
 export interface DailyActivity {
-  id: string; name: string; icon: string; description: string;
-  staminaCost: number; goldDelta: number;
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  staminaCost: number;
+  goldDelta: number;
   attrGrowth: [string, number][];
-  minAge: number; requireAwakened?: boolean;
+  minAge: number;
+  requireAwakened?: boolean;
+  subjectExp?: SubjectExpBand[];
 }
 
 export const DAILY_ACTIVITIES: DailyActivity[] = [
-  { id: "study",    name: "上课学习", icon: "📖", description: "认真听课，学习知识",  staminaCost: 3, goldDelta: 0, attrGrowth: [["spirit",1],["insight",1]], minAge: 6 },
-  { id: "work",     name: "打工赚钱", icon: "💼", description: "辛勤工作赚取金币",  staminaCost: 4, goldDelta: 10, attrGrowth: [["root",0.5]], minAge: 12 },
-  { id: "exercise", name: "锻炼身体", icon: "🏃", description: "强身健体，淬炼体魄",  staminaCost: 3, goldDelta: 0, attrGrowth: [["root",1.5]], minAge: 3 },
-  { id: "socialize",name: "社交活动", icon: "💬", description: "与人交往，拓展人脉",  staminaCost: 2, goldDelta: 0, attrGrowth: [["charm",1]], minAge: 3 },
-  { id: "explore",  name: "探索闲逛", icon: "🚶", description: "四处走走，寻找机缘",  staminaCost: 2, goldDelta: 2, attrGrowth: [["luck",0.5]], minAge: 3 },
-  { id: "meditate", name: "打坐冥想", icon: "🧘", description: "静心打坐，提升心性",  staminaCost: 2, goldDelta: 0, attrGrowth: [["mind",1]], minAge: 6 },
-  { id: "cultivate",name: "修炼灵气", icon: "✨", description: "引灵气入体，提升修为", staminaCost: 5, goldDelta: 0, attrGrowth: [], minAge: 16, requireAwakened: true },
+  {
+    id: "study",
+    name: "上课学习",
+    icon: "📖",
+    description: "认真听课，学习知识",
+    staminaCost: 3,
+    goldDelta: 0,
+    attrGrowth: [
+      ["spirit", 1],
+      ["insight", 1],
+    ],
+    subjectExp: [
+      {
+        minAge: 6,
+        maxAge: 12,
+        subjects: ["math", "chinese", "english", "pe"],
+        amount: 8,
+      },
+      {
+        minAge: 12,
+        maxAge: 15,
+        subjects: ["math", "chinese", "english", "pe", "history", "physics"],
+        amount: 12,
+      },
+      {
+        minAge: 15,
+        maxAge: 18,
+        subjects: [
+          "math",
+          "chinese",
+          "english",
+          "pe",
+          "history",
+          "physics",
+          "chemistry",
+        ],
+        amount: 15,
+      },
+    ],
+    minAge: 6,
+  },
+  {
+    id: "work",
+    name: "打工赚钱",
+    icon: "💼",
+    description: "辛勤工作赚取金币",
+    staminaCost: 4,
+    goldDelta: 10,
+    attrGrowth: [["root", 0.5]],
+    minAge: 12,
+  },
+  {
+    id: "exercise",
+    name: "锻炼身体",
+    icon: "🏃",
+    description: "强身健体，淬炼体魄",
+    staminaCost: 3,
+    goldDelta: 0,
+    attrGrowth: [["root", 1.5]],
+    minAge: 3,
+  },
+  {
+    id: "socialize",
+    name: "社交活动",
+    icon: "💬",
+    description: "与人交往，拓展人脉",
+    staminaCost: 2,
+    goldDelta: 0,
+    attrGrowth: [["charm", 1]],
+    minAge: 3,
+  },
+  {
+    id: "explore",
+    name: "探索闲逛",
+    icon: "🚶",
+    description: "四处走走，寻找机缘",
+    staminaCost: 2,
+    goldDelta: 2,
+    attrGrowth: [["luck", 0.5]],
+    minAge: 3,
+  },
+  {
+    id: "meditate",
+    name: "打坐冥想",
+    icon: "🧘",
+    description: "静心打坐，提升心性",
+    staminaCost: 2,
+    goldDelta: 0,
+    attrGrowth: [["mind", 1]],
+    minAge: 6,
+  },
+  {
+    id: "cultivate",
+    name: "修炼灵气",
+    icon: "✨",
+    description: "引灵气入体，提升修为",
+    staminaCost: 5,
+    goldDelta: 0,
+    attrGrowth: [],
+    minAge: 16,
+    requireAwakened: true,
+  },
 ];
 
 export function getAvailableActivities(age: number, isAwakened: boolean): DailyActivity[] {
   return DAILY_ACTIVITIES.filter((a) => age >= a.minAge && (!a.requireAwakened || isAwakened));
 }
 
-export function applyActivityEffects(activity: DailyActivity, attributes: Record<string, number>): Record<string, number> {
+export function applyActivityEffects(
+  activity: DailyActivity,
+  attributes: Record<string, number>
+): Record<string, number> {
   const result = { ...attributes };
-  for (const [key, val] of activity.attrGrowth) result[key] = Math.round(((result[key] || 0) + val) * 10) / 10;
+  for (const [key, val] of activity.attrGrowth)
+    result[key] = Math.round(((result[key] || 0) + val) * 10) / 10;
   return result;
 }
 
-export function getStartingGold(): number { return 50; }
+export function getStartingGold(): number {
+  return 50;
+}
 
 // ── schoolRank 数据库 ↔ 业务类型转换 ──────────────────────
 // DB 存储 Int: 0=普通, 1=重点, 2=名校
 const SCHOOL_RANK_DB_MAP: Record<number, SchoolRank> = { 0: "普通", 1: "重点", 2: "名校" };
-const SCHOOL_RANK_TO_DB: Record<SchoolRank, number> = { "普通": 0, "重点": 1, "名校": 2 };
+const SCHOOL_RANK_TO_DB: Record<SchoolRank, number> = { 普通: 0, 重点: 1, 名校: 2 };
 
 export function dbToSchoolRank(db: number): SchoolRank {
   return SCHOOL_RANK_DB_MAP[db] ?? "普通";

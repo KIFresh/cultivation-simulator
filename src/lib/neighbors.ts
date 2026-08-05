@@ -71,7 +71,11 @@ function rngFrom(id: string, salt: string): () => number {
 const clampIntimacy = (v: number) => Math.max(0, Math.min(100, Math.round(v)));
 
 // 首访生成 2-4 个邻居（基于角色 id + 年龄，可复现）
-export function rollInitialNeighbors(cultivatorId: string, age: number, fate?: string | null): NeighborNpc[] {
+export function rollInitialNeighbors(
+  cultivatorId: string,
+  age: number,
+  fate?: string | null
+): NeighborNpc[] {
   const rng = rngFrom(cultivatorId, `init:${age}`);
   const count = 2 + Math.floor(rng() * 3); // 2-4
   const pool = [...NEIGHBOR_POOL];
@@ -93,7 +97,10 @@ export function rollInitialNeighbors(cultivatorId: string, age: number, fate?: s
 }
 
 // 互动效果（确定性，便于测试与复现）
-export function interactNeighbor(neighbor: NeighborNpc, action: NeighborAction): NeighborInteractionResult {
+export function interactNeighbor(
+  neighbor: NeighborNpc,
+  action: NeighborAction
+): NeighborInteractionResult {
   switch (action) {
     case "gossip":
       return {
@@ -138,11 +145,7 @@ export const NEIGHBOR_ACTION_DEFS: Record<
 };
 
 export function isNeighbor(v: unknown): v is NeighborNpc {
-  return (
-    typeof v === "object" &&
-    v !== null &&
-    (v as { type?: string }).type === "neighbor"
-  );
+  return typeof v === "object" && v !== null && (v as { type?: string }).type === "neighbor";
 }
 
 export { clampIntimacy };

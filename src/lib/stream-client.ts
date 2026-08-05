@@ -10,6 +10,7 @@ export type NarrativeErrorPayload = {
   message: string;
   gameEventId: string | null;
   params?: unknown;
+  requestId?: string;
 };
 
 export interface NarrativeData {
@@ -29,8 +30,9 @@ interface StreamChunk {
   characterName?: string;
   narrative?: NarrativeData;
   narrativeError?: NarrativeErrorPayload;
-  committed?: { gameEventId?: string };
+  committed?: { gameEventId?: string; characterName?: string };
   done?: boolean;
+  result?: unknown;
   fullText?: string;
   error?: unknown;
 }
@@ -44,25 +46,37 @@ interface StreamChunk {
 export async function fetchStreamNarrative(
   url: string,
   body: unknown,
-  opts?: { onChunk?: (text: string) => void; signal?: AbortSignal },
+  opts?: {
+    onChunk?: (text: string) => void;
+    signal?: AbortSignal;
+    headers?: Record<string, string>;
+  }
 ): Promise<NarrativeResult> {
   const result: NarrativeResult = {};
+  let requestId: string | undefined;
   try {
     const res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...opts?.headers },
       body: JSON.stringify(body),
       signal: opts?.signal,
     });
 
+    requestId =
+      typeof res.headers?.get === "function" ? res.headers.get("x-request-id") || undefined : undefined;
     if (!res.ok || !res.body) {
+      const payload = await res.json().catch(() => null) as {
+        error?: string;
+        code?: string;
+      } | null;
       return {
         narrativeError: {
           type: "HTTP",
-          code: "HTTP_" + (res?.status ?? 0),
-          message: "叙事服务响应异常",
+          code: payload?.code || "HTTP_" + (res?.status ?? 0),
+          message: payload?.error || "叙事服务响应异常",
           gameEventId: null,
           params: body,
+          requestId,
         },
       };
     }
@@ -96,6 +110,7 @@ export async function fetchStreamNarrative(
             opts?.onChunk?.(cleanNarrativeStream(chunk.text));
           }
           if (chunk.characterName) result.characterName = chunk.characterName;
+          if (chunk.committed?.characterName) result.characterName = chunk.committed.characterName;
           if (chunk.narrative) {
             result.narrative = { ...(result.narrative ?? {}), ...chunk.narrative };
             if (chunk.narrative.characterName) {
@@ -105,6 +120,68 @@ export async function fetchStreamNarrative(
           if (chunk.narrativeError) {
             result.narrativeError = chunk.narrativeError;
           }
+          if (chunk.done && chunk.result) {
+            // done 事件携带完整业务载荷，合并到 result.narrative
+            const doneResult = chunk.result as Record<string, unknown>;
+            result.narrative = { ...(result.narrative ?? {}), ...doneResult };
+            if (doneResult.characterName) {
+              result.characterName = doneResult.characterName as string;
+            }
+            continue;
+          }
+          if (chunk.error) {
+            const errorObject = typeof chunk.error === "object" && chunk.error
+              ? chunk.error as Record<string, unknown>
+              : null;
+            const nestedError = errorObject?.narrativeError;
+            if (nestedError && typeof nestedError === "object") {
+              result.narrativeError = nestedError as NarrativeErrorPayload;
+            } else if (!result.narrativeError) {
+              const errMsg = typeof chunk.error === "string"
+                ? chunk.error
+                : errorObject?.message;
+              result.narrativeError = {
+                type: "STREAM",
+                code: "STREAM_ERROR",
+                message: typeof errMsg === "string" ? errMsg : "叙事流异常",
+                gameEventId: null,
+                params: body,
+              };
+            }
+          }
+        }
+      }
+      // 兼容代理在 EOF 时不补换行的 SSE 事件。
+      const tail = buffer.trim();
+      if (tail.startsWith("data:")) {
+        const payload = tail.slice(5).trim();
+        if (payload && payload !== "[DONE]") {
+          try {
+            const chunk = JSON.parse(payload) as StreamChunk;
+            if (chunk.text != null) opts?.onChunk?.(cleanNarrativeStream(chunk.text));
+            if (chunk.characterName) result.characterName = chunk.characterName;
+            if (chunk.committed?.characterName) result.characterName = chunk.committed.characterName;
+            if (chunk.narrative) result.narrative = { ...(result.narrative ?? {}), ...chunk.narrative };
+            if (chunk.narrativeError) result.narrativeError = chunk.narrativeError;
+            if (chunk.done && chunk.result) result.narrative = { ...(result.narrative ?? {}), ...(chunk.result as Record<string, unknown>) };
+            if (chunk.error && !result.narrativeError) {
+              const errorObject = typeof chunk.error === "object" && chunk.error
+                ? chunk.error as Record<string, unknown>
+                : null;
+              const nestedError = errorObject?.narrativeError;
+              result.narrativeError = nestedError && typeof nestedError === "object"
+                ? nestedError as NarrativeErrorPayload
+                : {
+                    type: "STREAM",
+                    code: "STREAM_ERROR",
+                    message: typeof chunk.error === "string" ? chunk.error : "叙事流异常",
+                    gameEventId: null,
+                    params: body,
+                  };
+            }
+          } catch {
+            // 忽略不完整的尾部事件。
+          }
         }
       }
     } finally {
@@ -113,7 +190,7 @@ export async function fetchStreamNarrative(
 
     if (result.narrativeError) {
       return {
-        narrativeError: result.narrativeError,
+        narrativeError: { ...result.narrativeError, requestId },
         characterName: result.characterName,
       };
     }
@@ -124,15 +201,18 @@ export async function fetchStreamNarrative(
   } catch (err) {
     const ne = extractNarrativeError(err);
     if (ne) {
-      return { narrativeError: ne, characterName: result.characterName };
+      return { narrativeError: { ...ne, requestId: ne.requestId || requestId }, characterName: result.characterName };
     }
+    const isTimeout = err instanceof Error &&
+      (err.name === "TimeoutError" || /signal timed out|timeout/i.test(err.message));
     return {
       narrativeError: {
         type: "STREAM",
-        code: "STREAM_ERROR",
-        message: err instanceof Error ? err.message : String(err),
+        code: isTimeout ? "PROVIDER_TIMEOUT" : "STREAM_ERROR",
+        message: isTimeout ? "AI 叙事服务响应超时，请稍后重试" : "叙事流连接失败，请稍后重试",
         gameEventId: null,
         params: body,
+        requestId,
       },
       characterName: result.characterName,
     };
@@ -143,7 +223,8 @@ export async function fetchStreamNarrative(
 function extractNarrativeError(source: unknown): NarrativeErrorPayload | null {
   const e = source as any;
   if (e?.error?.narrativeError) return e.error.narrativeError as NarrativeErrorPayload;
-  if (typeof e?.error === "string") return { type: "STREAM", code: "STREAM_ERROR", message: e.error, gameEventId: null };
+  if (typeof e?.error === "string")
+    return { type: "STREAM", code: "STREAM_ERROR", message: e.error, gameEventId: null };
   if (e?.narrativeError) return e.narrativeError as NarrativeErrorPayload;
   return null;
 }
@@ -163,21 +244,24 @@ function extractNarrativeError(source: unknown): NarrativeErrorPayload | null {
  *   让流式预览直接展示可读叙事正文。JSON 不完整时（流中途）静默回退到已清洗文本。
  */
 const LEADING_FENCE = /^\s*```[a-zA-Z]*\s*(?:\n|(?=\{))|^\s*~~~[a-zA-Z]*\s*(?:\n|(?=\{))/;
-const LEADING_TAG = /^\s*<(?:function_calls?|function|tool_call|tool_use|think|thinking)\b[^>]*>\s*/i;
+const LEADING_TAG =
+  /^\s*<(?:function_calls?|function|tool_call|tool_use|think|thinking)\b[^>]*>\s*/i;
 const TRAILING_FENCE = /\s*(?:```|~~~)\s*$/;
 const TRAILING_TAG = /\s*<\/(?:function_calls?|function|tool_call|tool_use|think|thinking)>\s*$/i;
 
 /** 尝试从类 JSON 文本中提取 narr / narrative 字段；失败返回 null */
 function tryExtractNarrativeFromJson(text: string): string | null {
   const trimmed = text.trim();
-  if (!trimmed.startsWith('{')) return null;
+  if (!trimmed.startsWith("{")) return null;
   try {
     const obj = JSON.parse(trimmed);
-    if (obj && typeof obj === 'object') {
+    if (obj && typeof obj === "object") {
       const narr = obj.narr ?? obj.narrative ?? obj.content ?? null;
-      if (typeof narr === 'string' && narr.trim().length > 0) return narr;
+      if (typeof narr === "string" && narr.trim().length > 0) return narr;
     }
-  } catch { /* JSON 不完整或非法，静默回退 */ }
+  } catch {
+    /* JSON 不完整或非法，静默回退 */
+  }
   return null;
 }
 

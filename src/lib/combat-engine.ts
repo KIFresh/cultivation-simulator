@@ -6,18 +6,36 @@ import { getItemById } from "./cultivation-data";
 import { Enemy, getEnemiesForLocation, getRealmMultiplier, pickEnemy } from "./enemy-data";
 import { calculateTechniqueBonuses, TECHNIQUES } from "./technique-data";
 import { generateCombatNarrative } from "./narrative";
+import { AllProvidersFailedError } from "./narrative/provider";
+import { logger } from "./logger";
 
 export interface CombatResult {
   win: boolean;
   style: "overwhelm" | "hard_fought" | "underdog" | "comedy" | "crushed";
   enemy: Enemy;
   loot?: { gold: number; exp: number; items?: string[] };
-  penalty?: { goldLoss: number; injuryDebuff: number; lifespanLoss: number; itemLoss?: string[]; daoXiao?: boolean; mindDemonDelta?: number };
+  penalty?: {
+    goldLoss: number;
+    injuryDebuff: number;
+    lifespanLoss: number;
+    itemLoss?: string[];
+    daoXiao?: boolean;
+    mindDemonDelta?: number;
+  };
   narrative: string;
 }
 
 export interface PlayerCombatData {
-  cultivator: { id: string; name: string; realm: string; realmLevel: number; gold: number; reincarnationCount: number; injuryDebuff: number; mindDemon: number };
+  cultivator: {
+    id: string;
+    name: string;
+    realm: string;
+    realmLevel: number;
+    gold: number;
+    reincarnationCount: number;
+    injuryDebuff: number;
+    mindDemon: number;
+  };
   attributes: Record<string, number>;
   equippedItems: { itemId: string }[];
   /** 完整背包物品列表（含数量和装备状态），用于战败扣物 */
@@ -35,23 +53,32 @@ function playerName(player: PlayerCombatData): string {
  */
 export function calculateCombatPower(player: PlayerCombatData): number {
   const attr = player.attributes;
-  const base = Math.max(10, (attr.root || 0) * 2 + (attr.spirit || 0) * 1.5 + (attr.insight || 0) * 1);
+  const base = Math.max(
+    10,
+    (attr.root || 0) * 2 + (attr.spirit || 0) * 1.5 + (attr.insight || 0) * 1
+  );
   const realmMult = getRealmMultiplier(player.cultivator.realm);
   const techBonuses = calculateTechniqueBonuses(
     player.techniqueRecords.map((r) => ({ technique: TECHNIQUES[r.techniqueId], level: r.level }))
   );
   const techniqueBonus = 1 + (techBonuses.combat || 0) / 100;
-  const equipmentBonus = 1 + player.equippedItems.reduce((sum, e) => {
-    const item = getItemById(e.itemId);
-    return sum + (item?.combatValue || 0);
-  }, 0) / 100;
+  const equipmentBonus =
+    1 +
+    player.equippedItems.reduce((sum, e) => {
+      const item = getItemById(e.itemId);
+      return sum + (item?.combatValue || 0);
+    }, 0) /
+      100;
   return Math.floor(base * realmMult * techniqueBonus * equipmentBonus);
 }
 
 /**
  * 胜负判定
  */
-export function resolveBattle(playerPower: number, enemyPower: number): { win: boolean; style: CombatResult["style"] } {
+export function resolveBattle(
+  playerPower: number,
+  enemyPower: number
+): { win: boolean; style: CombatResult["style"] } {
   const ratio = playerPower / enemyPower;
   if (ratio >= 5) return { win: true, style: "overwhelm" };
   const winRate = playerPower / (playerPower + enemyPower);
@@ -71,12 +98,15 @@ export function resolveBattle(playerPower: number, enemyPower: number): { win: b
 /**
  * 战利品生成
  */
-export function generateLoot(enemy: Enemy, playerLuck: number): { gold: number; exp: number; items: string[] } {
+export function generateLoot(
+  enemy: Enemy,
+  playerLuck: number
+): { gold: number; exp: number; items: string[] } {
   const power = enemy.combatPower;
   const gold = Math.floor(power * (0.5 + Math.random() * 1.0));
   const exp = Math.floor(power * (2 + Math.random() * 1));
   const items: string[] = [];
-  const baseDropRate = enemy.rarity === "普通" ? 0.05 : enemy.rarity === "精英" ? 0.15 : 0.30;
+  const baseDropRate = enemy.rarity === "普通" ? 0.05 : enemy.rarity === "精英" ? 0.15 : 0.3;
   const luckRate = baseDropRate * (1 + (playerLuck || 0) * 0.1);
   // 从敌人掉落池中随机选取
   const pool = enemy.drops && enemy.drops.length > 0 ? enemy.drops : ["spirit_stone"];
@@ -85,7 +115,7 @@ export function generateLoot(enemy: Enemy, playerLuck: number): { gold: number; 
     items.push(picked);
   }
   // 精英额外 10% 概率再掉一个，BOSS 额外 20% 概率再掉一个
-  if (enemy.rarity !== "普通" && Math.random() < (enemy.rarity === "BOSS" ? 0.20 : 0.10)) {
+  if (enemy.rarity !== "普通" && Math.random() < (enemy.rarity === "BOSS" ? 0.2 : 0.1)) {
     const picked = pool[Math.floor(Math.random() * pool.length)];
     items.push(picked);
   }
@@ -99,38 +129,76 @@ export function generateLoot(enemy: Enemy, playerLuck: number): { gold: number; 
  * 2 ≤ ratio < 5 → 档2: 丢50-80%灵石 + 重伤3次 (injuryDebuff=3) + 扣5-10年寿元
  * ratio ≥ 5 → 档3: 道消
  */
-export function applyPenalty(ratio: number, playerGold: number, inventory?: { itemId: string; quantity: number; equipped: boolean }[]): {
-  goldLoss: number; injuryDebuff: number; lifespanLoss: number; daoXiao: boolean; itemLoss?: string[]; mindDemonDelta?: number;
+export function applyPenalty(
+  ratio: number,
+  playerGold: number,
+  inventory?: { itemId: string; quantity: number; equipped: boolean }[]
+): {
+  goldLoss: number;
+  injuryDebuff: number;
+  lifespanLoss: number;
+  daoXiao: boolean;
+  itemLoss?: string[];
+  mindDemonDelta?: number;
 } {
-  if (ratio < 1) return { goldLoss: Math.floor(playerGold * (0.05 + Math.random() * 0.05)), injuryDebuff: 0, lifespanLoss: 0, daoXiao: false, mindDemonDelta: 10 };
+  if (ratio < 1)
+    return {
+      goldLoss: Math.floor(playerGold * (0.05 + Math.random() * 0.05)),
+      injuryDebuff: 0,
+      lifespanLoss: 0,
+      daoXiao: false,
+      mindDemonDelta: 10,
+    };
   if (ratio < 2) {
     // 从非装备背包中随机扣 1-2 件物品
     const nonEquipped = (inventory || []).filter((i) => !i.equipped && i.quantity > 0);
     const lossCount = 1 + Math.floor(Math.random() * 2); // 1 or 2
     const itemLoss: string[] = [];
     const shuffled = [...nonEquipped];
-    for (let i = shuffled.length - 1; i > 0; i--) { // Fisher-Yates shuffle
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      // Fisher-Yates shuffle
       const j = Math.floor(Math.random() * (i + 1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
     for (let i = 0; i < Math.min(lossCount, shuffled.length); i++) {
       itemLoss.push(shuffled[i].itemId);
     }
-    return { goldLoss: Math.floor(playerGold * (0.2 + Math.random() * 0.3)), injuryDebuff: 0, lifespanLoss: 0, daoXiao: false, itemLoss };
+    return {
+      goldLoss: Math.floor(playerGold * (0.2 + Math.random() * 0.3)),
+      injuryDebuff: 0,
+      lifespanLoss: 0,
+      daoXiao: false,
+      itemLoss,
+    };
   }
-  if (ratio < 5) return { goldLoss: Math.floor(playerGold * (0.5 + Math.random() * 0.3)), injuryDebuff: 3, lifespanLoss: 5 + Math.floor(Math.random() * 5), daoXiao: false };
-  return { goldLoss: Math.floor(playerGold * 0.8), injuryDebuff: 0, lifespanLoss: 0, daoXiao: true };
+  if (ratio < 5)
+    return {
+      goldLoss: Math.floor(playerGold * (0.5 + Math.random() * 0.3)),
+      injuryDebuff: 3,
+      lifespanLoss: 5 + Math.floor(Math.random() * 5),
+      daoXiao: false,
+    };
+  return {
+    goldLoss: Math.floor(playerGold * 0.8),
+    injuryDebuff: 0,
+    lifespanLoss: 0,
+    daoXiao: true,
+  };
 }
 
 /**
  * 获取战斗叙事风格
  */
 export function getCombatNarrativeText(
-  style: CombatResult["style"], win: boolean,
-  playerName: string, enemyName: string
+  style: CombatResult["style"],
+  win: boolean,
+  playerName: string,
+  enemyName: string
 ): string {
-  if (style === "overwhelm" && win) return `${playerName}随手一挥，剑气纵横，${enemyName}当场灰飞烟灭。`;
-  if (style === "hard_fought" && win) return `鏖战三百回合，${playerName}抓住破绽一剑封喉，${enemyName}轰然倒地。`;
+  if (style === "overwhelm" && win)
+    return `${playerName}随手一挥，剑气纵横，${enemyName}当场灰飞烟灭。`;
+  if (style === "hard_fought" && win)
+    return `鏖战三百回合，${playerName}抓住破绽一剑封喉，${enemyName}轰然倒地。`;
   if (style === "underdog" && win) return `绝境中${playerName}引爆丹田潜能，一拳轰碎${enemyName}！`;
   if (style === "comedy") return `${playerName}被一块石头绊倒，${enemyName}一脸困惑地看着你。`;
   return `${playerName}连${enemyName}的衣角都没碰到就被打飞出去。`;
@@ -155,8 +223,16 @@ export async function resolveCombat(
   }
   if (!enemy) {
     return {
-      win: true, style: "overwhelm",
-      enemy: { id: "none", name: "无", realm: "凡人", combatPower: 0, rarity: "普通", locationIds: [] },
+      win: true,
+      style: "overwhelm",
+      enemy: {
+        id: "none",
+        name: "无",
+        realm: "凡人",
+        combatPower: 0,
+        rarity: "普通",
+        locationIds: [],
+      },
       narrative: "四周一片宁静，并无敌人。",
     };
   }
@@ -164,7 +240,7 @@ export async function resolveCombat(
   const ratio = enemy.combatPower / Math.max(1, playerPower);
   const pname = playerName(player);
   let narrative = getCombatNarrativeText(style, win, pname, enemy.name);
-  // Bug 12: 尝试 AI 叙事，失败用 fallback
+  // 尝试 AI 叙事，失败则抛出错误
   try {
     const aiText = await generateCombatNarrative({
       cultivatorName: pname,
@@ -175,7 +251,11 @@ export async function resolveCombat(
       enemyRealm: enemy.realm,
     });
     if (aiText && aiText.trim()) narrative = aiText;
-  } catch {}
+  } catch (e) {
+    logger.error("战斗叙事AI生成失败:", e);
+    if (e instanceof AllProvidersFailedError) throw e;
+    throw new Error(`战斗叙事生成失败: ${e instanceof Error ? e.message : "未知错误"}`);
+  }
   if (win) {
     const loot = generateLoot(enemy, player.attributes.luck || 0);
     return { win: true, style, enemy, loot, narrative };

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireCultivator } from "@/lib/auth-helpers";
+import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
+import { logger } from "@/lib/logger";
 
 interface NpcDef {
   name: string;
@@ -11,17 +13,47 @@ interface NpcDef {
 
 const NPC_DIRECTORY: Record<string, NpcDef[]> = {
   home: [
-    { name: "管家老周", title: "忠仆", location: "home", disposition: "友善", description: "照料府中琐事，知晓主人家底。" },
+    {
+      name: "管家老周",
+      title: "忠仆",
+      location: "home",
+      disposition: "友善",
+      description: "照料府中琐事，知晓主人家底。",
+    },
   ],
   market: [
-    { name: "商会掌柜", title: "商修", location: "market", disposition: "精明", description: "贩卖奇物灵材，消息灵通。" },
-    { name: "市井说书人", title: "散修", location: "market", disposition: "热心", description: "走南闯北，知晓诸多闲闻。" },
+    {
+      name: "商会掌柜",
+      title: "商修",
+      location: "market",
+      disposition: "精明",
+      description: "贩卖奇物灵材，消息灵通。",
+    },
+    {
+      name: "市井说书人",
+      title: "散修",
+      location: "market",
+      disposition: "热心",
+      description: "走南闯北，知晓诸多闲闻。",
+    },
   ],
   sect: [
-    { name: "守山弟子", title: "门人", location: "sect", disposition: "严正", description: "把守山门，考验来者诚心。" },
+    {
+      name: "守山弟子",
+      title: "门人",
+      location: "sect",
+      disposition: "严正",
+      description: "把守山门，考验来者诚心。",
+    },
   ],
   square: [
-    { name: "江湖游医", title: "游方修士", location: "square", disposition: "随和", description: "悬壶济世，亦售丹方。" },
+    {
+      name: "江湖游医",
+      title: "游方修士",
+      location: "square",
+      disposition: "随和",
+      description: "悬壶济世，亦售丹方。",
+    },
   ],
 };
 
@@ -30,18 +62,15 @@ function npcsAt(location: string): NpcDef[] {
 }
 
 // GET — 列出当前地点的人物
-export async function GET(request: NextRequest) {
-  try {
-    const auth = await requireCultivator(request);
-    if ("error" in auth) return auth.error;
-    const cultivator = auth.cultivator;
-    const location = cultivator.location ?? "home";
-    return NextResponse.json({ location, npcs: npcsAt(location) });
-  } catch (error) {
-    console.error("获取地点人物失败:", error);
-    return NextResponse.json({ error: "无法加载地点人物" }, { status: 500 });
-  }
+async function getHandler(request: NextRequest) {
+  const auth = await requireCultivator(request);
+  if ("error" in auth) return auth.error;
+  const cultivator = auth.cultivator;
+  const location = cultivator.location ?? "home";
+  return NextResponse.json({ location, npcs: npcsAt(location) });
 }
+
+export const GET = withApiErrorHandling(getHandler);
 
 // POST — 与地点人物交互
 export async function POST(request: NextRequest) {
@@ -50,7 +79,7 @@ export async function POST(request: NextRequest) {
     if ("error" in auth) return auth.error;
     const cultivator = auth.cultivator;
 
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     const action = body?.action;
     const npcName = body?.npcName;
 
@@ -75,7 +104,7 @@ export async function POST(request: NextRequest) {
       message,
     });
   } catch (error) {
-    console.error("与地点人物交互失败:", error);
+    logger.error("与地点人物交互失败:", error);
     return NextResponse.json({ error: "交互失败" }, { status: 500 });
   }
 }

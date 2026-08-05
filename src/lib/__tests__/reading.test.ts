@@ -15,7 +15,9 @@ describe("parseReadingLog", () => {
     expect(parseReadingLog("bad")).toEqual(baseLog);
   });
   it("解析已有记录", () => {
-    const s = parseReadingLog(JSON.stringify({ booksRead: 5, knowledge: 5, list: [{ title: "x", domain: "y" }] }));
+    const s = parseReadingLog(
+      JSON.stringify({ booksRead: 5, knowledge: 5, list: [{ title: "x", domain: "y" }] })
+    );
     expect(s.booksRead).toBe(5);
     expect(s.list.length).toBe(1);
   });

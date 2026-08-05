@@ -1,5 +1,7 @@
-// 轻量日志工具：统一前缀、按最低级别过滤。
-// 服务端/客户端通用；默认 minLevel=info，debug 在生产环境被抑制。
+/**
+ * 结构化日志工具。
+ * 日志只保留可排查的上下文，并在输出前递归脱敏。
+ */
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -9,6 +11,57 @@ const LEVEL_ORDER: Record<LogLevel, number> = {
   warn: 2,
   error: 3,
 };
+
+const SENSITIVE_KEY = /(?:authorization|cookie|set-cookie|api[-_]?key|token|secret|password|credential|request[-_]?body|body)/i;
+const BEARER_VALUE = /(bearer\s+)[^\s,;]+/gi;
+const REDACTED = "[REDACTED]";
+
+export function redactString(value: string): string {
+  return value
+    .replace(
+      /(["']?(?:api[-_]?key|authorization|token|secret|password)["']?\s*[:=]\s*["']?(?:bearer\s+)?)([^"'\s,;}]+)/gi,
+      (_match, prefix: string) => `${prefix}${REDACTED}`
+    )
+    .replace(BEARER_VALUE, (_match, prefix: string) => `${prefix}${REDACTED}`);
+}
+
+export function redactLogValue(value: unknown, seen = new WeakSet<object>()): unknown {
+  if (typeof value === "string") return redactString(value);
+  if (value instanceof Error) {
+    if (seen.has(value)) return "[Circular]";
+    seen.add(value);
+    const safe: Record<string, unknown> = {
+      name: redactString(value.name),
+      message: redactString(value.message),
+    };
+    if (value.stack) safe.stack = redactString(value.stack);
+    if ("cause" in value) safe.cause = redactLogValue(value.cause, seen);
+    for (const [key, entry] of Object.entries(value)) {
+      if (key === "message" || key === "stack" || key === "name" || key === "cause") continue;
+      safe[key] = SENSITIVE_KEY.test(key) ? REDACTED : redactLogValue(entry, seen);
+    }
+    seen.delete(value);
+    return safe;
+  }
+  if (Array.isArray(value)) {
+    if (seen.has(value)) return "[Circular]";
+    seen.add(value);
+    const output = value.map((item) => redactLogValue(item, seen));
+    seen.delete(value);
+    return output;
+  }
+  if (value && typeof value === "object") {
+    if (seen.has(value)) return "[Circular]";
+    seen.add(value);
+    const output: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value)) {
+      output[key] = SENSITIVE_KEY.test(key) ? REDACTED : redactLogValue(entry, seen);
+    }
+    seen.delete(value);
+    return output;
+  }
+  return value;
+}
 
 class Logger {
   private minLevel: LogLevel;
@@ -21,33 +74,39 @@ class Logger {
     return LEVEL_ORDER[level] >= LEVEL_ORDER[this.minLevel];
   }
 
-  private format(level: LogLevel, args: unknown[]): string {
-    const body = args
-      .map((a) => (typeof a === "string" ? a : String(a)))
-      .join(" ");
-    return `[${level}] ${body}`;
-  }
-
-  private emit(level: LogLevel, args: unknown[]): void {
-    if (!this.shouldLog(level)) return;
-    // eslint-disable-next-line no-console
-    console.log(this.format(level, args));
+  private formatArgs(args: unknown[], prefix?: string): unknown[] {
+    const result: unknown[] = [];
+    if (prefix) result.push(`[${prefix.toUpperCase()}]`);
+    let textParts: string[] = [];
+    for (const arg of args) {
+      if (typeof arg === "string") {
+        textParts.push(redactString(arg));
+      } else {
+        if (textParts.length > 0) {
+          result.push(textParts.join(" "));
+          textParts = [];
+        }
+        result.push(redactLogValue(arg));
+      }
+    }
+    if (textParts.length > 0) result.push(textParts.join(" "));
+    return result;
   }
 
   debug(...args: unknown[]): void {
-    this.emit("debug", args);
+    if (this.shouldLog("debug")) console.debug(...this.formatArgs(args, "debug"));
   }
 
   info(...args: unknown[]): void {
-    this.emit("info", args);
+    if (this.shouldLog("info")) console.info(...this.formatArgs(args, "info"));
   }
 
   warn(...args: unknown[]): void {
-    this.emit("warn", args);
+    if (this.shouldLog("warn")) console.warn(...this.formatArgs(args, "warn"));
   }
 
   error(...args: unknown[]): void {
-    this.emit("error", args);
+    if (this.shouldLog("error")) console.error(...this.formatArgs(args, "error"));
   }
 
   setMinLevel(level: LogLevel): void {
@@ -56,5 +115,4 @@ class Logger {
 }
 
 export const logger = new Logger();
-
 export { Logger };

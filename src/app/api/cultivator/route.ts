@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { SPIRITUAL_ROOTS, type SpiritualRoot } from "@/lib";
 import { hashPassword } from "@/lib/auth";
 import { signSession, SESSION_COOKIE_NAME } from "@/lib/session";
+import { requireCultivator } from "@/lib/auth-helpers";
+import { withApiErrorHandling, parseJsonBody } from "@/lib/api-error";
+import { logger } from "@/lib/logger";
+import { calculateMaxStamina } from "@/lib/cultivation-data";
 
 /** 登录/注册成功后向响应写入 HttpOnly 签名会话 cookie */
 function setSessionCookie(response: NextResponse, userId: string): NextResponse {
@@ -17,18 +21,20 @@ function setSessionCookie(response: NextResponse, userId: string): NextResponse 
 }
 
 // POST — 创建修炼者 + 记忆操作
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     const { action, ...rest } = body;
 
     // 更新记忆条目
     if (action === "updateMemory") {
-      if (!rest.userId || !rest.storyEntries) {
+      const auth = await requireCultivator(request);
+      if ("error" in auth) return auth.error;
+      if (!rest.storyEntries) {
         return NextResponse.json({ error: "缺少参数" }, { status: 400 });
       }
-      const cultivator = await prisma.cultivator.update({
-        where: { userId: rest.userId },
+      const updated = await prisma.cultivator.update({
+        where: { id: auth.cultivator.id },
         data: {
           storyEntries: JSON.stringify(rest.storyEntries),
           storyEntriesUpdatedAt: new Date(),
@@ -36,42 +42,61 @@ export async function POST(request: NextRequest) {
       });
       return NextResponse.json({
         success: true,
-        entries: JSON.parse(cultivator.storyEntries || '[]'),
+        entries: JSON.parse(updated.storyEntries || "[]"),
       });
     }
 
     // 手动压缩记忆
     if (action === "compressMemory") {
+      const auth = await requireCultivator(request);
+      if ("error" in auth) return auth.error;
       const cultivator = await prisma.cultivator.findUnique({
-        where: { userId: rest.userId },
+        where: { id: auth.cultivator.id },
       });
       if (!cultivator) {
         return NextResponse.json({ error: "不存在" }, { status: 404 });
       }
 
       const { compressStorySummary, createEntry } = await import("@/lib/narrative");
-      const entries: import("@/lib/narrative").StoryEntry[] = JSON.parse(cultivator.storyEntries || '[]');
-      const importantEntries = entries.filter(e => e.important);
-      const normalEntries = entries.filter(e => !e.important);
+      let entries: import("@/lib/narrative").StoryEntry[] = [];
+      try {
+        entries = JSON.parse(cultivator.storyEntries || "[]");
+        if (!Array.isArray(entries)) entries = [];
+      } catch {
+        entries = [];
+      }
+
+      const importantEntries = entries.filter((e) => e.important);
+      const normalEntries = entries.filter((e) => !e.important);
 
       if (normalEntries.length === 0) {
-        return NextResponse.json({ entries, message: "无非重要条目需要压缩" });
+        return NextResponse.json({
+          success: true,
+          entries: importantEntries,
+          compressed: false,
+          message: "没有可压缩的普通记忆",
+        });
       }
 
       const compressedText = await compressStorySummary(entries, cultivator.name);
-      const compressedEntry = createEntry("📜 记忆凝练", compressedText, false);
+      const compressedEntry = createEntry("记忆凝练", compressedText, false);
 
       const newEntries = [...importantEntries, compressedEntry];
 
       await prisma.cultivator.update({
-        where: { userId: rest.userId },
+        where: { id: auth.cultivator.id },
         data: {
           storyEntries: JSON.stringify(newEntries),
           storyEntriesUpdatedAt: new Date(),
         },
       });
 
-      return NextResponse.json({ success: true, entries: newEntries });
+      return NextResponse.json({
+        success: true,
+        entries: newEntries,
+        compressed: true,
+        message: "记忆已压缩",
+      });
     }
 
     const { cultivatorName, spiritualRoot, password, worldId } = body;
@@ -98,34 +123,30 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "该用户已有修炼者" }, { status: 409 });
       }
 
-      const user = await prisma.user.update({
-        where: { id: body.userId },
-        data: {
-          cultivator: {
-            create: {
-              name: body.cultivatorName,
-              spiritualRoot: body.spiritualRoot,
-              worldId: body.worldId || "earth",
+      // 已有用户路径：原子创建修炼者 + 初始功法
+      const result = await prisma.$transaction(async (tx) => {
+        const user = await tx.user.update({
+          where: { id: body.userId },
+          data: {
+            cultivator: {
+              create: {
+                name: body.cultivatorName,
+                spiritualRoot: body.spiritualRoot,
+                worldId: body.worldId || "earth",
+                worldYear: 2025,
+                attributes: body.attributes ? JSON.stringify(body.attributes) : undefined,
+                gender: body.gender,
+                stamina: calculateMaxStamina(1, body.attributes),
+              },
             },
           },
-        },
-        include: { cultivator: true },
+          include: { cultivator: true },
+        });
+
+        return user;
       });
 
-      // 初始赠送吐纳术
-      if (user.cultivator) {
-        await prisma.cultivatorTechnique.create({
-          data: {
-            cultivatorId: user.cultivator.id,
-            techniqueId: "basic_breathing",
-            equipSlot: 1,
-            level: 1,
-            proficiency: 0,
-          },
-        });
-      }
-
-      return setSessionCookie(NextResponse.json({ user }), user.id);
+      return setSessionCookie(NextResponse.json({ user: result }), result.id);
     }
 
     // 新建用户路径：必须有 userName
@@ -138,88 +159,76 @@ export async function POST(request: NextRequest) {
 
     const pwdHash = password ? hashPassword(password) : undefined;
 
-    const user = await prisma.user.create({
-      data: {
-        name: userName,
-        password: pwdHash ? `${pwdHash.salt}:${pwdHash.hash}` : undefined,
-        cultivator: {
-          create: { name: cultivatorName, spiritualRoot, worldId: worldId || "earth" },
+    // 原子创建用户 + 修炼者 + 初始功法
+    const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          name: userName,
+          password: pwdHash ? `${pwdHash.salt}:${pwdHash.hash}` : undefined,
+          cultivator: {
+            create: {
+              name: cultivatorName,
+              spiritualRoot,
+              worldId: worldId || "earth",
+              worldYear: 2025,
+              attributes: body.attributes ? JSON.stringify(body.attributes) : undefined,
+              gender: body.gender,
+              stamina: calculateMaxStamina(1, body.attributes),
+            },
+          },
         },
-      },
-      include: { cultivator: true },
+        include: { cultivator: true },
+      });
+
+      return user;
     });
 
-    // 初始赠送吐纳术
-    if (user.cultivator) {
-      await prisma.cultivatorTechnique.create({
-        data: {
-          cultivatorId: user.cultivator.id,
-          techniqueId: "basic_breathing",
-          equipSlot: 1,
-          level: 1,
-          proficiency: 0,
-        },
-      });
-    }
-
-    return setSessionCookie(NextResponse.json({ user }), user.id);
+    return setSessionCookie(NextResponse.json({ user: result }), result.id);
   } catch (error) {
-    console.error("创建修炼者失败:", error);
+    logger.error("创建修炼者失败:", error);
     return NextResponse.json({ error: "创建失败，请重试" }, { status: 500 });
   }
 }
 
+export const POST = withApiErrorHandling(postHandler);
+
 // PATCH — 更新位置（旅行消耗）
-export async function PATCH(request: NextRequest) {
+async function patchHandler(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { userId, location, stamina, gold } = body;
+    const auth = await requireCultivator(request);
+    if ("error" in auth) return auth.error;
+    const cultivator = auth.cultivator;
+    const body = await parseJsonBody(request);
+    const { location, stamina, gold } = body;
 
-    if (!userId) {
-      return NextResponse.json({ error: "缺少 userId" }, { status: 400 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { cultivator: true },
-    });
-    if (!user?.cultivator) {
-      return NextResponse.json({ error: "请先创建修炼者" }, { status: 400 });
-    }
-
-    const c = user.cultivator;
     const updateData: Record<string, unknown> = {};
     if (location) updateData.location = location;
     if (typeof stamina === "number") updateData.stamina = stamina;
     if (typeof gold === "number") updateData.gold = gold;
 
     const updated = await prisma.cultivator.update({
-      where: { id: c.id },
+      where: { id: cultivator.id },
       data: updateData,
     });
 
     return NextResponse.json({ cultivator: updated });
   } catch (error) {
-    console.error("更新位置失败:", error);
+    logger.error("更新修炼者失败:", error);
     return NextResponse.json({ error: "更新失败" }, { status: 500 });
   }
 }
 
-// GET — 获取修炼者信息
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
+export const PATCH = withApiErrorHandling(patchHandler);
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: "缺少 userId" },
-        { status: 400 }
-      );
-    }
+// GET — 获取修炼者信息
+async function getHandler(request: NextRequest) {
+  try {
+    const auth = await requireCultivator(request);
+    if ("error" in auth) return auth.error;
+    const cultivator = auth.cultivator;
 
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: cultivator.userId },
       include: {
         cultivator: {
           include: {
@@ -233,10 +242,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json(
-        { error: "修炼者不存在" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "用户不存在" }, { status: 404 });
     }
 
     // 自动解析 storyEntries JSON
@@ -246,10 +252,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ user });
   } catch (error) {
-    console.error("获取修炼者失败:", error);
-    return NextResponse.json(
-      { error: "获取失败" },
-      { status: 500 }
-    );
+    logger.error("获取修炼者失败:", error);
+    return NextResponse.json({ error: "获取失败" }, { status: 500 });
   }
 }
+
+export const GET = withApiErrorHandling(getHandler);

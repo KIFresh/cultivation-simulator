@@ -40,7 +40,14 @@ describe("shouldGenerateClassmates", () => {
 
   it("非 classmate 类型的既有关系不阻止生成", () => {
     const rels = {
-      韩立: { type: "cultivator", intimacy: 30, avatar: "🧙", realm: "炼气期", metAt: 20, category: "熟人" },
+      韩立: {
+        type: "cultivator",
+        intimacy: 30,
+        avatar: "🧙",
+        realm: "炼气期",
+        metAt: 20,
+        category: "熟人",
+      },
     } as Record<string, NpcRelationData>;
     expect(shouldGenerateClassmates(6, rels)).toBe(true);
   });
@@ -96,7 +103,14 @@ describe("generateClassmates", () => {
 
   it("合并回既有 relations，不覆盖旧条目", () => {
     const existing = {
-      韩立: { type: "cultivator", intimacy: 30, avatar: "🧙", realm: "炼气期", metAt: 20, category: "熟人" },
+      韩立: {
+        type: "cultivator",
+        intimacy: 30,
+        avatar: "🧙",
+        realm: "炼气期",
+        metAt: 20,
+        category: "熟人",
+      },
     } as Record<string, NpcRelationData>;
     const result = generateClassmates(6, existing);
     expect(result["韩立"]).toEqual(existing["韩立"]);

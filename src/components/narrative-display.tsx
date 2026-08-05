@@ -5,11 +5,11 @@ import { useGameStore } from "@/store";
 import { Card, CardContent } from "@/components/ui/card";
 
 export default function NarrativeDisplay() {
-  const narrative = useGameStore(s => s.narrative);
-  const streamingText = useGameStore(s => s.streamingText);
-  const narrativeError = useGameStore(s => s.narrativeError);
-  const narrativeRetrying = useGameStore(s => s.narrativeRetrying);
-  const retryNarrative = useGameStore(s => s.retryNarrative);
+  const narrative = useGameStore((s) => s.narrative);
+  const streamingText = useGameStore((s) => s.streamingText);
+  const narrativeError = useGameStore((s) => s.narrativeError);
+  const narrativeRetrying = useGameStore((s) => s.narrativeRetrying);
+  const retryNarrative = useGameStore((s) => s.retryNarrative);
   const [expanded, setExpanded] = useState(false);
 
   // 错误态：保留已流式文本（冻结）+ 报错卡 + 重试（RISK-2：不丢弃 streamingText）
@@ -43,7 +43,7 @@ export default function NarrativeDisplay() {
 
   // streamingText !== null 即处于流式态（含空串），行尾光标脉冲；否则展示已落定叙事
   const isStreaming = streamingText !== null;
-  const displayText = isStreaming ? (streamingText || "生成中…") : (narrative?.narrative || "");
+  const displayText = isStreaming ? streamingText || "生成中…" : narrative?.narrative || "";
   const preview = displayText.slice(0, 150);
 
   if (!displayText && !isStreaming) return null;
@@ -51,9 +51,7 @@ export default function NarrativeDisplay() {
   return (
     <Card>
       <CardContent className="p-3 space-y-1">
-        {narrative?.title && (
-          <h3 className="font-bold text-lg">{narrative.title}</h3>
-        )}
+        {narrative?.title && <h3 className="font-bold text-lg">{narrative.title}</h3>}
         <div className="text-sm whitespace-pre-wrap leading-relaxed">
           {isStreaming ? (
             <>

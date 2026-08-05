@@ -1,6 +1,8 @@
 // 街头机缘：按「角色 + 年龄 + 季度 + 街区」种子生成，可复现、不改数值。
 // 被 src/app/api/streets/route.ts 与 src/app/streets/page.tsx 使用。
 
+import { safeJsonParse } from "./json-helper";
+
 export type DistrictKey = "oldtown" | "commercial" | "subway" | "park" | "bridge";
 
 export interface District {
@@ -132,7 +134,13 @@ export function generateStreetOmen(params: {
 
   let boon: BoonEntry | undefined;
   if (base.boon && rng() < 0.5) {
-    boon = { ts: Date.now(), season: params.quarter, title: base.boon.title, detail: base.boon.detail };
+    // 由输入种子派生稳定时间戳，保证同一角色/年龄/季度/街区的结果可复现。
+    boon = {
+      ts: hashSeed(`${params.id}|${params.age}|${params.quarter}|${params.district}|boon`),
+      season: params.quarter,
+      title: base.boon.title,
+      detail: base.boon.detail,
+    };
   }
 
   return {
@@ -157,10 +165,11 @@ export function loadStreetBoons(userId: string): BoonEntry[] {
   try {
     const raw = storage.getItem(STORAGE_PREFIX + userId);
     if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
+    const parsed: unknown = safeJsonParse(raw, []);
     if (!Array.isArray(parsed)) return [];
     return parsed.filter(
-      (b): b is BoonEntry => !!b && typeof b === "object" && typeof (b as { title?: unknown }).title === "string",
+      (b): b is BoonEntry =>
+        !!b && typeof b === "object" && typeof (b as { title?: unknown }).title === "string"
     );
   } catch {
     return [];

@@ -34,9 +34,7 @@ export default function AlchemyPanel() {
       <div className="space-y-2">
         <p className="text-xs text-muted-foreground">随身丹药</p>
         {ownedItems.length === 0 ? (
-          <p className="text-xs text-muted-foreground text-center py-2">
-            尚未持有任何丹药
-          </p>
+          <p className="text-xs text-muted-foreground text-center py-2">尚未持有任何丹药</p>
         ) : (
           ownedItems.map((item) => {
             const formula = getFormulaById(item.itemId);
@@ -48,9 +46,7 @@ export default function AlchemyPanel() {
               >
                 <div className="min-w-0">
                   <p className="text-sm text-foreground truncate">{name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    数量 ×{item.quantity ?? 0}
-                  </p>
+                  <p className="text-xs text-muted-foreground">数量 ×{item.quantity ?? 0}</p>
                 </div>
                 <button
                   type="button"

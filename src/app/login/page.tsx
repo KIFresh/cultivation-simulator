@@ -70,7 +70,7 @@ export default function UnifiedLoginPage() {
             <span className="w-6 h-[1px] bg-gray-200" />
           </div>
 
-          <div className="w-full bg-white/95 backdrop-blur-md rounded-2xl p-8 border border-gray-200/50 shadow-sm relative overflow-hidden transition-all duration-500 hover:shadow-xl hover:border-gray-300/40">
+          <div className="w-full bg-[var(--card)]/95 backdrop-blur-md rounded-2xl p-8 border border-gray-200/50 shadow-sm relative overflow-hidden transition-all duration-500 hover:shadow-xl hover:border-gray-300/40">
             <div className="absolute w-3 h-3 fret-corner-tl" />
             <div className="absolute w-3 h-3 fret-corner-tr" />
             <div className="absolute w-3 h-3 fret-corner-bl" />
@@ -112,7 +112,7 @@ export default function UnifiedLoginPage() {
                     setError("");
                   }}
                   onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-                  className="w-full px-4 py-2.5 rounded text-xs text-[#1A1A1A] placeholder-gray-400 bg-[rgba(250,248,245,0.6)] border border-[rgba(26,26,26,0.08)] transition-all duration-300 focus:outline-none focus:border-[rgba(140,45,25,0.6)] focus:bg-white focus:shadow-[0_10px_30px_rgba(140,45,25,0.03)] focus:-translate-y-px"
+                  className="w-full px-4 py-2.5 rounded text-xs text-[#1A1A1A] placeholder-gray-400 bg-[rgba(250,248,245,0.6)] border border-[rgba(26,26,26,0.08)] transition-all duration-300 focus:outline-none focus:border-[rgba(140,45,25,0.6)] focus:bg-[var(--card)] focus:shadow-[0_10px_30px_rgba(140,45,25,0.03)] focus:-translate-y-px"
                 />
               </div>
 
@@ -132,7 +132,7 @@ export default function UnifiedLoginPage() {
                       setError("");
                     }}
                     onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-                    className="w-full pl-4 pr-10 py-2.5 rounded text-xs text-[#1A1A1A] placeholder-gray-400 bg-[rgba(250,248,245,0.6)] border border-[rgba(26,26,26,0.08)] transition-all duration-300 focus:outline-none focus:border-[rgba(140,45,25,0.6)] focus:bg-white focus:shadow-[0_10px_30px_rgba(140,45,25,0.03)] focus:-translate-y-px"
+                    className="w-full pl-4 pr-10 py-2.5 rounded text-xs text-[#1A1A1A] placeholder-gray-400 bg-[rgba(250,248,245,0.6)] border border-[rgba(26,26,26,0.08)] transition-all duration-300 focus:outline-none focus:border-[rgba(140,45,25,0.6)] focus:bg-[var(--card)] focus:shadow-[0_10px_30px_rgba(140,45,25,0.03)] focus:-translate-y-px"
                   />
                   <button
                     type="button"
@@ -150,7 +150,7 @@ export default function UnifiedLoginPage() {
                 <button
                   type="submit"
                   disabled={!name.trim() || !password || loading}
-                  className="group relative w-full inline-flex items-center justify-center space-x-3 py-3 border border-[#1A1A1A] bg-[#FAF8F5] hover:bg-white hover:border-[#8C2D19] transition-all duration-300 rounded shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="group relative w-full inline-flex items-center justify-center space-x-3 py-3 border border-[#1A1A1A] bg-[#FAF8F5] hover:bg-[var(--card)] hover:border-[#8C2D19] transition-all duration-300 rounded shadow-sm hover:shadow-md active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <span className="text-xs font-semibold tracking-[0.3em] text-[#1A1A1A] group-hover:text-[#8C2D19]">
                     {loading ? "正在感应天道..." : "开始修仙"}

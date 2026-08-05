@@ -1,10 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  generateWeather,
-  resolveAction,
-  WEATHER_TYPES,
-  type WeatherResult,
-} from "../weather";
+import { generateWeather, resolveAction, WEATHER_TYPES, type WeatherResult } from "../weather";
 
 const SEED = { id: "test-cultivator-001", age: 12, quarter: 2 };
 
