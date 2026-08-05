@@ -143,18 +143,6 @@ async function postHandler(request: NextRequest) {
           include: { cultivator: true },
         });
 
-        if (user.cultivator) {
-          await tx.cultivatorTechnique.create({
-            data: {
-              cultivatorId: user.cultivator.id,
-              techniqueId: "basic_breathing",
-              equipSlot: 1,
-              level: 1,
-              proficiency: 0,
-            },
-          });
-        }
-
         return user;
       });
 
@@ -191,18 +179,6 @@ async function postHandler(request: NextRequest) {
         },
         include: { cultivator: true },
       });
-
-      if (user.cultivator) {
-        await tx.cultivatorTechnique.create({
-          data: {
-            cultivatorId: user.cultivator.id,
-            techniqueId: "basic_breathing",
-            equipSlot: 1,
-            level: 1,
-            proficiency: 0,
-          },
-        });
-      }
 
       return user;
     });
