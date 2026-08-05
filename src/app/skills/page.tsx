@@ -37,7 +37,18 @@ interface CultivatorData {
   age: number;
   attributes: Record<string, number>;
   attributeExp: Record<string, { exp: number; level: number }>;
+  subjectExp: Record<string, { exp: number; level: number }>;
 }
+
+const SUBJECT_LABELS: Record<string, string> = {
+  math: "数学",
+  chinese: "语文",
+  english: "英语",
+  pe: "体育",
+  history: "历史",
+  physics: "物理",
+  chemistry: "化学",
+};
 
 const ATTR_INFO = [
   { key: "root", label: "根骨", icon: "🦴" },
@@ -74,6 +85,7 @@ export default function SkillsPage() {
       if (data.user?.cultivator) {
         const c = data.user.cultivator;
         const attrExp = typeof c.attributeExp === "string" ? JSON.parse(c.attributeExp || "{}") : c.attributeExp || {};
+        const subjectExp = typeof c.subjectExp === "string" ? JSON.parse(c.subjectExp || "{}") : c.subjectExp || {};
         setCultivator({
           id: c.id,
           name: c.name,
@@ -83,6 +95,7 @@ export default function SkillsPage() {
           age: c.age,
           attributes: typeof c.attributes === "string" ? JSON.parse(c.attributes || "{}") : c.attributes || {},
           attributeExp: attrExp,
+          subjectExp,
         });
       }
     } catch {
@@ -224,6 +237,38 @@ export default function SkillsPage() {
                     </div>
                   );
                 })}
+              </div>
+
+              {/* 学科等级 */}
+              <div className="space-y-2 pt-2 border-t border-[var(--border)]">
+                <p className="text-xs font-medium text-[#5A5040]">📚 学科等级</p>
+                {Object.keys(cultivator.subjectExp || {}).length === 0 ? (
+                  <p className="text-xs text-[#8B7355] text-center py-2">尚未学习任何学科</p>
+                ) : (
+                  Object.entries(SUBJECT_LABELS).map(([key, label]) => {
+                    const exp = cultivator.subjectExp?.[key];
+                    if (!exp) return null;
+                    const progress = exp.exp % 100;
+                    return (
+                      <div key={key} className="flex items-center gap-2">
+                        <span className="text-xs text-[#8B7355] w-12">{label}</span>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className="text-[10px] text-[#8B7355]">
+                              Lv.{exp.level} · {progress}/100
+                            </span>
+                          </div>
+                          <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-[#4A90D9] to-[var(--destructive)] rounded-full transition-all"
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </CardContent>
           </Card>
