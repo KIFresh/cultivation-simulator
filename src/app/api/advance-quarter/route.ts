@@ -7,7 +7,6 @@ import {
   canBreakthrough,
   getSchoolStage,
   getSchoolGrade,
-  calculateSchoolRank,
   getSchoolName,
   getDefaultOccupation,
   calculateYearlyAttributeGrowth,
@@ -16,7 +15,7 @@ import {
   type SchoolRank,
   type SchoolStage,
 } from "@/lib";
-import { calculateMaxAge } from "@/lib/cultivation-data";
+import { calculateMaxAge, calculateSchoolRankFromSubjects, SCHOOL_RANK_THRESHOLDS } from "@/lib/cultivation-data";
 import { requireCultivator, apiError } from "@/lib/auth-helpers";
 import {
   shouldGenerateClassmates,
@@ -24,6 +23,15 @@ import {
   type NpcRelationData,
 } from "@/lib/classmate-data";
 import { shouldGenerateTeachers, generateTeachers, getTeacherRankBonus } from "@/lib/teacher";
+import {
+  checkIsolationTrigger,
+  isIsolated,
+  parseIsolationState,
+  pickIsolationEvent,
+  releaseIsolation,
+  type IsolationEvent,
+  type IsolationState,
+} from "@/lib/social-events";
 import { decideClique, getCliqueBonus, getCliqueInfo, type CliqueKey } from "@/lib/clique";
 import { calcPocketMoney, calcSavingsInterest, type ParentLike } from "@/lib/savings";
 import { calcQuarterlyHealthRecovery, checkHealthZero, MAX_HEALTH } from "@/lib/health";
@@ -112,6 +120,10 @@ async function handler(request: NextRequest) {
   let classGoldDeduction = 0;
   let annualAllowance: number | undefined;
   let householdIncome: ReturnType<typeof calculateHouseholdIncome> | undefined;
+  // ── 孤立状态（设计 13.2，持久化在 quarterAccum 预留 JSON 字段） ──
+  let isolation: IsolationState = parseIsolationState(cultivator.quarterAccum);
+  let isolationEvent: IsolationEvent | null = null;
+  let releasedFromIsolation = false;
   let evolvedFamilyMembers: Array<{ id: string; career: FamilyCareer; occupation: string }> = [];
   let familyCareerChanges: Array<{
     relation: string;
@@ -198,15 +210,41 @@ async function handler(request: NextRequest) {
       }
     }
 
-    // ── 升学（含师长加权） ──────────────────────────
+    // ── 升学（设计 13.3：6 岁不分档；12/15/18 学科加权分档 + 师长好感修正） ──
     schoolStage = getSchoolStage(newAge);
     if ([6, 12, 15, 18].includes(newAge) && schoolStage) {
-      schoolRank = calculateSchoolRank(newAge, newAttributes, teacherBonus);
-      examResult = {
-        passed: true,
-        rank: schoolRank,
-        description: `参加${schoolStage.name}升学考试，考入${getSchoolName(schoolStage, schoolRank)}`,
-      };
+      if (newAge === 6) {
+        // 幼升小不分档（义务教育直接入学），保留当前档位
+        examResult = {
+          passed: true,
+          rank: schoolRank,
+          description: `幼升小入学，进入${schoolStage.name}（义务教育不分档）`,
+        };
+      } else {
+        const thresholds = SCHOOL_RANK_THRESHOLDS[newAge];
+        schoolRank = calculateSchoolRankFromSubjects(
+          json.subjectExp(cultivator.subjectExp),
+          teacherBonus * 0.5,
+          thresholds
+        );
+        examResult = {
+          passed: true,
+          rank: schoolRank,
+          description: `参加${schoolStage.name}升学考试，考入${getSchoolName(schoolStage, schoolRank)}`,
+        };
+      }
+    }
+
+    // ── 孤立触发/脱困（设计 13.2，魅力判定） ──────────
+    const charmLevel = nextAttrExp?.charm?.level ?? 0;
+    if (isIsolated(isolation, oldAge) && charmLevel >= 3) {
+      // 魅力升到 Lv3 → 立即脱困（冷却从解除当年起算）
+      isolation = releaseIsolation(isolation, newAge);
+      releasedFromIsolation = true;
+    }
+    if (checkIsolationTrigger(charmLevel, newAge, isolation.isolatedUntil)) {
+      isolation = { ...isolation, isolatedUntil: newAge + 1 };
+      isolationEvent = pickIsolationEvent();
     }
 
     // ── 家庭职业与统一经济：跨年只计算一次，稍后与乐观锁在同一事务持久化 ──
@@ -354,6 +392,11 @@ async function handler(request: NextRequest) {
     }
   }
 
+  // 孤立期间每季度负面小事件（非跨年，设计 13.2）
+  if (!yearWrapped && isIsolated(isolation, cultivator.age)) {
+    isolationEvent = pickIsolationEvent();
+  }
+
   // ── 拼装更新数据 ────────────────────────────────────
   const updateData: Prisma.CultivatorUpdateInput = {
     quarter: nextQuarter,
@@ -380,6 +423,8 @@ async function handler(request: NextRequest) {
     updateData.attributes = JSON.stringify(newAttributes);
     // 年龄成长改走经验通道
     if (nextAttrExp) updateData.attributeExp = JSON.stringify(nextAttrExp);
+    // 孤立状态持久化（quarterAccum 预留 JSON 字段）
+    updateData.quarterAccum = JSON.stringify(isolation);
     // 职业变化持久化
     updateData.occupation = occupation;
     // schoolRank 持久化（Int 类型）
@@ -529,6 +574,12 @@ async function handler(request: NextRequest) {
       : null,
     occupation,
     examResult,
+    isolationEvent: isolationEvent
+      ? { title: isolationEvent.title, narrative: isolationEvent.narrative }
+      : null,
+    isolated: isIsolated(isolation, newAge),
+    isolatedUntil: isolation.isolatedUntil ?? null,
+    releasedFromIsolation,
     cliqueInfo: cliqueKey ? getCliqueInfo(cliqueKey) : null,
     pocketMoney: pocketMoneyResult,
     classBenefits: classBenefitsResult,
