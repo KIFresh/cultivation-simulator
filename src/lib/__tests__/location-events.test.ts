@@ -9,7 +9,7 @@ import {
 
 describe("LOCATION_EVENT_POOL", () => {
   it("应包含所有预期地点", () => {
-    const locations = ["home", "market", "mountain", "school", "clinic"];
+    const locations = ["home", "kindergarten", "downtown", "school"];
     for (const loc of locations) {
       expect(LOCATION_EVENT_POOL[loc]).toBeDefined();
       expect(LOCATION_EVENT_POOL[loc].length).toBeGreaterThan(0);
@@ -44,9 +44,8 @@ describe("rollLocationEvent", () => {
   });
 
   it("年龄小于 minAge 时不应返回该事件", () => {
-    // home 的事件 minAge 为 1 和 3，所以 age=0 也能匹配
-    // 但 market 的事件 minAge 为 6 和 8，age=0 应返回 null
-    const result = rollLocationEvent("x", "market", 0, "d1");
+    // kindergarten 的事件 minAge 为 3，age=0 应返回 null
+    const result = rollLocationEvent("x", "kindergarten", 0, "d1");
     expect(result).toBeNull();
   });
 

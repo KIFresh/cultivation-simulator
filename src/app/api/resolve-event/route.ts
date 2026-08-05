@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireCultivator } from "@/lib/auth-helpers";
 import { parseAttributes } from "@/lib/inventory-utils";
+import { addAttrExp } from "@/lib/location-events";
+import { json } from "@/lib/json-helper";
 import { MORTAL_EVENTS, DINNER_EVENTS, FESTIVAL_EVENTS, EXAM_EVENTS } from "@/lib/mortal-events";
 import {
   applyEffects,
@@ -43,15 +45,12 @@ async function postHandler(request: NextRequest) {
   const healthDelta = option.effects?.health ?? 0;
   if (healthDelta !== 0) effects.push({ kind: "health", delta: healthDelta });
 
-  // attrExp 属性：root/spirit/insight/luck/charm/mind
+  // attrExp 属性：root/spirit/insight/luck/charm/mind（落库走事务内 addAttrExp）
   const attrExpValues: Record<string, number> = {};
   for (const [key, delta] of Object.entries(option.effects) as [string, number][]) {
     if (["root", "spirit", "insight", "luck", "charm", "mind"].includes(key)) {
       attrExpValues[key] = (attrExpValues[key] || 0) + delta;
     }
-  }
-  if (Object.keys(attrExpValues).length > 0) {
-    effects.push({ kind: "attrExp", values: attrExpValues });
   }
 
   const clampConfig: ClampConfig = {
@@ -66,7 +65,7 @@ async function postHandler(request: NextRequest) {
   const pIntimacy = option.familyEffects?.parentIntimacy;
 
   await prisma.$transaction(async (tx: any) => {
-    // 1. 效果契约处理 gold/health/attrExp
+    // 1. 效果契约处理 gold/health
     await applyEffects(clamped, tx, {
       cultivatorId: cultivator.id,
       currentGold: cultivator.gold ?? 0,
@@ -74,6 +73,20 @@ async function postHandler(request: NextRequest) {
       maxStamina: 100,
       cultivatorAge: cultivator.age,
     });
+
+    // 1.5 属性经验统一走 addAttrExp（与 location-event 一致的 exp/level 折算）
+    if (Object.keys(attrExpValues).length > 0) {
+      const current = await tx.cultivator.findUnique({
+        where: { id: cultivator.id },
+        select: { attributeExp: true },
+      });
+      const attrExpData = json.attributeExp(current?.attributeExp) || {};
+      const next = addAttrExp(attrExpData, attrExpValues);
+      await tx.cultivator.update({
+        where: { id: cultivator.id },
+        data: { attributeExp: JSON.stringify(next) },
+      });
+    }
 
     // 2. 父母亲密度（不在效果契约中，单独处理）
     if (typeof pIntimacy === "number" && pIntimacy !== 0) {

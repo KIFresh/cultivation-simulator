@@ -73,7 +73,7 @@ describe("resolve-event 双亲亲密度对称", () => {
     mockGameEventCreate.mockResolvedValue({} as any);
     mockTransaction.mockImplementation(async (cb: any) => {
       const tx = {
-        culttivator: { update: vi.fn() },
+        cultivator: { update: vi.fn(), findUnique: vi.fn().mockResolvedValue({ attributeExp: null }) },
         familyMember: { findMany: mockFamilyFindMany, update: mockFamilyUpdate },
         gameEvent: { create: mockGameEventCreate },
       };
@@ -129,6 +129,7 @@ describe("resolve-event 节日事件结算", () => {
     mockGameEventCreate.mockResolvedValue({} as any);
     mockTransaction.mockImplementation(async (cb: any) => {
       const tx = {
+        cultivator: { update: vi.fn(), findUnique: vi.fn().mockResolvedValue({ attributeExp: null }) },
         familyMember: { findMany: mockFamilyFindMany, update: mockFamilyUpdate },
         gameEvent: { create: mockGameEventCreate },
       };
